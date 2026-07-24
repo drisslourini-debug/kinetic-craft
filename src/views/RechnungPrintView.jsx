@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import logo from '../assets/logo.png'
 import html2pdf from 'html2pdf.js'
-import { generateOfferteWord } from '../lib/wordGenerator'
+import { generateRechnungWord } from '../lib/rechnungWordGenerator'
 
-export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
+export default function RechnungPrintView({ rechnung, kunde, projekt, onClose }) {
   const [settings, setSettings] = useState(null)
+  const [akontoRechnungen, setAkontoRechnungen] = useState([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [scale, setScale] = useState(1)
 
@@ -32,9 +33,22 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
     }
   }, [])
 
-  if (!offerte) return null
+  useEffect(() => {
+    if (supabase && rechnung?.typ === 'schluss' && rechnung?.projekt_id) {
+      supabase.from('rechnungen')
+        .select('*')
+        .eq('projekt_id', rechnung.projekt_id)
+        .eq('typ', 'akonto')
+        .eq('status', 'Bezahlt')
+        .then(({ data }) => {
+          if (data) setAkontoRechnungen(data)
+        })
+    }
+  }, [rechnung])
 
-  const daten = offerte.daten || {}
+  if (!rechnung) return null
+
+  const daten = rechnung.daten || {}
   const leistungen = daten.leistungen || []
   
   let rawTotal = 0
@@ -66,6 +80,13 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
   const isPauschal = pauschalpreis > 0
   const finalTotal = isPauschal ? pauschalpreis : calculatedTotal
 
+  // Akonto / Schluss calculations
+  const akontoProzent = parseFloat(rechnung.akonto_prozent || 0)
+  const akontoBetrag = (finalTotal * akontoProzent) / 100
+
+  const totalAkontoBezahlt = akontoRechnungen.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0)
+  const verbleibenderRestbetrag = finalTotal - totalAkontoBezahlt
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     return new Date(dateStr).toLocaleDateString('de-CH', {
@@ -80,15 +101,19 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
   const gold = '#c5a057'
   const darkGold = '#a07d3a'
 
+  const getTitel = () => {
+    if (rechnung.typ === 'akonto') return 'Akontorechnung'
+    if (rechnung.typ === 'schluss') return 'Schlussrechnung'
+    return 'Rechnung'
+  }
+
   const handleDownloadPDF = () => {
     setIsGenerating(true)
     const element = document.getElementById('pdf-content')
     const footerElement = document.getElementById('pdf-footer')
     
-    // Temporarily hide the HTML footer so it's not rendered inline by html2canvas
     if (footerElement) footerElement.style.display = 'none'
 
-    // Temporarily hide the shadow and adjust layout for html2pdf
     const originalClassName = element.className
     const originalStyles = {
       padding: element.style.padding,
@@ -99,9 +124,6 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
     }
 
     element.className = "bg-white mx-auto print:my-0 print:shadow-none"
-    
-    // Remove padding on element so html2pdf can apply it to every page
-    // Set width to 160mm (210mm A4 width - 25mm left - 25mm right padding)
     element.style.padding = '0'
     element.style.width = '160mm'
     element.style.minHeight = 'auto'
@@ -109,9 +131,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
     element.style.flexDirection = 'unset'
     
     const opt = {
-      // html2pdf margin format: [top, left, bottom, right]
       margin:       [20, 25, 25, 25],
-      filename:     `Offerte_${offerte.offerte_nr || offerte.id}_Atelier77.pdf`,
+      filename:     `Rechnung_${rechnung.rechnung_nr}_Atelier77.pdf`,
       image:        { type: 'jpeg', quality: 1.0 },
       html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -119,34 +140,23 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
     }
 
     html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
-      // Draw the footer on every page
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        
-        // Draw gold line
-        pdf.setDrawColor(197, 160, 87); // #c5a057
+        pdf.setDrawColor(197, 160, 87);
         pdf.setLineWidth(0.3);
         pdf.line(25, 275, 185, 275);
-        
-        // Set font
         pdf.setFontSize(7.5);
         pdf.setTextColor(153, 153, 153);
-        
-        // Text Content
         const text1 = "Malerei Leandro Lüthi • Landoltstrasse 99 • 3007 Bern • +41 (0)78 402 12 22 • leandro@atelier-77.ch";
         const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
         const text2 = `UID: CHE-489.750.760${bank}`;
-        
-        // Center calculate
         const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
         const text2Width = pdf.getStringUnitWidth(text2) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
-        
         pdf.text(text1, (210 - text1Width) / 2, 281);
         pdf.text(text2, (210 - text2Width) / 2, 286);
       }
     }).save().then(() => {
-      // Restore original layout
       element.className = originalClassName
       Object.assign(element.style, originalStyles)
       if (footerElement) footerElement.style.display = 'block'
@@ -167,8 +177,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
         <div className="flex flex-wrap gap-2">
           <button 
             onClick={() => {
-              const subject = encodeURIComponent(`Offerte ${offerte?.id || ''} - Atelier 77`)
-              const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Offerte für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\nLeandro Lüthi\nMalerei Leandro Lüthi – Atelier 77`)
+              const subject = encodeURIComponent(`Rechnung ${rechnung?.rechnung_nr || ''} - Atelier 77`)
+              const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Rechnung für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\nLeandro Lüthi\nMalerei Leandro Lüthi – Atelier 77`)
               window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
             }}
             className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
@@ -176,7 +186,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
             ✉️ E-Mail
           </button>
           <button 
-            onClick={() => generateOfferteWord(offerte, kunde, projekt, settings)} 
+            onClick={() => generateRechnungWord(rechnung, kunde, projekt, settings, akontoRechnungen)} 
             className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
           >
             📝 Word
@@ -198,7 +208,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
         </div>
       </div>
 
-      {/* ===== A4 PAGE ===== */} 
+      {/* ===== A4 PAGE ===== */}
       <div className="w-full flex justify-center pb-20 print:pb-0" style={{ transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: scale < 1 ? `-${297 * (1 - scale)}mm` : '0' }}>
       <div 
         id="pdf-content"
@@ -213,11 +223,10 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           color: '#1a1a1a',
           position: 'relative',
           boxSizing: 'border-box',
-          display: 'block', // Changed from flex to block to fix html2pdf page breaking
+          display: 'block',
         }}
       >
         
-        {/* ===== HEADER: Logo left + Company info right ===== */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12mm' }} className="avoid-break">
           <div>
             <img src={logo} alt="Atelier 77" style={{ height: '52px', objectFit: 'contain' }} />
@@ -231,14 +240,11 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           </div>
         </div>
 
-        {/* ===== ABSENDERZEILE + EMPFÄNGER (C5 Fenster) ===== */}
         <div style={{ marginBottom: '14mm' }} className="avoid-break">
-          {/* Absenderzeile (klein, über Adresse) */}
           <div style={{ fontSize: '7pt', color: '#999', marginBottom: '2mm', borderBottom: '0.5px solid #ccc', paddingBottom: '1mm', display: 'inline-block' }}>
             Malerei Leandro Lüthi · Landoltstrasse 99 · 3007 Bern
           </div>
           
-          {/* Empfänger-Adresse */}
           <div style={{ fontSize: '10.5pt', lineHeight: '1.7' }}>
             {kunde?.firmenname && <div style={{ fontWeight: 600 }}>{kunde.firmenname}</div>}
             {(kunde?.vorname || kunde?.nachname) && (
@@ -249,18 +255,17 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           </div>
         </div>
 
-        {/* ===== META: Offerte Nr, Datum, Projekt ===== */}
+        {/* ===== META: Rechnung Nr, Datum, etc ===== */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10mm' }} className="avoid-break">
           <div>
-            <h1 style={{ fontSize: '18pt', fontWeight: 700, margin: '0 0 1mm 0', color: '#1a1a1a' }}>Offerte</h1>
-            <div style={{ fontSize: '10pt', color: '#666' }}>Nr. {offerte.offerte_nr || `OF-${new Date(offerte.created_at).getFullYear()}-${String(offerte.id).padStart(3, '0')}`}</div>
+            <h1 style={{ fontSize: '18pt', fontWeight: 700, margin: '0 0 1mm 0', color: '#1a1a1a' }}>{getTitel()}</h1>
+            <div style={{ fontSize: '10pt', color: '#666' }}>Nr. {rechnung.rechnung_nr}</div>
           </div>
           
           <div style={{ textAlign: 'right', fontSize: '9.5pt', lineHeight: '1.7' }}>
-            <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDate(offerte.created_at)}</span></div>
-            {offerte.gueltig_bis && (
-              <div><span style={{ color: '#888' }}>Gültig bis:</span> <span style={{ fontWeight: 500 }}>{formatDate(offerte.gueltig_bis)}</span></div>
-            )}
+            <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDate(rechnung.rechnungsdatum)}</span></div>
+            <div><span style={{ color: '#888' }}>Zahlungsfrist:</span> <span style={{ fontWeight: 500 }}>{rechnung.zahlungsfrist_tage || 30} Tage</span></div>
+            <div><span style={{ color: '#888' }}>Fällig am:</span> <span style={{ fontWeight: 500 }}>{formatDate(rechnung.faellig_am)}</span></div>
             {projekt?.name && (
               <div style={{ marginTop: '2mm' }}>
                 <span style={{ color: '#888' }}>Projekt:</span> <span style={{ fontWeight: 600 }}>{projekt.name}</span>
@@ -270,15 +275,12 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           </div>
         </div>
 
-        {/* ===== EINLEITUNGSTEXT ===== */}
         <div style={{ fontSize: '10pt', marginBottom: '8mm', lineHeight: '1.6', color: '#333' }} className="avoid-break">
-          {daten.einleitungstext || 'Gerne unterbreiten wir Ihnen folgende Offerte:'}
+          {daten.einleitungstext || 'Gerne stellen wir Ihnen folgende Leistungen in Rechnung:'}
         </div>
 
-        {/* ===== LEISTUNGS-TABELLE ===== */}
         <div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8mm' }}>
-            {/* Gold accent line */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '4mm' }}>
             <thead className="avoid-break">
               <tr>
                 <td colSpan={6} style={{ borderTop: `2px solid ${gold}`, padding: 0, height: '3mm' }}></td>
@@ -303,7 +305,6 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
                 const posTotal = isInfo ? 0 : (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
                 const posNr = pos.posNr || (i + 1)
 
-                // Kategorie-Titel
                 if (isInfo) {
                   return (
                     <tr key={i} style={{ pageBreakInside: 'avoid' }}>
@@ -347,7 +348,6 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
               })}
             </tbody>
             
-            {/* ===== TOTALS INSIDE TABLE FOR PERFECT ALIGNMENT ===== */}
             <tbody style={{ borderTop: `1px solid ${gold}`, pageBreakInside: 'avoid' }}>
               <tr>
                 <td colSpan={6} style={{ height: '4mm' }}></td>
@@ -383,7 +383,6 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
                 </>
               )}
 
-              {/* TOTAL line with gold borders */}
               <tr>
                 <td colSpan={4}></td>
                 <td colSpan={2} style={{ padding: 0 }}>
@@ -403,35 +402,61 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
                   </div>
                 </td>
               </tr>
-
-              {/* Optional positions note */}
-              {optionenTotal > 0 && (
-                <tr>
-                  <td colSpan={4}></td>
-                  <td colSpan={2} style={{ padding: '3mm 2mm 0', textAlign: 'right', fontSize: '8.5pt', color: '#888' }}>
-                    Optionale Positionen (nicht im Total): CHF {formatMoney(optionenTotal)}
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
 
-          {/* ===== AUSFÜHRUNG ===== */}
+          {/* AKONTO / SCHLUSS SECTIONS */}
+          {rechnung.typ === 'akonto' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4mm' }} className="avoid-break">
+              <div style={{ width: '60%', border: `1px solid ${gold}`, padding: '4mm', backgroundColor: '#fdfbf7', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '11.5pt', color: '#1a1a1a' }}>
+                  <span>Akontobetrag ({akontoProzent}%):</span>
+                  <span>CHF {formatMoney(akontoBetrag)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {rechnung.typ === 'schluss' && akontoRechnungen.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4mm' }} className="avoid-break">
+              <div style={{ width: '70%', border: `1px solid ${gold}`, padding: '4mm', backgroundColor: '#fdfbf7', borderRadius: '4px' }}>
+                <div style={{ fontSize: '9.5pt', fontWeight: 600, color: '#1a1a1a', marginBottom: '2mm' }}>Bereits bezahlte Akontozahlungen:</div>
+                {akontoRechnungen.map((ar, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9.5pt', color: '#555', marginBottom: '1mm' }}>
+                    <span>{ar.rechnung_nr} vom {formatDate(ar.rechnungsdatum)}</span>
+                    <span>– CHF {formatMoney(ar.total || 0)}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid #ccc', margin: '2mm 0' }}></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '11.5pt', color: '#1a1a1a' }}>
+                  <span>Verbleibender Restbetrag:</span>
+                  <span>CHF {formatMoney(verbleibenderRestbetrag)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BANKVERBINDUNG */}
+          {settings?.bankverbindung && (
+            <div style={{ marginTop: '10mm', fontSize: '9.5pt', color: '#1a1a1a', backgroundColor: '#f9f9f9', padding: '4mm', borderRadius: '4px', borderLeft: `3px solid ${gold}` }} className="avoid-break">
+              <div style={{ fontWeight: 600, marginBottom: '1mm' }}>Bankverbindung für Ihre Zahlung:</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{settings.bankverbindung}</div>
+            </div>
+          )}
+
           {daten.ausfuehrung?.start && (
-            <div style={{ fontSize: '9pt', color: '#555', marginBottom: '6mm', lineHeight: '1.6' }} className="avoid-break">
+            <div style={{ fontSize: '9pt', color: '#555', marginTop: '6mm', lineHeight: '1.6' }} className="avoid-break">
               {daten.ausfuehrung.start && <div><span style={{ fontWeight: 600 }}>Ausführungsstart:</span> {daten.ausfuehrung.start}</div>}
               {daten.ausfuehrung.dauer && <div><span style={{ fontWeight: 600 }}>Geschätzte Dauer:</span> {daten.ausfuehrung.dauer}</div>}
             </div>
           )}
 
-          {/* ===== SCHLUSSTEXT + GRUSS + UNTERSCHRIFT ===== */}
-          <div style={{ fontSize: '10pt', color: '#333', lineHeight: '1.6', marginBottom: '15mm' }}>
-            <p style={{ margin: '0 0 6mm 0' }}>{daten.schlusstext || 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.'}</p>
+          <div style={{ fontSize: '10pt', color: '#333', lineHeight: '1.6', marginTop: '8mm', marginBottom: '15mm' }}>
+            <p style={{ margin: '0 0 6mm 0' }}>{daten.schlusstext || 'Wir danken Ihnen für den Auftrag und stehen für Fragen gerne zur Verfügung.'}</p>
             
             <div className="avoid-break">
               <p style={{ margin: '0 0 2mm 0' }}>Freundliche Grüsse</p>
               
-              {/* Signature area */}
               <div style={{ marginTop: '12mm', marginBottom: '2mm' }}>
                 {settings?.unterschrift_url ? (
                   <img src={settings.unterschrift_url} alt="Unterschrift" style={{ height: '20mm', objectFit: 'contain' }} />
@@ -445,7 +470,6 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           </div>
         </div>
 
-        {/* ===== FOOTER ===== */}
         <div id="pdf-footer" style={{ 
           marginTop: '30mm',
           paddingTop: '5mm'
@@ -456,11 +480,9 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
             <div>UID: CHE-489.750.760{settings?.bankverbindung ? ` • ${settings.bankverbindung}` : ''}</div>
           </div>
         </div>
-
+        </div>
       </div>
-      </div>
 
-      {/* ===== PRINT STYLES ===== */}
       <style>{`
         @media print {
           body { 
@@ -479,7 +501,4 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
     </div>
   )
 }
-
-
-
 

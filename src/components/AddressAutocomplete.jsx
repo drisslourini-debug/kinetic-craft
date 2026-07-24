@@ -55,9 +55,37 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
   };
 
   const handleSelect = (item) => {
-    const cleanAddress = item.attrs.label.replace(/<[^>]+>/g, '');
-    setQuery(cleanAddress);
-    onChange(cleanAddress);
+    const rawLabel = item.attrs.label || '';
+    const cleanAddress = rawLabel.replace(/<[^>]+>/g, '');
+    
+    const attrs = item.attrs || {};
+    let strasse = `${attrs.strName || ''} ${attrs.strNumber || ''}`.trim();
+    let plz = attrs.zip || '';
+    let ort = attrs.city || '';
+    
+    // Fallback parsing if geo.admin.ch omits structural fields
+    if (!strasse && !plz && !ort && rawLabel.includes('<b>')) {
+      const parts = rawLabel.split('<b>');
+      strasse = parts[0].trim();
+      const zipCityRaw = parts[1].replace('</b>', '').trim();
+      const match = zipCityRaw.match(/^(\d{4}[A-Za-z0-9]*)\s+(.*)$/);
+      if (match) {
+        plz = match[1];
+        ort = match[2];
+      } else {
+        ort = zipCityRaw;
+      }
+    }
+
+    // Final fallback
+    if (!strasse) {
+      strasse = cleanAddress;
+    }
+
+    setQuery(strasse);
+    
+    // Pass both the full string and the structured object
+    onChange(cleanAddress, { strasse, plz, ort });
     setIsOpen(false);
   };
 
@@ -70,7 +98,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
         onBlur={onBlur}
         onFocus={() => { if (suggestions.length > 0) setIsOpen(true) }}
         placeholder={placeholder || 'Adresse suchen...'}
-        className={className || "w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"}
+        className={className || "w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"}
       />
       
       {isLoading && (

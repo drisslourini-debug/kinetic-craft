@@ -7,6 +7,7 @@ const navItems = [
   { id: 'kunden', label: 'Kunden', icon: '👥' },
   { id: 'projekte', label: 'Projekte & Objekte', icon: '🏗️' },
   { id: 'offerten', label: 'Offerten', icon: '📄' },
+  { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
   { id: 'katalog', label: 'Katalog', icon: '🏷️' },
   { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
 ]
@@ -22,41 +23,13 @@ export default function Sidebar({ activeView, onNavigate }) {
 
   return (
     <>
-      {/* Mobile hamburger button */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-sidebar text-white shadow-lg active:scale-95 transition-transform"
-        aria-label="Menü öffnen"
-      >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          {mobileOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
-        </svg>
-      </button>
-
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
 
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-screen w-64 bg-sidebar flex flex-col
-          transition-transform duration-300 ease-in-out
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0 md:sticky md:top-0
+          hidden md:flex
+          fixed top-0 left-0 z-40 h-screen w-64 bg-sidebar flex-col
+          md:sticky md:top-0
         `}
       >
         {/* Brand */}

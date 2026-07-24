@@ -9,10 +9,10 @@ const PROJEKT_KATEGORIEN = [
   'Sanierung'
 ];
 
-export default function ProjektCreateModal({ onClose, onSuccess }) {
+export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeId }) {
   const [formData, setFormData] = useState({
     name: '',
-    kunden_id: '',
+    kunden_id: prefilledKundeId || '',
     kategorie: '',
     adresse: '',
   })
@@ -78,10 +78,16 @@ export default function ProjektCreateModal({ onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-surface rounded-2xl shadow-xl border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end bg-black/30 backdrop-blur-sm transition-opacity">
+      <div className="absolute inset-0" onClick={onClose}></div>
+      <div className="bg-surface rounded-t-3xl sm:rounded-none shadow-2xl border-t sm:border-t-0 sm:border-l border-border w-full sm:max-w-md h-[90vh] sm:h-full overflow-hidden flex flex-col relative animate-slide-up sm:animate-slide-in-right z-10">
         
-        <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-surface z-10">
+        {/* Drag Handle (Mobile Only) */}
+        <div className="w-full flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+        </div>
+
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-border bg-surface shrink-0">
           <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
             <span>🏗️</span> Neues Projekt
           </h2>
@@ -95,77 +101,79 @@ export default function ProjektCreateModal({ onClose, onSuccess }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 p-5 sm:p-6 space-y-6 overflow-y-auto scrollbar-hide">
+            {error && (
+              <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">
+                {error}
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-                Zugewiesener Kunde *
-              </label>
-              {isLoadingKunden ? (
-                <div className="text-sm text-text-secondary">Lade Kunden...</div>
-              ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
+                  Zugewiesener Kunde *
+                </label>
+                {isLoadingKunden ? (
+                  <div className="text-sm text-text-secondary">Lade Kunden...</div>
+                ) : (
+                  <select
+                    value={formData.kunden_id}
+                    onChange={e => setFormData({...formData, kunden_id: e.target.value})}
+                  className="w-full px-3 py-3 sm:py-2 bg-surface-card border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                  >
+                    <option value="">Bitte Kunden auswählen...</option>
+                    {kunden.map(kunde => (
+                      <option key={kunde.id} value={kunde.id}>
+                        {kunde.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
+                  Projektname *
+                </label>
+                <input 
+                  type="text" 
+                  value={formData.name}
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-3 py-3 sm:py-2 bg-surface-card border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                  placeholder="z.B. Fassadensanierung Meier"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
+                  Kategorie
+                </label>
                 <select
-                  value={formData.kunden_id}
-                  onChange={e => setFormData({...formData, kunden_id: e.target.value})}
-                  className="w-full px-3 py-2 bg-surface-card border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                  value={formData.kategorie}
+                  onChange={e => setFormData({...formData, kategorie: e.target.value})}
+                  className="w-full px-3 py-3 sm:py-2 bg-surface-card border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                 >
-                  <option value="">Bitte Kunden auswählen...</option>
-                  {kunden.map(kunde => (
-                    <option key={kunde.id} value={kunde.id}>
-                      {kunde.name}
-                    </option>
-                  ))}
+                  <option value="">-- Bitte wählen --</option>
+                  {PROJEKT_KATEGORIEN.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-              )}
-            </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-                Projektname *
-              </label>
-              <input 
-                type="text" 
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-                className="w-full px-3 py-2 bg-surface-card border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                placeholder="z.B. Fassadensanierung Meier"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-                Kategorie
-              </label>
-              <select
-                value={formData.kategorie}
-                onChange={e => setFormData({...formData, kategorie: e.target.value})}
-                className="w-full px-3 py-2 bg-surface-card border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-              >
-                <option value="">-- Bitte wählen --</option>
-                {PROJEKT_KATEGORIEN.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
-                Baustellen-Adresse
-              </label>
-              <AddressAutocomplete 
-                value={formData.adresse}
-                onChange={val => setFormData({...formData, adresse: val})}
-                placeholder="Strasse eingeben (Auto-Fill)..."
-                className="w-full px-3 py-2 bg-surface-card border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-              />
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1">
+                  Baustellen-Adresse
+                </label>
+                <AddressAutocomplete 
+                  value={formData.adresse}
+                  onChange={val => setFormData({...formData, adresse: val})}
+                  placeholder="Strasse eingeben (Auto-Fill)..."
+                  className="w-full px-3 py-3 sm:py-2 bg-surface-card border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-border flex justify-end gap-3 sticky bottom-0 bg-surface -mx-6 -mb-6 p-6">
+          <div className="p-5 sm:p-6 border-t border-border bg-surface shrink-0 flex justify-end gap-3">
             <button 
               type="button" 
               onClick={onClose}
@@ -187,3 +195,4 @@ export default function ProjektCreateModal({ onClose, onSuccess }) {
     </div>
   )
 }
+

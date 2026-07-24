@@ -1,14 +1,14 @@
+
 import { useState, useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
+import { formatMoney } from '../lib/formatters'
 import AddressAutocomplete from './AddressAutocomplete'
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const API_URL = 'https://script.google.com/macros/s/AKfycbyknf3zqduQHLuUa5f4fUtdp1iaoCDhAsgWyuoSKPEAgai2XmmZLF-fIKAt-vHWQa1V/exec'
+import RechnungPrintView from '../views/RechnungPrintView'
 
 const STEPS = [
   { id: 1, label: 'Kunde', icon: '👤' },
-  { id: 2, label: 'Ausführung', icon: '📅' },
+  { id: 2, label: 'Details', icon: '📄' },
   { id: 3, label: 'Leistungen', icon: '🔨' },
   { id: 4, label: 'Abschluss', icon: '✅' },
 ]
@@ -76,6 +76,7 @@ const DEFAULT_CATALOG = {
 
 function makeEmptyPosition(kategorie, catalog = DEFAULT_CATALOG) {
   return {
+    id: crypto.randomUUID(),
     beschreibung: '',
     menge: '',
     einheit: (catalog[kategorie]?.[0]?.einheit) || 'm²',
@@ -86,6 +87,7 @@ function makeEmptyPosition(kategorie, catalog = DEFAULT_CATALOG) {
 
 function makeEmptyBlock(kategorie, catalog = DEFAULT_CATALOG) {
   return {
+    id: crypto.randomUUID(),
     kategorie,
     positionen: [makeEmptyPosition(kategorie, catalog)],
   }
@@ -154,9 +156,10 @@ const INITIAL_BLOECKE = [makeEmptyBlock('Malerarbeiten')]
 const INITIAL_FORM_DATA = {
   kunde: { id: null, name: '' },
   projekt: { id: null, name: '', adresse: '' },
-  ausfuehrung: { start: '', dauer: '' },
+  rechnungsdetails: { typ: 'Standardrechnung', datum: new Date().toISOString().split('T')[0], zahlungsziel: '30 Tage netto' },
   leistungen: [], // filled at generate-time by flattening blocks
   konditionen: { rabatt: '0', mwst: '8.1' },
+  texte: { einleitungstext: '', schlusstext: '' },
 }
 
 // ─── Stepper ─────────────────────────────────────────────────────────────────
@@ -281,7 +284,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
       <div>
         <h3 className="text-xl font-bold text-text-primary">1. Kunde wählen</h3>
         <p className="text-sm text-text-secondary mt-1">
-          Für wen wird die Offerte erstellt?
+          Für wen wird die Rechnung erstellt?
         </p>
       </div>
 
@@ -304,7 +307,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
             onFocus={() => setShowKundeSuggestions(true)}
             onBlur={() => setTimeout(() => setShowKundeSuggestions(false), 200)}
             placeholder="z.B. Immobilien Schweizer AG"
-            className={`w-full px-4 py-3 bg-surface-card border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
+            className={`w-full px-4 py-3 bg-surface-card border rounded-xl text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
               errors.kunde ? 'border-red-400 ring-2 ring-red-100' : 'border-border'
             }`}
           />
@@ -335,7 +338,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
           <div>
             <h3 className="text-xl font-bold text-text-primary">2. Projekt / Baustelle</h3>
             <p className="text-sm text-text-secondary mt-1">
-              Welches Projekt betrifft diese Offerte?
+              Welches Projekt betrifft diese Rechnung?
             </p>
           </div>
 
@@ -345,11 +348,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
                 <label className="block text-sm font-medium text-text-primary mb-1.5">
                   Projekt auswählen
                 </label>
-                <select
-                  value={isCreatingProjekt ? 'NEW' : (data.projekt.id || '')}
-                  onChange={handleSelectProjekt}
-                  className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-                >
+                <select value={isCreatingProjekt ? 'NEW' : (data.projekt.id || '')} onChange={handleSelectProjekt} className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all" >
                   <option value="">-- Bitte wählen --</option>
                   {projekteList.map(p => (
                     <option key={p.id} value={p.id}>{p.name} {p.adresse ? `(${p.adresse})` : ''}</option>
@@ -370,7 +369,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
                     value={data.projekt.name}
                     onChange={(e) => onChange({ ...data, projekt: { ...data.projekt, name: e.target.value } })}
                     placeholder="z.B. Fassadensanierung MFH"
-                    className={`w-full px-4 py-3 bg-surface-card border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
+                    className={`w-full px-4 py-3 bg-surface-card border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
                       errors.projekt ? 'border-red-400 ring-2 ring-red-100' : 'border-border'
                     }`}
                   />
@@ -388,7 +387,7 @@ function StepKunde({ data, onChange, errors, kundenList }) {
                     value={data.projekt.adresse}
                     onChange={(val) => onChange({ ...data, projekt: { ...data.projekt, adresse: val } })}
                     placeholder="z.B. Badstrasse 12, 8001 Zürich"
-                    className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                    className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
                   />
                 </div>
               </div>
@@ -400,110 +399,70 @@ function StepKunde({ data, onChange, errors, kundenList }) {
   )
 }
 
-// ─── Step 2: Ausführung (Quick-Select + Manual Fallback) ─────────────────────
+// ─── Step 2: Rechnungsdetails ──────────────────────────────────────────────────
 
-function QuickSelectField({ label, options, value, onChange, placeholder }) {
-  const isQuickValue = options.includes(value)
-  const [manualMode, setManualMode] = useState(!isQuickValue && value !== '')
-
-  const handlePillClick = (option) => {
-    // Toggle: deselect if already active
-    if (value === option) {
-      onChange('')
-    } else {
-      onChange(option)
-      setManualMode(false)
-    }
-  }
-
-  const toggleManual = () => {
-    setManualMode((prev) => !prev)
-  }
-
-  return (
-    <div className="space-y-3">
-      <label className="block text-sm font-medium text-text-primary">
-        {label}
-      </label>
-
-      {/* Pill buttons */}
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => {
-          const isActive = value === option && !manualMode
-          return (
-            <button
-              key={option}
-              type="button"
-              onClick={() => handlePillClick(option)}
-              className={`
-                px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer
-                active:scale-[0.96]
-                ${isActive
-                  ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25'
-                  : 'bg-surface-card border border-border text-text-primary hover:border-primary-400 hover:bg-primary-50'
-                }
-              `}
-            >
-              {option}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Manual toggle */}
-      <button
-        type="button"
-        onClick={toggleManual}
-        className={`
-          inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors
-          ${manualMode ? 'text-primary-600' : 'text-text-secondary hover:text-primary-600'}
-        `}
-      >
-        <span>✍️</span>
-        {manualMode ? 'Schnellauswahl anzeigen' : 'Manuell eingeben'}
-      </button>
-
-      {/* Manual text input — shown when toggled or when value doesn't match any pill */}
-      {manualMode && (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-          autoFocus
-        />
-      )}
-    </div>
-  )
-}
-
-function StepAusfuehrung({ data, onChange }) {
+function StepRechnungsdetails({ data, onChange }) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-xl font-bold text-text-primary">Ausführung</h3>
+        <h3 className="text-xl font-bold text-text-primary">Rechnungsdetails</h3>
         <p className="text-sm text-text-secondary mt-1">
-          Wann und wie lange dauern die Arbeiten?
+          Typ, Datum und Zahlungsziel definieren.
         </p>
       </div>
 
       <div className="space-y-6">
-        <QuickSelectField
-          label="Ausführungsstart"
-          options={QUICK_SELECT_START}
-          value={data.start}
-          onChange={(val) => onChange({ ...data, start: val })}
-          placeholder="z.B. ab 15. August 2024"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+            Rechnungstyp
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {['Standardrechnung', 'Akontorechnung', 'Schlussrechnung'].map((typ) => (
+              <button
+                key={typ}
+                type="button"
+                onClick={() => onChange({ ...data, typ })}
+                className={`
+                  px-4 py-3 rounded-xl text-sm font-medium transition-all cursor-pointer border text-center
+                  ${data.typ === typ
+                    ? 'bg-primary-600 text-white shadow-md shadow-primary-600/25 border-primary-600'
+                    : 'bg-surface border-border text-text-primary hover:border-primary-400 hover:bg-primary-50'
+                  }
+                `}
+              >
+                {typ}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <QuickSelectField
-          label="Geschätzte Dauer"
-          options={QUICK_SELECT_DAUER}
-          value={data.dauer}
-          onChange={(val) => onChange({ ...data, dauer: val })}
-          placeholder="z.B. 3-5 Arbeitstage"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+            Rechnungsdatum
+          </label>
+          <input
+            type="date"
+            value={data.datum}
+            onChange={(e) => onChange({ ...data, datum: e.target.value })}
+            className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+            Zahlungsziel
+          </label>
+          <select
+            value={data.zahlungsziel || '30 Tage netto'}
+            onChange={(e) => onChange({ ...data, zahlungsziel: e.target.value })}
+            className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+          >
+            <option value="10 Tage netto">10 Tage netto</option>
+            <option value="14 Tage netto">14 Tage netto</option>
+            <option value="30 Tage netto">30 Tage netto</option>
+            <option value="Anderes (siehe Notizen)">Anderes (siehe Notizen)</option>
+          </select>
+        </div>
       </div>
     </div>
   )
@@ -585,8 +544,21 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
               onChange={(e) => updateField('nurInfo', e.target.checked)}
               className="w-3.5 h-3.5 rounded border-border text-amber-500 focus:ring-amber-400 cursor-pointer accent-amber-500"
             />
-            <span className={`text-xs font-medium hidden sm:inline-block ${pos.nurInfo ? 'text-amber-600' : 'text-text-secondary'}`}>
+            <span className={`text-xs font-medium ${pos.nurInfo ? 'text-amber-600' : 'text-text-secondary'}`}>
               Info
+            </span>
+          </label>
+
+          {/* Optional toggle */}
+          <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={pos.optional}
+              onChange={(e) => updateField('optional', e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-border text-primary-500 focus:ring-primary-400 cursor-pointer accent-primary-500"
+            />
+            <span className={`text-xs font-medium ${pos.optional ? 'text-primary-600' : 'text-text-secondary'}`}>
+              Optional
             </span>
           </label>
 
@@ -607,11 +579,7 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
 
       {/* Hybrid Template Loader (invisible label, subtle design) */}
       <div className="mb-2">
-        <select
-          defaultValue=""
-          onChange={handleCatalogSelect}
-          className="w-full px-3 py-2 bg-gray-50 border border-transparent rounded-lg text-sm text-text-secondary font-medium hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all cursor-pointer"
-        >
+        <select defaultValue="" onChange={handleCatalogSelect} className="w-full px-3 py-2 bg-gray-50 border border-transparent rounded-lg text-base text-text-secondary font-medium hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all cursor-pointer" >
           <option value="" disabled>📖 Vorlage aus Katalog laden...</option>
           {catalogItems.map((item, i) => (
             <option key={i} value={String(i)}>{item.titel}</option>
@@ -627,14 +595,14 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
           value={pos.beschreibung}
           onChange={(e) => updateField('beschreibung', e.target.value)}
           placeholder="z.B. Wände und Decke streichen, 2x Anstrich"
-          className="w-full px-3 py-2.5 bg-surface-card border border-border rounded-lg text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+          className="w-full px-4 py-3 bg-surface-card border border-border rounded-lg text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
         />
       </div>
 
       {/* Compact Grid: Menge/Einheit | Preis — hidden for info-only positions */}
       {!pos.nurInfo && (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {/* Input Group: Menge + Einheit */}
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">
@@ -648,14 +616,14 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
                   value={pos.menge}
                   onChange={(e) => updateField('menge', e.target.value)}
                   placeholder="0"
-                  className={`w-full min-w-0 px-3 py-2.5 bg-surface-card border rounded-l-lg text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all z-10 ${
+                  className={`w-full min-w-0 px-3 sm:px-4 py-2 sm:py-3 bg-surface-card border rounded-l-lg text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all z-10 ${
                     errors[`${errorPrefix}_menge`] ? 'border-red-400' : 'border-border'
                   }`}
                 />
                 <select
                   value={pos.einheit}
                   onChange={(e) => updateField('einheit', e.target.value)}
-                  className="w-20 px-2 py-2.5 bg-gray-50 border-y border-r border-border rounded-r-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all cursor-pointer"
+                  className="w-20 sm:w-24 px-2 sm:px-3 py-2 sm:py-3 bg-gray-50 border-y border-r border-border rounded-r-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all cursor-pointer"
                 >
                   {EINHEITEN.map((e) => (
                     <option key={e} value={e}>{e}</option>
@@ -664,19 +632,19 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
               </div>
             </div>
 
-            {/* Preis */}
+            {/* Input: Preis */}
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">
-                CHF/Einheit <span className="text-red-500">*</span>
+                Einzelpreis (CHF) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
                 min="0"
-                step="0.05"
+                step="0.01"
                 value={pos.einzelpreis}
                 onChange={(e) => updateField('einzelpreis', e.target.value)}
                 placeholder="0.00"
-                className={`w-full px-3 py-2.5 bg-surface-card border rounded-lg text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
+                className={`w-full px-3 py-2 sm:py-2.5 bg-surface-card border rounded-lg text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primader-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all ${
                   errors[`${errorPrefix}_preis`] ? 'border-red-400' : 'border-border'
                 }`}
               />
@@ -687,7 +655,7 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
           {pos.menge && pos.einzelpreis && (
             <div className="mt-3 pt-2 border-t border-border flex justify-end">
               <span className="text-sm font-semibold text-text-primary">
-                = CHF {(parseFloat(pos.menge) * parseFloat(pos.einzelpreis)).toFixed(2)}
+                = CHF {formatMoney(parseFloat(pos.menge) * parseFloat(pos.einzelpreis))}
               </span>
             </div>
           )}
@@ -705,6 +673,8 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
 }
 
 function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemoveBlock, onMoveBlockUp, onMoveBlockDown, errors, catalog }) {
+  const [parent] = useAutoAnimate()
+
   const addPosition = () => {
     onUpdateBlock(blockIndex, {
       ...block,
@@ -765,7 +735,7 @@ function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemov
         <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           {blockTotal > 0 && (
             <span className="text-xs font-semibold text-text-primary hidden sm:block mr-2">
-              CHF {blockTotal.toFixed(2)}
+              CHF {formatMoney(blockTotal)}
             </span>
           )}
 
@@ -813,10 +783,10 @@ function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemov
       </div>
 
       {/* Positions inside block */}
-      <div className="p-3 sm:p-4 space-y-3">
+      <div ref={parent} className="p-3 sm:p-4 space-y-3">
         {block.positionen.map((pos, posIndex) => (
           <BlockPositionCard
-            key={posIndex}
+            key={pos.id || posIndex}
             pos={pos}
             index={posIndex}
             kategorie={block.kategorie}
@@ -844,6 +814,8 @@ function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemov
 }
 
 function StepLeistungen({ bloecke, onChange, errors, catalog }) {
+  const [parent] = useAutoAnimate()
+
   const addBlock = (kategorie) => {
     onChange([...bloecke, makeEmptyBlock(kategorie, catalog)])
   }
@@ -900,10 +872,10 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
       )}
 
       {/* Blocks */}
-      <div className="space-y-5">
+      <div ref={parent} className="space-y-5">
         {bloecke.map((block, blockIndex) => (
           <KategorieBlock
-            key={blockIndex}
+            key={block.id || blockIndex}
             block={block}
             blockIndex={blockIndex}
             totalBlocks={bloecke.length}
@@ -940,226 +912,65 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
   )
 }
 
-// ─── Step 4: Abschluss ───────────────────────────────────────────────────────
 
-function StepAbschluss({ formData, flatLeistungen, onChangeKonditionen }) {
-  const konditionen = formData.konditionen
-
-  // Calculate totals (skip info-only positions with empty menge/preis)
-  const subtotal = flatLeistungen.reduce((sum, pos) => {
-    const m = parseFloat(pos.menge) || 0
-    const p = parseFloat(pos.einzelpreis) || 0
-    return sum + m * p
-  }, 0)
-
-  const rabattProzent = parseFloat(konditionen.rabatt) || 0
-  const rabattBetrag = subtotal * (rabattProzent / 100)
-  const nachRabatt = subtotal - rabattBetrag
-  const mwstProzent = parseFloat(konditionen.mwst) || 0
-  const mwstBetrag = nachRabatt * (mwstProzent / 100)
-  const total = nachRabatt + mwstBetrag
-
-  // Group for display
-  const grouped = {}
-  flatLeistungen.forEach((pos) => {
-    if (!grouped[pos.kategorie]) grouped[pos.kategorie] = []
-    grouped[pos.kategorie].push(pos)
-  })
+function StepTexte({ data, onChange }) {
+  const EINLEITUNG_TEMPLATES = [
+    { label: 'Standard', text: 'Gerne stellen wir Ihnen folgende Arbeiten in Rechnung:' },
+    { label: 'Förmlich', text: 'Für die erbrachten Leistungen erlauben wir uns, Ihnen folgende Rechnung zu stellen:' },
+    { label: 'Akonto', text: 'Gemäss unserer Vereinbarung stellen wir Ihnen folgende Akontorechnung:' }
+  ]
+  const SCHLUSS_TEMPLATES = [
+    { label: 'Standard', text: 'Wir danken Ihnen für den geschätzten Auftrag und das entgegengebrachte Vertrauen.' },
+    { label: 'Kurz', text: 'Freundliche Grüsse' },
+    { label: 'Zahlungsziel', text: 'Wir bitten um Überweisung des Rechnungsbetrags innert der angegebenen Zahlungsfrist.' }
+  ]
 
   return (
-    <div className="space-y-6">
+    <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6 animate-fade-in">
       <div>
-        <h3 className="text-xl font-bold text-text-primary">Zusammenfassung & Abschluss</h3>
-        <p className="text-sm text-text-secondary mt-1">
-          Prüfe alle Angaben und erstelle die Offerte.
-        </p>
+        <h3 className="text-lg font-bold text-text-primary mb-2">Begrüssungs- & Abschlusstext</h3>
+        <p className="text-sm text-text-secondary">Wähle eine Vorlage oder schreibe einen eigenen Text für das PDF.</p>
       </div>
 
-      {/* Summary: Kunde */}
-      <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-sm space-y-3">
-        <h4 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Kunde</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-text-secondary">Name: </span>
-            <span className="font-medium text-text-primary">{formData.kunde.name || '–'}</span>
-          </div>
-          <div>
-            <span className="text-text-secondary">Adresse: </span>
-            <span className="font-medium text-text-primary">{formData.kunde.adresse || '–'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary: Projekt & Ausführung */}
-      <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-sm space-y-3">
-        <h4 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Projekt & Ausführung</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4 text-sm">
-          <div>
-            <span className="text-text-secondary">Projekt: </span>
-            <span className="font-medium text-text-primary">{formData.projekt.name || '–'}</span>
-          </div>
-          <div>
-            <span className="text-text-secondary">Ort (Baustelle): </span>
-            <span className="font-medium text-text-primary">{formData.projekt.adresse || '–'}</span>
-          </div>
-          <div>
-            <span className="text-text-secondary">Start: </span>
-            <span className="font-medium text-text-primary">{formData.ausfuehrung.start || '–'}</span>
-          </div>
-          <div>
-            <span className="text-text-secondary">Dauer: </span>
-            <span className="font-medium text-text-primary">{formData.ausfuehrung.dauer || '–'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary: Positionen grouped by category */}
-      <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
-        <h4 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Leistungen</h4>
-        {Object.entries(grouped).map(([kategorie, positionen]) => (
-          <div key={kategorie}>
-            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">{kategorie}</p>
-            <div className="space-y-1">
-              {positionen.map((pos, i) => {
-                const isInfo = !pos.menge && !pos.einzelpreis
-                const lineTotal = (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
-                return (
-                  <div key={i} className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-b-0">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-text-primary">
-                        {pos.beschreibung || pos.kategorie}
-                      </p>
-                      {!isInfo && (
-                        <p className="text-xs text-text-secondary">
-                          {pos.menge || '0'} {pos.einheit} × CHF {parseFloat(pos.einzelpreis || 0).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                    {isInfo ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 whitespace-nowrap">
-                        Info
-                      </span>
-                    ) : (
-                      <span className="text-sm font-semibold text-text-primary whitespace-nowrap">
-                        CHF {lineTotal.toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-semibold text-text-primary">Einleitungstext</label>
+            <div className="flex gap-1">
+              {EINLEITUNG_TEMPLATES.map((t, i) => (
+                <button key={i} onClick={() => onChange({ ...data, einleitungstext: t.text })} className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+          <textarea
+            rows={3}
+            value={data.einleitungstext}
+            onChange={(e) => onChange({ ...data, einleitungstext: e.target.value })}
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+            placeholder="Text eingeben..."
+          />
+        </div>
 
-      {/* Konditionen inputs */}
-      <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-sm">
-        <h4 className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-4">Konditionen</h4>
-        
-        <div className="space-y-5">
-          {/* Rabatt Section */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-2">Rabatt</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {[0, 2, 3, 5, 10].map((val) => {
-                const isSelected = parseFloat(konditionen.rabatt) === val && konditionen.rabatt !== ''
-                return (
-                  <button
-                    key={val}
-                    onClick={() => onChangeKonditionen({ ...konditionen, rabatt: String(val) })}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
-                        : 'bg-surface border border-border text-text-secondary hover:bg-gray-50'
-                    }`}
-                  >
-                    {val}%
-                  </button>
-                )
-              })}
-            </div>
-            
-            <div className="flex items-center gap-2 mt-3">
-              <span className="text-xs text-text-secondary shrink-0">✍️ Manuell:</span>
-              <div className="relative max-w-[120px]">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={konditionen.rabatt}
-                  onChange={(e) => onChangeKonditionen({ ...konditionen, rabatt: e.target.value })}
-                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm pointer-events-none">
-                  %
-                </span>
-              </div>
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-semibold text-text-primary">Schlusstext</label>
+            <div className="flex gap-1">
+              {SCHLUSS_TEMPLATES.map((t, i) => (
+                <button key={i} onClick={() => onChange({ ...data, schlusstext: t.text })} className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
-
-          {/* MwSt Section */}
-          <div className="pt-4 border-t border-border">
-            <label className="block text-xs font-medium text-text-secondary mb-2">MwSt</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {[0, 2.6, 8.1].map((val) => {
-                const isSelected = parseFloat(konditionen.mwst) === val && konditionen.mwst !== ''
-                return (
-                  <button
-                    key={val}
-                    onClick={() => onChangeKonditionen({ ...konditionen, mwst: String(val) })}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20'
-                        : 'bg-surface border border-border text-text-secondary hover:bg-gray-50'
-                    }`}
-                  >
-                    {val}%
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="flex items-center gap-2 mt-3">
-              <span className="text-xs text-text-secondary shrink-0">✍️ Manuell:</span>
-              <div className="relative max-w-[120px]">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={konditionen.mwst}
-                  onChange={(e) => onChangeKonditionen({ ...konditionen, mwst: e.target.value })}
-                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm pointer-events-none">
-                  %
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Total calculation */}
-      <div className="bg-sidebar rounded-2xl p-5 text-white space-y-2 shadow-sm">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-300">Zwischensumme</span>
-          <span className="font-medium">CHF {subtotal.toFixed(2)}</span>
-        </div>
-        {rabattProzent > 0 && (
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-300">Rabatt ({rabattProzent}%)</span>
-            <span className="font-medium text-accent-400">− CHF {rabattBetrag.toFixed(2)}</span>
-          </div>
-        )}
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-300">MwSt ({mwstProzent}%)</span>
-          <span className="font-medium">CHF {mwstBetrag.toFixed(2)}</span>
-        </div>
-        <div className="border-t border-white/20 pt-2 mt-2 flex justify-between">
-          <span className="font-bold text-lg">Total</span>
-          <span className="font-bold text-lg">CHF {total.toFixed(2)}</span>
+          <textarea
+            rows={3}
+            value={data.schlusstext}
+            onChange={(e) => onChange({ ...data, schlusstext: e.target.value })}
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+            placeholder="Text eingeben..."
+          />
         </div>
       </div>
     </div>
@@ -1168,7 +979,7 @@ function StepAbschluss({ formData, flatLeistungen, onChangeKonditionen }) {
 
 // ─── Main Wizard ─────────────────────────────────────────────────────────────
 
-export default function OffertenWizard({ onClose }) {
+export default function RechnungenWizard({ onClose, prefilledKundeId }) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState(JSON.parse(JSON.stringify(INITIAL_FORM_DATA)))
   const [bloecke, setBloecke] = useState(JSON.parse(JSON.stringify(INITIAL_BLOECKE)))
@@ -1176,6 +987,17 @@ export default function OffertenWizard({ onClose }) {
   const [catalog, setCatalog] = useState(null)
   const [kundenList, setKundenList] = useState([])
   
+  const handleCloseWithConfirm = () => {
+    const hasData = formData.kunde.id || formData.projekt.name || bloecke.some(b => b.positionen.length > 0)
+    if (hasData && !submitSuccess) {
+      if (window.confirm('Möchten Sie den Entwurf wirklich verwerfen? Alle ungespeicherten Daten gehen verloren.')) {
+        onClose()
+      }
+    } else {
+      onClose()
+    }
+  }
+
   useEffect(() => {
     // 1. Katalog laden aus Supabase
     async function loadCatalog() {
@@ -1216,6 +1038,26 @@ export default function OffertenWizard({ onClose }) {
         .then(({ data, error }) => {
           if (!error && data) {
             setKundenList(data)
+            
+            // Auto-select if prefilledKundeId is provided
+            if (prefilledKundeId) {
+              const kunde = data.find(k => k.id === prefilledKundeId)
+              if (kunde) {
+                setFormData(prev => ({
+                  ...prev,
+                  kunde: {
+                    id: kunde.id,
+                    name: kunde.name || '',
+                    strasse: kunde.strasse || '',
+                    plz: kunde.plz || '',
+                    ort: kunde.ort || '',
+                    email: kunde.email || '',
+                    telefon: kunde.telefon || '',
+                    typ: kunde.typ || '',
+                  }
+                }))
+              }
+            }
           }
         })
         
@@ -1237,8 +1079,6 @@ export default function OffertenWizard({ onClose }) {
 
   // API states
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [previewData, setPreviewData] = useState(null)
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(null)
   const [submitError, setSubmitError] = useState(null)
 
@@ -1289,11 +1129,11 @@ export default function OffertenWizard({ onClose }) {
 
   const goNext = () => {
     if (!validateStep(currentStep)) return
-    setCurrentStep((s) => Math.min(s + 1, 4))
+    setCurrentStep((s) => Math.min(s + 1, 5))
   }
 
   const goBack = () => {
-    if (isSubmitting || previewData || submitSuccess) return
+    if (isSubmitting || submitSuccess) return
     setErrors({})
     setCurrentStep((s) => Math.max(s - 1, 1))
   }
@@ -1302,16 +1142,15 @@ export default function OffertenWizard({ onClose }) {
 
   const getFlatLeistungen = () => flattenBloecke(bloecke)
 
-  // ── Generate (Step 1: Preview) ──
+  // ── Generate ──
 
   const handleGenerate = async () => {
     setIsSubmitting(true)
     setSubmitError(null)
 
     const flatLeistungen = getFlatLeistungen()
-    let localOfferteId = null
 
-    // CRM Supabase Speicherung (Kunde & Projekt & Offerte)
+    // CRM Supabase Speicherung (Kunde & Projekt & Rechnung)
     if (supabase) {
       try {
         let kundenId = formData.kunde.id
@@ -1347,122 +1186,65 @@ export default function OffertenWizard({ onClose }) {
           if (newProj) projektId = newProj[0].id
         }
 
-        // 3. Offerten-Historie anlegen
+        // 3. Rechnungn-Nummer generieren
+        const year = new Date().getFullYear()
+        const { data: existing } = await supabase
+          .from('rechnungen')
+          .select('rechnung_nr')
+          .ilike('rechnung_nr', `RE-${year}-%`)
+          .order('rechnung_nr', { ascending: false })
+          .limit(1)
+        
+        let nextNum = 1
+        if (existing && existing.length > 0 && existing[0].rechnung_nr) {
+          const lastNr = existing[0].rechnung_nr
+          const parts = lastNr.split('-')
+          nextNum = parseInt(parts[2] || 0) + 1
+        }
+        const RechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+
+        // 4. Rechnungn-Historie anlegen
         const rawTotal = flatLeistungen.reduce((sum, pos) => sum + (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0), 0)
         const rabatt = parseFloat(formData.konditionen.rabatt) || 0
         const totalNachRabatt = rawTotal * (1 - rabatt / 100)
         const mwst = parseFloat(formData.konditionen.mwst) || 0
         const finalTotal = totalNachRabatt * (1 + mwst / 100)
 
-        const { data: newOfferte } = await supabase.from('offerten').insert([{
+        let zahlungsfristTage = 30
+        if (formData.rechnungsdetails?.zahlungsziel?.includes('10')) zahlungsfristTage = 10
+        if (formData.rechnungsdetails?.zahlungsziel?.includes('14')) zahlungsfristTage = 14
+
+        const { data: newRechnung } = await supabase.from('rechnungen').insert([{
+          rechnung_nr: RechnungNr,
           kunden_id: kundenId,
           projekt_id: projektId,
-          total: finalTotal,
-          daten: { ...formData, leistungen: flatLeistungen }
-        }]).select()
+          total: formData.rechnungsdetails?.typ === 'Akontorechnung' && formData.rechnungsdetails?.akonto ? finalTotal * (parseFloat(formData.rechnungsdetails.akonto) / 100) : finalTotal,
+          status: 'Entwurf',
+          typ: formData.rechnungsdetails?.typ === 'Akontorechnung' ? 'akonto' : 'gesamt',
+          akonto_prozent: formData.rechnungsdetails?.typ === 'Akontorechnung' ? (parseFloat(formData.rechnungsdetails.akonto) || null) : null,
+          rechnungsdatum: formData.rechnungsdetails?.datum,
+          zahlungsfrist_tage: zahlungsfristTage,
+          daten: { ...formData, einleitungstext: formData.texte?.einleitungstext || '', schlusstext: formData.texte?.schlusstext || '', leistungen: flatLeistungen }
+        }]).select('*, kunden(*), projekte(*)')
         
-        if (newOfferte && newOfferte.length > 0) {
-          localOfferteId = newOfferte[0].id
+        if (newRechnung && newRechnung.length > 0) {
+          setSubmitSuccess(newRechnung[0])
+        } else {
+          setSubmitError('Rechnung konnte nicht geladen werden.')
         }
       } catch (err) {
         console.error('CRM Supabase Sync Error:', err)
-        // Wir lassen den Prozess weiterlaufen, damit das PDF auf jeden Fall generiert wird.
+        setSubmitError(err.message)
       }
     }
 
-    // ACHTUNG: Für das Google Apps Script formatieren wir das "kunde" Objekt um,
-    // damit das alte Script nicht abbricht (es erwartet kunde.name und kunde.adresse).
-    const finalData = {
-      action: 'createPreview',
-      data: {
-        ...formData,
-        kunde: { 
-          name: formData.kunde.name, 
-          adresse: formData.projekt.adresse || formData.projekt.name 
-        },
-        leistungen: flatLeistungen,
-      }
-    }
-
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(finalData),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server antwortete mit Fehlercode: ${response.status}`)
-      }
-
-      const result = await response.json()
-      const returnedDocUrl = result.docUrl || 'https://docs.google.com/document/u/0/'
-      const returnedDocId = result.docId || 'mock-doc-id'
-      
-      setPreviewData({
-        docId: returnedDocId,
-        docUrl: returnedDocUrl,
-      })
-      
-      // Update the newly created Offerte with the Google Docs URL
-      if (supabase && localOfferteId) {
-        const { data: existingOfferte } = await supabase.from('offerten').select('daten').eq('id', localOfferteId).single()
-        if (existingOfferte) {
-          await supabase.from('offerten').update({
-            daten: { ...existingOfferte.daten, docUrl: returnedDocUrl, docId: returnedDocId }
-          }).eq('id', localOfferteId)
-        }
-      }
-    } catch (error) {
-      console.error('API Error:', error)
-      setSubmitError(error.message || 'Ein unbekannter Netzwerkfehler ist aufgetreten.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // ── Generate (Step 2: PDF) ──
-
-  const handleFixatePdf = async () => {
-    setIsGeneratingPdf(true)
-    setSubmitError(null)
-
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify({
-          action: 'generatePdf',
-          docId: previewData.docId
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server antwortete mit Fehlercode: ${response.status}`)
-      }
-
-      const result = await response.json()
-      
-      setSubmitSuccess({
-        id: result.offertenId || previewData.docId || 'N/A',
-        message: 'Das finale PDF wurde erfolgreich generiert und gespeichert!',
-      })
-    } catch (error) {
-      console.error('API Error:', error)
-      setSubmitError(error.message || 'Fehler beim Generieren des PDFs.')
-    } finally {
-      setIsGeneratingPdf(false)
-    }
+    setIsSubmitting(false)
   }
 
   // ── Render current step ──
 
   const renderStep = () => {
-    if (previewData || submitSuccess) return null // Hide step content when previewing/success
+    if (submitSuccess) return null 
     
     switch (currentStep) {
       case 1:
@@ -1476,9 +1258,9 @@ export default function OffertenWizard({ onClose }) {
         )
       case 2:
         return (
-          <StepAusfuehrung
-            data={formData.ausfuehrung}
-            onChange={(ausfuehrung) => setFormData((prev) => ({ ...prev, ausfuehrung }))}
+          <StepRechnungsdetails
+            data={formData.rechnungsdetails}
+            onChange={(rechnungsdetails) => setFormData((prev) => ({ ...prev, rechnungsdetails }))}
           />
         )
       case 3:
@@ -1513,10 +1295,10 @@ export default function OffertenWizard({ onClose }) {
         <header className="shrink-0 bg-surface-card border-b border-border px-4 py-4 sm:px-8 sm:py-6">
           <div className="flex items-center justify-between mb-6">
             <button
-              onClick={onClose}
-              disabled={isSubmitting || isGeneratingPdf}
+              onClick={handleCloseWithConfirm}
+              disabled={isSubmitting}
               className={`inline-flex items-center gap-1.5 transition-colors ${
-                (isSubmitting || isGeneratingPdf) ? 'text-gray-300 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary cursor-pointer'
+                isSubmitting ? 'text-gray-300 cursor-not-allowed' : 'text-text-secondary hover:text-text-primary cursor-pointer'
               }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1524,10 +1306,10 @@ export default function OffertenWizard({ onClose }) {
               </svg>
               <span className="hidden sm:inline">Abbrechen</span>
             </button>
-            <h2 className="text-base font-bold text-text-primary">Neue Offerte</h2>
+            <h2 className="text-base font-bold text-text-primary">Neue Rechnung</h2>
             <div className="w-20" /> {/* Spacer */}
           </div>
-          {!(previewData || submitSuccess) && <Stepper currentStep={currentStep} />}
+          {!submitSuccess && <Stepper currentStep={currentStep} />}
         </header>
 
         {/* ── Scrollable content ── */}
@@ -1535,93 +1317,20 @@ export default function OffertenWizard({ onClose }) {
           <div className="p-4 sm:p-8 flex flex-col h-full">
             {renderStep()}
 
-          {/* PREVIEW UI */}
-          {previewData && !submitSuccess && (
-            <div className="flex flex-col items-center justify-center p-6 bg-surface-card border border-border rounded-2xl shadow-sm text-center m-auto w-full max-w-lg">
-              <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 border border-blue-100 shadow-inner">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-text-primary mb-2">Vorschau erstellt!</h3>
-              <p className="text-text-secondary mb-6 leading-relaxed">
-                Das Google Doc wurde generiert. Du kannst es nun öffnen und bei Bedarf letzte manuelle Anpassungen vornehmen.
-              </p>
-              
-              <div className="flex flex-col gap-3 w-full">
-                <a
-                  href={previewData.docUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-surface border-2 border-border font-bold text-sm text-text-primary rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-all"
-                >
-                  <span className="text-xl">📄</span>
-                  In Google Docs öffnen & bearbeiten
-                </a>
-
-                <div className="relative py-2 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border"></div>
-                  </div>
-                  <span className="relative bg-surface-card px-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                    Danach
-                  </span>
-                </div>
-
-                <button
-                  onClick={handleFixatePdf}
-                  disabled={isGeneratingPdf}
-                  className={`w-full inline-flex items-center justify-center gap-2 px-6 py-4 font-bold text-base rounded-xl transition-all shadow-lg ${
-                    isGeneratingPdf 
-                      ? 'bg-gray-200 text-gray-500 cursor-wait shadow-none' 
-                      : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/25 cursor-pointer'
-                  }`}
-                >
-                  {isGeneratingPdf ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-emerald-50" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Generiere PDF...
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xl">✅</span>
-                      Alles gut – Als PDF fixieren
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* SUCCESS UI */}
           {submitSuccess && (
-            <div className="flex flex-col items-center justify-center p-6 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm text-center m-auto w-full max-w-lg">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                <span className="text-3xl">🎉</span>
-              </div>
-              <h3 className="text-xl font-bold text-emerald-900 mb-2">Erfolgreich abgeschlossen!</h3>
-              <p className="text-emerald-700 mb-6 leading-relaxed">{submitSuccess.message}</p>
-              {submitSuccess.id !== 'N/A' && (
-                <div className="text-xs font-mono bg-white px-4 py-2 rounded-lg border border-emerald-200 text-emerald-700 mb-6 shadow-sm">
-                  Offerten-ID: {submitSuccess.id}
-                </div>
-              )}
-              <button
-                onClick={onClose}
-                className="w-full px-6 py-3.5 bg-emerald-600 text-white font-bold text-base rounded-xl hover:bg-emerald-700 active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-emerald-600/20"
-              >
-                Zurück zur Übersicht
-              </button>
-            </div>
+            <RechnungPrintView 
+              Rechnung={submitSuccess} 
+              kunde={submitSuccess.kunden} 
+              projekt={submitSuccess.projekte} 
+              onClose={onClose} 
+            />
           )}
         </div>
       </div> {/* <-- Closes flex-1 overflow-y-auto */}
 
-      {/* ── Footer with nav buttons (Only show when not in preview/success) ── */}
-      {!(previewData || submitSuccess) && (
+      {/* ─── Footer with nav buttons (Only show when not in success) ─── */}
+      {!submitSuccess && (
         <footer className="shrink-0 bg-surface-card border-t border-border px-4 sm:px-8 py-4 sm:py-5">
           {submitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-start gap-2">
@@ -1647,7 +1356,7 @@ export default function OffertenWizard({ onClose }) {
               <div />
             )}
 
-            {currentStep < 4 ? (
+            {currentStep < 5 ? (
               <button
                 onClick={goNext}
                 className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
@@ -1690,3 +1399,4 @@ export default function OffertenWizard({ onClose }) {
     </div>
   )
 }
+

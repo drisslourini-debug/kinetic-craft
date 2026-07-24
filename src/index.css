@@ -29,17 +29,28 @@
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
-
-/* ===== Base styles ===== */
 @layer base {
-  html {
+  html, body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    @apply bg-surface text-text-primary min-h-[100dvh] m-0;
+    
+    /* Native App Feeling Fixes */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
-  body {
-    @apply bg-surface text-text-primary m-0;
+  /* Prevent text selection on interactive elements */
+  button, a, select, summary {
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   * {
@@ -60,4 +71,40 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+@theme {
+  --animate-fade-in-up: fade-in-up 0.3s ease-out forwards;
+  --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-slow: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+}
+
+@layer utilities {
+  .bg-blueprint {
+    background-image: linear-gradient(rgba(184, 138, 56, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(184, 138, 56, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out forwards;
+  }
 }

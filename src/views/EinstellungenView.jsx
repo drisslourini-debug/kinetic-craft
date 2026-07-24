@@ -56,7 +56,7 @@ export default function EinstellungenView() {
   }
 
   if (isLoading) {
-    return <div className="p-8 text-center text-text-secondary">Lade Einstellungen...</div>
+    return <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
   }
 
   return (
@@ -77,7 +77,7 @@ export default function EinstellungenView() {
                 type="text"
                 value={settings.firmenname || ''}
                 onChange={e => handleChange('firmenname', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div>
@@ -86,7 +86,7 @@ export default function EinstellungenView() {
                 type="text"
                 value={settings.uid || ''}
                 onChange={e => handleChange('uid', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div className="sm:col-span-2">
@@ -95,7 +95,7 @@ export default function EinstellungenView() {
                 type="text"
                 value={settings.adresse || ''}
                 onChange={e => handleChange('adresse', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div>
@@ -104,7 +104,7 @@ export default function EinstellungenView() {
                 type="text"
                 value={settings.telefon || ''}
                 onChange={e => handleChange('telefon', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div>
@@ -113,7 +113,7 @@ export default function EinstellungenView() {
                 type="text"
                 value={settings.bankverbindung || ''}
                 onChange={e => handleChange('bankverbindung', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function EinstellungenView() {
                 step="0.1"
                 value={settings.standard_mwst}
                 onChange={e => handleChange('standard_mwst', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div>
@@ -140,7 +140,7 @@ export default function EinstellungenView() {
                 step="0.1"
                 value={settings.standard_rabatt}
                 onChange={e => handleChange('standard_rabatt', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
             <div>
@@ -149,7 +149,7 @@ export default function EinstellungenView() {
                 type="number"
                 value={settings.zahlungsfrist_tage}
                 onChange={e => handleChange('zahlungsfrist_tage', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function EinstellungenView() {
                 type="number"
                 value={settings.startnummer_offerten}
                 onChange={e => handleChange('startnummer_offerten', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
               />
             </div>
           </div>
@@ -198,3 +198,4 @@ export default function EinstellungenView() {
     </div>
   )
 }
+

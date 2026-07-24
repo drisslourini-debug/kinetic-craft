@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import OffertePrintView from './OffertePrintView'
+import KatalogDrawer from '../components/KatalogDrawer'
 
-export default function OfferteDetailView({ offerte, onBack }) {
+export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams }) {
   const [kunde, setKunde] = useState(null)
   const [projekt, setProjekt] = useState(null)
   const [status, setStatus] = useState(offerte.status || 'Entwurf')
@@ -10,6 +11,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('stammdaten')
   const [showPrintView, setShowPrintView] = useState(false)
+  const [showActionMenu, setShowActionMenu] = useState(false)
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
@@ -19,6 +21,15 @@ export default function OfferteDetailView({ offerte, onBack }) {
   const [editSchluss, setEditSchluss] = useState('')
   const [editPauschalpreis, setEditPauschalpreis] = useState(null)
   const [isPauschal, setIsPauschal] = useState(false)
+  const [editAusfuehrung, setEditAusfuehrung] = useState({ start: '', dauer: '', notizen: '' })
+  const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
+  const [showKatalogMenu, setShowKatalogMenu] = useState(false)
+
+  useEffect(() => {
+    if (viewParams?.edit && !isEditing && !isLoading) {
+      startEditing()
+    }
+  }, [viewParams, isLoading, isEditing])
 
   useEffect(() => {
     async function loadDetails() {
@@ -125,6 +136,82 @@ export default function OfferteDetailView({ offerte, onBack }) {
     }
   }
 
+  const handleConvertToRechnung = async () => {
+    if (!window.confirm('Diese Offerte in eine Rechnung umwandeln?')) return
+    setIsUpdating(true)
+    try {
+      // Generate next rechnung_nr: RE-YYYY-NNN
+      const year = new Date().getFullYear()
+      const { data: existing } = await supabase
+        .from('rechnungen')
+        .select('rechnung_nr')
+        .ilike('rechnung_nr', `RE-${year}-%`)
+        .order('rechnung_nr', { ascending: false })
+        .limit(1)
+      
+      let nextNum = 1
+      if (existing && existing.length > 0) {
+        const lastNr = existing[0].rechnung_nr
+        const parts = lastNr.split('-')
+        nextNum = parseInt(parts[2]) + 1
+      }
+      const rechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+
+      // Calculate faellig_am based on customer's payment term
+      let fristTage = 30
+      if (kunde?.zahlungsziel) {
+        if (kunde.zahlungsziel.includes('10')) fristTage = 10
+        else if (kunde.zahlungsziel.includes('14')) fristTage = 14
+        else if (kunde.zahlungsziel.includes('30')) fristTage = 30
+        else if (kunde.zahlungsziel.includes('Bar') || kunde.zahlungsziel.includes('Voraus')) fristTage = 0
+      }
+
+      const rechnungsdatum = new Date()
+      const faelligAm = new Date(rechnungsdatum)
+      faelligAm.setDate(faelligAm.getDate() + fristTage)
+
+      const { data: newRechnung, error } = await supabase
+        .from('rechnungen')
+        .insert([{
+          rechnung_nr: rechnungNr,
+          kunden_id: offerte.kunden_id,
+          projekt_id: offerte.projekt_id,
+          offerte_id: offerte.id,
+          typ: 'gesamt',
+          total: offerte.total,
+          daten: offerte.daten,
+          rechnungsdatum: rechnungsdatum.toISOString().split('T')[0],
+          zahlungsfrist_tage: fristTage,
+          faellig_am: faelligAm.toISOString().split('T')[0],
+          status: 'Entwurf'
+        }])
+        .select()
+      
+      if (error) throw error
+      
+      if (newRechnung && newRechnung.length > 0) {
+        // Update offerte: set status to 'Verrechnet' and link to rechnung
+        await supabase
+          .from('offerten')
+          .update({ status: 'Verrechnet', rechnung_id: newRechnung[0].id })
+          .eq('id', offerte.id)
+        
+        alert(`Rechnung ${rechnungNr} wurde erstellt! Navigiere zur Rechnung...`)
+        // Navigate to the new Rechnung
+        if (onNavigate) {
+          onNavigate('rechnungen', { rechnungId: newRechnung[0].id })
+        } else {
+          window.location.reload()
+        }
+      }
+    } catch (err) {
+      console.error('Fehler beim Umwandeln:', err)
+      alert('Fehler beim Umwandeln in Rechnung: ' + err.message)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   // ===== EDIT MODE FUNCTIONS =====
   const startEditing = () => {
     const daten = offerte.daten || {}
@@ -142,7 +229,72 @@ export default function OfferteDetailView({ offerte, onBack }) {
     setEditSchluss(daten.schlusstext || '')
     setEditPauschalpreis(daten.pauschalpreis || null)
     setIsPauschal(!!daten.pauschalpreis && parseFloat(daten.pauschalpreis) > 0)
+    setEditAusfuehrung({
+      start: daten.ausfuehrung?.start || '',
+      dauer: daten.ausfuehrung?.dauer || '',
+      notizen: daten.ausfuehrung?.notizen || ''
+    })
     setIsEditing(true)
+  }
+
+  const handleInsertFromKatalog = (items) => {
+    if (!items || items.length === 0) return
+
+    // Find the next group number (e.g. if we have 1.x, next is 2.x)
+    let maxGroup = 0
+    editLeistungen.forEach(p => {
+      const parts = p.posNr.split('.')
+      if (parts.length > 0) {
+        const g = parseInt(parts[0], 10)
+        if (!isNaN(g) && g > maxGroup) maxGroup = g
+      }
+    })
+    const nextGroup = maxGroup + 1
+
+    const newLeistungen = []
+    
+    // Group imported items by category to create headers
+    const grouped = items.reduce((acc, item) => {
+      if (!acc[item.kategorie]) acc[item.kategorie] = []
+      acc[item.kategorie].push(item)
+      return acc
+    }, {})
+
+    let currentGroupOffset = 0
+    
+    Object.entries(grouped).forEach(([kategorie, catItems]) => {
+      const gNr = nextGroup + currentGroupOffset
+      
+      // Category Header
+      newLeistungen.push({
+        _id: Date.now() + Math.random(),
+        posNr: `${gNr}.0`,
+        kategorie,
+        beschreibung: kategorie,
+        menge: '',
+        einheit: '',
+        einzelpreis: '',
+        optional: false
+      })
+
+      // Items
+      catItems.forEach((item, posIdx) => {
+        newLeistungen.push({
+          _id: Date.now() + Math.random(),
+          posNr: `${gNr}.${posIdx + 1}`,
+          kategorie,
+          beschreibung: item.titel,
+          menge: '', // user has to fill amount
+          einheit: item.einheit,
+          einzelpreis: item.preis,
+          optional: false
+        })
+      })
+      
+      currentGroupOffset++
+    })
+
+    setEditLeistungen([...editLeistungen, ...newLeistungen])
   }
 
   const cancelEditing = () => {
@@ -173,6 +325,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
         einleitungstext: editEinleitung || null,
         schlusstext: editSchluss || null,
         pauschalpreis: isPauschal ? parseFloat(editPauschalpreis) || null : null,
+        ausfuehrung: editAusfuehrung,
       }
 
       await supabase
@@ -289,7 +442,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={isUpdating}
-            className={`px-4 py-2.5 text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 ${
+            className={`px-4 py-2.5 text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 hidden sm:block ${
               status === 'Akzeptiert' || status === 'Verrechnet' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
               status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
               status === 'In Überarbeitung' ? 'border-amber-200 bg-amber-50 text-amber-700' :
@@ -305,51 +458,104 @@ export default function OfferteDetailView({ offerte, onBack }) {
             <option value="Verrechnet">Verrechnet</option>
           </select>
           
+          {/* Main Action: PDF View or Edit */}
+          {!isEditing && (
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface border border-primary-200 text-primary-700 font-bold text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+            >
+              ✏️ Offerte bearbeiten
+            </button>
+          )}
           <button
             onClick={() => setShowPrintView(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
           >
-            🖨️ Vorschau
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">PDF generieren</span>
+            <span className="sm:hidden">PDF</span>
           </button>
-          
-          {daten.docUrl && (
-            <a 
-              href={daten.docUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-card border border-border text-text-primary font-semibold text-sm rounded-xl hover:bg-surface transition-colors shadow-sm cursor-pointer"
+
+          {/* Secondary Actions Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowActionMenu(!showActionMenu)}
+              className="p-2.5 text-text-secondary hover:text-text-primary hover:bg-surface-card border border-transparent hover:border-border rounded-xl transition-all cursor-pointer"
+              title="Weitere Aktionen"
             >
-              📄 Google Doc
-            </a>
-          )}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+            </button>
+
+            {/* Action Menu Dropdown */}
+            {showActionMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowActionMenu(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-surface-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in">
+                  <div className="p-2 space-y-1">
+                    {daten.docUrl && (
+                      <a 
+                        href={daten.docUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        onClick={() => setShowActionMenu(false)}
+                        className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-primary-50 hover:text-primary-600 rounded-xl transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        Google Doc öffnen
+                      </a>
+                    )}
+                    <button
+                      onClick={() => { setShowActionMenu(false); handleDuplicate(); }}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-primary-50 hover:text-primary-600 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                      Offerte duplizieren
+                    </button>
+                    {status === 'Akzeptiert' && (
+                      <button
+                        onClick={() => { setShowActionMenu(false); handleConvertToRechnung(); }}
+                        className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        In Rechnung umwandeln
+                      </button>
+                    )}
+                  </div>
+                  {/* Mobile Status Select embedded in action menu */}
+                  <div className="sm:hidden border-t border-border p-3 bg-surface">
+                    <label className="text-xs font-bold uppercase tracking-wider text-text-secondary block mb-2">Status</label>
+                    <select
+                      value={status}
+                      onChange={(e) => {
+                        handleStatusChange(e.target.value)
+                        setShowActionMenu(false)
+                      }}
+                      disabled={isUpdating}
+                      className="w-full px-3 py-2 text-sm font-bold rounded-lg border-2 border-border focus:outline-none focus:border-primary-400 bg-surface"
+                    >
+                      <option value="Entwurf">Entwurf</option>
+                      <option value="Versendet">Versendet</option>
+                      <option value="In Überarbeitung">In Überarbeitung</option>
+                      <option value="Akzeptiert">Akzeptiert</option>
+                      <option value="Abgelehnt">Abgelehnt</option>
+                      <option value="Verrechnet">Verrechnet</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-border">
-        {['stammdaten', 'leistungen'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-2 text-sm font-semibold capitalize border-b-2 transition-colors cursor-pointer ${
-              activeTab === tab 
-                ? 'border-primary-500 text-primary-600' 
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
-            }`}
-          >
-            {tab === 'stammdaten' ? 'Stammdaten & Info' : `Leistungen & Kalkulation`}
-          </button>
-        ))}
-      </div>
-
+      {/* End Header Actions */}
       {isLoading ? (
         <div className="p-8 text-center text-text-secondary">Lade Daten...</div>
       ) : (
         <div className="space-y-8 animate-fade-in">
           
-          {/* TAB: STAMMDATEN */}
-          {activeTab === 'stammdaten' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* STAMMDATEN & INFO */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
                 <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
                 
@@ -365,18 +571,43 @@ export default function OfferteDetailView({ offerte, onBack }) {
                   {projekt && projekt.adresse && <div className="text-sm text-text-secondary">{projekt.adresse}</div>}
                 </div>
 
-                {daten.ausfuehrung && daten.ausfuehrung.start && (
-                  <div className="pt-4 border-t border-border">
+                {/* Editable Ausfuehrung inline inside Stammdaten grid block */}
+                {isEditing ? (
+                  <div className="pt-4 border-t border-border space-y-3">
                     <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
-                    <div className="mt-1.5 text-sm text-text-primary">
-                      Start: <span className="font-medium">{daten.ausfuehrung.start}</span>
-                    </div>
-                    {daten.ausfuehrung.dauer && (
-                      <div className="text-sm text-text-primary mt-1">
-                        Dauer: <span className="font-medium">{daten.ausfuehrung.dauer}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-text-secondary uppercase">Start</label>
+                        <input
+                          type="text"
+                          value={editAusfuehrung.start}
+                          onChange={(e) => setEditAusfuehrung({ ...editAusfuehrung, start: e.target.value })}
+                          className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-sm"
+                          placeholder="z.B. Nächste Woche"
+                        />
                       </div>
-                    )}
+                      <div>
+                        <label className="text-[10px] text-text-secondary uppercase">Dauer</label>
+                        <input
+                          type="text"
+                          value={editAusfuehrung.dauer}
+                          onChange={(e) => setEditAusfuehrung({ ...editAusfuehrung, dauer: e.target.value })}
+                          className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-sm"
+                          placeholder="z.B. 1-2 Tage"
+                        />
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  (daten.ausfuehrung?.start || daten.ausfuehrung?.dauer) && (
+                    <div className="pt-4 border-t border-border">
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
+                      <div className="mt-1.5 text-sm text-text-primary">
+                        {daten.ausfuehrung.start && <>Start: <span className="font-medium">{daten.ausfuehrung.start}</span><br /></>}
+                        {daten.ausfuehrung.dauer && <>Dauer: <span className="font-medium">{daten.ausfuehrung.dauer}</span></>}
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
 
@@ -403,49 +634,21 @@ export default function OfferteDetailView({ offerte, onBack }) {
                 </div>
               </div>
             </div>
-          )}
 
-          {/* TAB: LEISTUNGEN */}
-          {activeTab === 'leistungen' && (
-            <div className="space-y-6">
+          {/* LEISTUNGEN & KALKULATION */}
+          <div className="space-y-6">
               
               {/* Edit-Mode Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {isEditing && (
+              {isEditing && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold">
                       <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                       Bearbeitungsmodus
                     </span>
-                  )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {!isEditing ? (
-                    <button
-                      onClick={startEditing}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-sm cursor-pointer"
-                    >
-                      ✏️ Offerte bearbeiten
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={cancelEditing}
-                        className="px-4 py-2.5 bg-surface-card border border-border text-text-secondary font-semibold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        onClick={saveEditing}
-                        disabled={isUpdating}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-                      >
-                        {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
+              )}
 
               {/* Einleitungstext (only in edit mode) */}
               {isEditing && (
@@ -494,12 +697,37 @@ export default function OfferteDetailView({ offerte, onBack }) {
                     <div className="p-5 border-b border-border bg-surface flex items-center justify-between">
                       <h3 className="text-lg font-bold text-text-primary">Leistungsverzeichnis</h3>
                       {isEditing && (
-                        <button
-                          onClick={addPosition}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                        >
-                          ➕ Position hinzufügen
-                        </button>
+                        <div className="flex items-center relative">
+                          <button
+                            onClick={addPosition}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 border border-primary-200 border-r-0 font-semibold text-xs rounded-l-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                          >
+                            ➕ Position hinzufügen
+                          </button>
+                          <button
+                            onClick={() => setShowKatalogMenu(!showKatalogMenu)}
+                            className="inline-flex items-center px-2 py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-r-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </button>
+                          
+                          {showKatalogMenu && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setShowKatalogMenu(false)}></div>
+                              <div className="absolute right-0 top-full mt-1 w-48 bg-surface rounded-xl shadow-lg border border-border overflow-hidden z-50 py-1">
+                                <button 
+                                  onClick={() => {
+                                    setShowKatalogMenu(false)
+                                    setShowKatalogDrawer(true)
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-card transition-colors flex items-center gap-2"
+                                >
+                                  <span>📖</span> Aus Katalog einfügen
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                     
@@ -525,40 +753,50 @@ export default function OfferteDetailView({ offerte, onBack }) {
                               const isKategorie = isInfo && pos.beschreibung
                               
                               return (
-                                <div key={idx} className={`p-5 sm:px-5 sm:py-3 grid grid-cols-1 sm:grid-cols-[60px_1fr_80px_80px_100px_120px] gap-2 sm:gap-4 items-center hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-primary-50/50 border-l-3 border-l-primary-400' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
-                                  {/* Pos Nr */}
-                                  <div className="text-xs font-bold text-text-secondary">
-                                    <span className="sm:hidden font-semibold">Pos: </span>
-                                    {pos.posNr || (idx + 1)}
-                                  </div>
+                                <div key={idx} className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-primary-50/50 border-l-3 border-l-primary-400' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
                                   
-                                  <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                                    {pos.beschreibung}
-                                    {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
-                                  </div>
-                                  
-                                  {!isInfo ? (
-                                    <div className="flex flex-col sm:contents gap-1.5 mt-2 sm:mt-0">
-                                      <div className="flex justify-between sm:block text-sm text-text-secondary sm:text-right">
-                                        <span className="sm:hidden font-semibold">Menge:</span>
-                                        <span>{pos.menge}</span>
+                                  {/* --- MOBILE COMPACT VIEW --- */}
+                                  <div className="sm:hidden flex justify-between items-start w-full gap-3">
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                      <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
+                                        <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
+                                        {pos.beschreibung}
+                                        {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Option</span>}
                                       </div>
-                                      <div className="flex justify-between sm:block text-sm text-text-secondary">
-                                        <span className="sm:hidden font-semibold">Einheit:</span>
-                                        <span>{pos.einheit}</span>
-                                      </div>
-                                      <div className="flex justify-between sm:block text-sm text-text-secondary sm:text-right">
-                                        <span className="sm:hidden font-semibold">Preis:</span>
-                                        <span>CHF {(parseFloat(pos.einzelpreis) || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="flex justify-between sm:block text-sm font-bold text-text-primary sm:text-right border-t border-border sm:border-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
-                                        <span className="sm:hidden text-text-secondary uppercase text-xs tracking-wider">Total</span>
-                                        <span>CHF {posTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })}</span>
-                                      </div>
+                                      {!isInfo && (
+                                        <div className="text-xs text-text-secondary mt-1">
+                                          {pos.menge} {pos.einheit} à CHF {(parseFloat(pos.einzelpreis) || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                                        </div>
+                                      )}
                                     </div>
-                                  ) : (
-                                    <div className="sm:col-span-4"></div>
-                                  )}
+                                    {!isInfo && (
+                                      <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
+                                        CHF {posTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* --- DESKTOP TABLE VIEW --- */}
+                                  <div className="hidden sm:grid sm:grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 items-center">
+                                    <div className="text-xs font-bold text-text-secondary">
+                                      {pos.posNr || (idx + 1)}
+                                    </div>
+                                    <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
+                                      {pos.beschreibung}
+                                      {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
+                                    </div>
+                                    {!isInfo ? (
+                                      <>
+                                        <div className="text-sm text-text-secondary text-right">{pos.menge}</div>
+                                        <div className="text-sm text-text-secondary">{pos.einheit}</div>
+                                        <div className="text-sm text-text-secondary text-right">CHF {(parseFloat(pos.einzelpreis) || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}</div>
+                                        <div className="text-sm font-bold text-text-primary text-right">CHF {posTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })}</div>
+                                      </>
+                                    ) : (
+                                      <div className="col-span-4"></div>
+                                    )}
+                                  </div>
+
                                 </div>
                               )
                             })}
@@ -652,7 +890,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
                                     step="any"
                                     value={pos.menge}
                                     onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
                                     placeholder="0"
                                   />
                                 </div>
@@ -662,7 +900,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
                                     type="text"
                                     value={pos.einheit || ''}
                                     onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
                                     placeholder="m², Stk, h..."
                                   />
                                 </div>
@@ -673,7 +911,7 @@ export default function OfferteDetailView({ offerte, onBack }) {
                                     step="0.05"
                                     value={pos.einzelpreis}
                                     onChange={(e) => updatePosition(pos._id, 'einzelpreis', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
                                     placeholder="0.00"
                                   />
                                 </div>
@@ -756,37 +994,37 @@ export default function OfferteDetailView({ offerte, onBack }) {
                   )}
 
                   {/* Kalkulation Summary Box */}
-                  <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 shadow-md text-white sticky top-6">
-                    <h3 className="text-primary-100 text-sm font-semibold mb-6">Kalkulation {isEditing && '(Live)'}</h3>
+                  <div className="bg-surface-card rounded-2xl p-6 shadow-sm border border-border sticky top-6">
+                    <h3 className="text-text-secondary text-sm font-semibold mb-6">Kalkulation {isEditing && '(Live)'}</h3>
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-primary-100">Zwischensumme</span>
-                        <span>CHF {(isEditing ? editRawTotal : rawTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-text-secondary">Zwischensumme</span>
+                        <span className="text-text-primary">CHF {(isEditing ? editRawTotal : rawTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
-                        <div className="flex justify-between text-sm text-red-300 font-medium">
+                        <div className="flex justify-between text-sm text-red-600 font-medium">
                           <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
                           <span>- CHF {(isEditing ? editRabattBetrag : rabattBetrag).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       )}
                       {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-primary-100">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
-                          <span>CHF {(isEditing ? editMwstBetrag : mwstBetrag).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-text-secondary">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
+                          <span className="text-text-primary">CHF {(isEditing ? editMwstBetrag : mwstBetrag).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       )}
                       {isEditing && isPauschal && editPauschalpreis && (
-                        <div className="flex justify-between text-sm text-amber-300 font-medium">
+                        <div className="flex justify-between text-sm text-amber-600 font-medium">
                           <span>⚡ Pauschalpreis</span>
                           <span>aktiv</span>
                         </div>
                       )}
-                      <div className="pt-4 mt-4 border-t border-white/20 flex justify-between items-center">
-                        <span className="font-bold text-lg">Total</span>
-                        <span className="font-bold text-2xl tracking-tight">CHF {(isEditing ? editFinalTotal : finalTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <div className="pt-4 mt-4 border-t border-border flex justify-between items-center">
+                        <span className="font-bold text-xl text-text-primary">Total</span>
+                        <span className="font-black text-3xl tracking-tight text-text-primary">CHF {(isEditing ? editFinalTotal : finalTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       {isEditing && editOptionalTotal > 0 && (
-                        <div className="pt-3 mt-1 border-t border-white/10 flex justify-between text-xs text-primary-200">
+                        <div className="pt-3 mt-1 border-t border-border/50 flex justify-between text-xs text-text-secondary">
                           <span>Optionale Positionen</span>
                           <span>CHF {editOptionalTotal.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
@@ -834,7 +1072,6 @@ export default function OfferteDetailView({ offerte, onBack }) {
                 </div>
               )}
             </div>
-          )}
 
           {/* Action Buttons for Duplicating / Archiving */}
           <div className="pt-8 mt-4 border-t border-border flex justify-between items-center">
@@ -871,8 +1108,32 @@ export default function OfferteDetailView({ offerte, onBack }) {
               <span>📑</span> Offerte duplizieren
             </button>
           </div>
-          
         </div>
+      )}
+
+      {isEditing && (
+        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex items-center justify-end gap-3 animate-slide-up">
+          <button
+            onClick={cancelEditing}
+            className="px-5 py-2.5 bg-surface-card border border-border text-text-secondary font-bold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={saveEditing}
+            disabled={isUpdating}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+          >
+            {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
+          </button>
+        </div>
+      )}
+
+      {showKatalogDrawer && (
+        <KatalogDrawer
+          onClose={() => setShowKatalogDrawer(false)}
+          onInsert={handleInsertFromKatalog}
+        />
       )}
     </div>
   )
