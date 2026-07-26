@@ -55,7 +55,7 @@ export const generateOfferteWord = async (offerte, kunde, projekt, settings) => 
   const addressParagraphs = [
     new Paragraph({
       children: [
-        new TextRun({ text: 'Malerei Leandro Lüthi · Landoltstrasse 99 · 3007 Bern', size: 14, color: '999999' })
+        new TextRun({ text: `${settings?.firmenname || 'Malerei Leandro Lüthi'} · ${settings?.strasse || 'Landoltstrasse 99'} · ${settings?.plz_ort || '3007 Bern'}`, size: 14, color: '999999' })
       ],
       spacing: { after: 200 }
     }),
@@ -235,8 +235,8 @@ export const generateOfferteWord = async (offerte, kunde, projekt, settings) => 
         leistungenTable,
         new Paragraph({ spacing: { before: 800, after: 400 }, children: [new TextRun({ text: daten.schlusstext || 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' })] }),
         new Paragraph({ text: 'Freundliche Grüsse' }),
-        new Paragraph({ spacing: { before: 600 }, children: [new TextRun({ text: 'Leandro Lüthi', bold: true })] }),
-        new Paragraph({ children: [new TextRun({ text: 'Malerei Leandro Lüthi – Atelier 77', color: '888888', size: 17 })] })
+        new Paragraph({ spacing: { before: 600 }, children: [new TextRun({ text: settings?.firmenname || 'Leandro Lüthi', bold: true })] }),
+        new Paragraph({ children: [new TextRun({ text: settings?.website || 'Malerei Leandro Lüthi – Atelier 77', color: '888888', size: 17 })] })
       ]
     }]
   });

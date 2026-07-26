@@ -4,7 +4,7 @@ import logo from '../assets/logo.png'
 import html2pdf from 'html2pdf.js'
 import { generateOfferteWord } from '../lib/wordGenerator'
 
-export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
+export default function OffertePrintView({ offerte, kunde, projekt, onClose, previewMode = false }) {
   const [settings, setSettings] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [scale, setScale] = useState(1)
@@ -134,7 +134,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
         pdf.setTextColor(153, 153, 153);
         
         // Text Content
-        const text1 = "Malerei Leandro Lüthi • Landoltstrasse 99 • 3007 Bern • +41 (0)78 402 12 22 • leandro@atelier-77.ch";
+        const text1 = `${settings?.firmenname || 'Malerei Leandro Lüthi'} • ${settings?.strasse || 'Landoltstrasse 99'} • ${settings?.plz_ort || '3007 Bern'} • ${settings?.telefon || '+41 (0)78 402 12 22'} • ${settings?.email || 'leandro@atelier-77.ch'}`;
         const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
         const text2 = `UID: CHE-489.750.760${bank}`;
         
@@ -155,8 +155,9 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0">
+    <div className={previewMode ? "relative w-full h-full bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0" : "fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0"}>
       {/* ===== ACTION BAR (hidden when printing) ===== */}
+      {!previewMode && (
       <div className="print:hidden sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3 z-10 shadow-sm">
         <button 
           onClick={onClose} 
@@ -168,7 +169,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           <button 
             onClick={() => {
               const subject = encodeURIComponent(`Offerte ${offerte?.id || ''} - Atelier 77`)
-              const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Offerte für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\nLeandro Lüthi\nMalerei Leandro Lüthi – Atelier 77`)
+              const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Offerte für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Leandro Lüthi'}\n${settings?.website || 'Malerei Leandro Lüthi – Atelier 77'}`)
               window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
             }}
             className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
@@ -197,6 +198,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           </button>
         </div>
       </div>
+      )}
 
       {/* ===== A4 PAGE ===== */} 
       <div className="w-full flex justify-center pb-20 print:pb-0" style={{ transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: scale < 1 ? `-${297 * (1 - scale)}mm` : '0' }}>
@@ -223,7 +225,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
             <img src={logo} alt="Atelier 77" style={{ height: '52px', objectFit: 'contain' }} />
           </div>
           <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#666', lineHeight: '1.6' }}>
-            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>Malerei Leandro Lüthi</div>
+            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || 'Malerei Leandro Lüthi'}</div>
             <div>Landoltstrasse 99</div>
             <div>3007 Bern</div>
             <div style={{ marginTop: '2mm' }}>+41 (0)78 402 12 22</div>
@@ -235,7 +237,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
         <div style={{ marginBottom: '14mm' }} className="avoid-break">
           {/* Absenderzeile (klein, über Adresse) */}
           <div style={{ fontSize: '7pt', color: '#999', marginBottom: '2mm', borderBottom: '0.5px solid #ccc', paddingBottom: '1mm', display: 'inline-block' }}>
-            Malerei Leandro Lüthi · Landoltstrasse 99 · 3007 Bern
+            {settings?.firmenname || 'Malerei Leandro Lüthi'} · {settings?.strasse || 'Landoltstrasse 99'} · {settings?.plz_ort || '3007 Bern'}
           </div>
           
           {/* Empfänger-Adresse */}
@@ -258,8 +260,11 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
           
           <div style={{ textAlign: 'right', fontSize: '9.5pt', lineHeight: '1.7' }}>
             <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDate(offerte.created_at)}</span></div>
-            {offerte.gueltig_bis && (
-              <div><span style={{ color: '#888' }}>Gültig bis:</span> <span style={{ fontWeight: 500 }}>{formatDate(offerte.gueltig_bis)}</span></div>
+            {daten.konditionen?.gueltigkeit && (
+              <div><span style={{ color: '#888' }}>Gültigkeit:</span> <span style={{ fontWeight: 500 }}>{daten.konditionen.gueltigkeit}</span></div>
+            )}
+            {daten.konditionen?.zahlungsfrist && (
+              <div><span style={{ color: '#888' }}>Zahlungsfrist:</span> <span style={{ fontWeight: 500 }}>{daten.konditionen.zahlungsfrist}</span></div>
             )}
             {projekt?.name && (
               <div style={{ marginTop: '2mm' }}>
@@ -298,7 +303,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
 
             <tbody>
               {leistungen.map((pos, i) => {
-                const isInfo = (!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0)
+                const isInfo = pos.type === 'title' || ((!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0))
                 const isOption = pos.optional === true
                 const posTotal = isInfo ? 0 : (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
                 const posNr = pos.posNr || (i + 1)
@@ -439,8 +444,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
                   <div style={{ height: '15mm', borderBottom: '0.5px solid #ccc', width: '50mm' }}></div>
                 )}
               </div>
-              <div style={{ fontSize: '9.5pt', fontWeight: 600 }}>Leandro Lüthi</div>
-              <div style={{ fontSize: '8.5pt', color: '#888' }}>Malerei Leandro Lüthi – Atelier 77</div>
+              <div style={{ fontSize: '9.5pt', fontWeight: 600 }}>{settings?.firmenname || 'Leandro Lüthi'}</div>
+              <div style={{ fontSize: '8.5pt', color: '#888' }}>{settings?.website || 'www.atelier-77.ch'}</div>
             </div>
           </div>
         </div>
@@ -452,7 +457,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose }) {
         }}>
           <div style={{ height: '1px', backgroundColor: gold, marginBottom: '3mm' }}></div>
           <div style={{ textAlign: 'center', fontSize: '7.5pt', color: '#999', lineHeight: '1.7' }}>
-            <div>Malerei Leandro Lüthi • Landoltstrasse 99 • 3007 Bern • +41 (0)78 402 12 22 • leandro@atelier-77.ch</div>
+            <div>{settings?.firmenname || 'Malerei Leandro Lüthi'} • {settings?.strasse || 'Landoltstrasse 99'} • {settings?.plz_ort || '3007 Bern'} • {settings?.telefon || '+41 (0)78 402 12 22'} • {settings?.email || 'leandro@atelier-77.ch'}</div>
             <div>UID: CHE-489.750.760{settings?.bankverbindung ? ` • ${settings.bankverbindung}` : ''}</div>
           </div>
         </div>

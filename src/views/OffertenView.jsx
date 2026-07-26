@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/formatters'
@@ -18,6 +18,36 @@ export default function OffertenView({ viewParams, onNavigate }) {
   const [showFilterSheet, setShowFilterSheet] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
 
+  const chartData = useMemo(() => {
+    const year = new Date().getFullYear()
+    const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+    const createdTotals = Array(12).fill(0)
+    const acceptedTotals = Array(12).fill(0)
+    
+    offerten.forEach(o => {
+      if (!o.is_archived && o.created_at && o.created_at.startsWith(year.toString())) {
+        const monthIndex = parseInt(o.created_at.substring(5, 7), 10) - 1
+        if (monthIndex >= 0 && monthIndex < 12) {
+          createdTotals[monthIndex] += (o.total || 0)
+          if (o.status === 'Akzeptiert') {
+            acceptedTotals[monthIndex] += (o.total || 0)
+          }
+        }
+      }
+    })
+    
+    const maxVal = Math.max(...createdTotals, ...acceptedTotals, 1000)
+    
+    return months.map((m, i) => ({
+      month: m,
+      createdTotal: createdTotals[i],
+      acceptedTotal: acceptedTotals[i],
+      createdHeight: (createdTotals[i] / maxVal) * 100,
+      acceptedHeight: (acceptedTotals[i] / maxVal) * 100
+    }))
+  }, [offerten])
+
+
   useEffect(() => {
     async function fetchOfferten() {
       if (!supabase) return
@@ -26,7 +56,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
         setIsLoading(true)
         const { data, error } = await supabase
           .from('offerten')
-          .select('*, kunden(name), projekte(name)')
+          .select('*, kunden(name), projekte(name, adresse)')
           .order('created_at', { ascending: false })
           
         if (error) throw error
@@ -60,12 +90,24 @@ export default function OffertenView({ viewParams, onNavigate }) {
   }
 
   const statusStyles = {
-    'Entwurf': 'border-gray-400 text-gray-500',
-    'Versendet': 'border-blue-500 text-blue-600',
-    'In Überarbeitung': 'border-amber-500 text-amber-600',
-    'Akzeptiert': 'border-emerald-500 text-emerald-600',
-    'Abgelehnt': 'border-red-500 text-red-600',
-    'Verrechnet': 'border-purple-500 text-purple-600',
+    'Entwurf': 'bg-gray-100 text-gray-600',
+    'Versendet': 'bg-blue-100 text-blue-700',
+    'In Überarbeitung': 'bg-amber-100 text-amber-700',
+    'Akzeptiert': 'bg-emerald-100 text-emerald-700',
+    'Abgelehnt': 'bg-red-100 text-red-700',
+    'Verrechnet': 'bg-purple-100 text-purple-700',
+  }
+  
+  const getBorderColor = (status) => {
+    switch (status) {
+      case 'Entwurf': return 'border-l-gray-400'
+      case 'Versendet': return 'border-l-blue-500'
+      case 'In Überarbeitung': return 'border-l-amber-500'
+      case 'Akzeptiert': return 'border-l-emerald-500'
+      case 'Abgelehnt': return 'border-l-red-500'
+      case 'Verrechnet': return 'border-l-purple-500'
+      default: return 'border-l-gray-400'
+    }
   }
 
   // If detail view is open
@@ -192,6 +234,48 @@ export default function OffertenView({ viewParams, onNavigate }) {
         </div>
       </div>
 
+      {/* Umsatz Chart */}
+      <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
+        <h3 className="font-semibold text-text-primary mb-6">Offertenvolumen {new Date().getFullYear()}</h3>
+        <div className="flex items-end justify-between h-48 gap-2">
+          {chartData.map((d, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full">
+              <div className="w-full h-full flex items-end justify-center gap-1 relative">
+                {/* Erstellt Bar */}
+                <div 
+                  className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-primary-300"
+                  style={{ height: `${Math.max(d.createdHeight, 1)}%`, backgroundColor: '#d1d5db' }}
+                >
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                    Erstellt: {formatCurrency(d.createdTotal)}
+                  </div>
+                </div>
+                {/* Akzeptiert Bar */}
+                <div 
+                  className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-[#b08e4d]"
+                  style={{ height: `${Math.max(d.acceptedHeight, 1)}%`, backgroundColor: '#c5a057' }}
+                >
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                    Akzeptiert: {formatCurrency(d.acceptedTotal)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-xs text-text-secondary font-medium">{d.month}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center gap-6 mt-4">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+            <span className="text-xs text-text-secondary">Erstellt</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#c5a057' }}></div>
+            <span className="text-xs text-text-secondary">Akzeptiert</span>
+          </div>
+        </div>
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="flex flex-row gap-2 items-center">
         <div className="relative flex-1 w-full">
@@ -260,10 +344,12 @@ export default function OffertenView({ viewParams, onNavigate }) {
       {/* Offerten list */}
       <div className="w-full">
         {/* Desktop header */}
-        <div className="hidden lg:grid grid-cols-[100px_1fr_1fr_140px_100px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+        <div className="hidden lg:grid grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('id')}>Nr. <SortIcon columnKey="id" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('projekt')}>Objekt <SortIcon columnKey="projekt" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center">Ausführung</span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center">Gültig bis</span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('total')}>Betrag <SortIcon columnKey="total" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-center" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('created_at')}>Datum <SortIcon columnKey="created_at" /></span>
@@ -280,7 +366,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
             <div
               key={o.id}
               onClick={() => setSelectedOfferte(o)}
-              className="flex flex-col lg:grid lg:grid-cols-[100px_1fr_1fr_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-amber-400 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+              className={`flex flex-col lg:grid lg:grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${getBorderColor(o.status)} hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group`}
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
                 <span className="text-sm font-mono font-bold text-primary-600">
@@ -291,17 +377,26 @@ export default function OffertenView({ viewParams, onNavigate }) {
               
               <div className="flex flex-col">
                 <span className="text-base lg:text-sm font-semibold text-text-primary truncate">{o.kunden?.name || 'Unbekannt'}</span>
-                <span className="text-xs lg:text-sm text-text-secondary truncate mt-0.5 lg:hidden">📍 {o.projekte?.name || 'Kein Projekt'}</span>
+                <span className="text-xs lg:text-sm text-text-secondary truncate mt-0.5 lg:hidden">
+                  🏗️ {o.projekte?.name || 'Kein Projekt'}
+                  {o.projekte?.adresse && ` - ${o.projekte.adresse.split(',')[0]}`}
+                </span>
               </div>
               
-              <span className="hidden lg:block text-sm text-text-secondary truncate">{o.projekte?.name || 'Kein Projekt'}</span>
+              <span className="hidden lg:block text-sm text-text-secondary truncate">
+                {o.projekte?.name || 'Kein Projekt'}
+                {o.projekte?.adresse && ` - ${o.projekte.adresse.split(',')[0]}`}
+              </span>
               
-              <div className="flex items-center justify-between w-full lg:w-auto mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-300 lg:border-none lg:pt-0">
-                <span className="text-xl font-black font-mono tracking-tight text-text-primary lg:text-right">
+              <span className="hidden lg:block text-sm text-text-secondary truncate">{o.daten?.ausfuehrung?.start || '-'}</span>
+              <span className="hidden lg:block text-sm text-text-secondary truncate">{o.daten?.konditionen?.gueltigkeit || '-'}</span>
+              
+              <div className="flex items-center justify-between w-full lg:contents mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-300 lg:border-none lg:pt-0">
+                <span className="text-sm font-bold text-text-primary lg:text-right">
                   {formatCurrency(o.total)}
                 </span>
                 <div className="lg:flex lg:justify-center lg:items-center">
-                  <span className={`inline-block px-2 lg:px-3 py-0.5 lg:py-1 border-2 -rotate-3 text-[10px] lg:text-xs font-bold uppercase tracking-widest bg-white/80 backdrop-blur-sm shadow-sm ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
                     {o.status || 'Entwurf'}
                   </span>
                 </div>

@@ -105,8 +105,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="p-5 md:p-8 max-w-7xl mx-auto w-full print:p-0 print:m-0 print:max-w-none">
+        {/* Main View Area */}
+        <div className="p-5 md:p-8 w-full min-h-screen print:p-0 print:m-0 print:max-w-none">
           <ActiveComponent onNavigate={handleNavigate} viewParams={viewParams} />
         </div>
       </main>

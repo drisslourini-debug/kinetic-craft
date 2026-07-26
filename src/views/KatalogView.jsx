@@ -101,8 +101,6 @@ export default function KatalogView() {
       beschreibung: 'Neue Leistung',
       einheit: 'm²',
       einzelpreis: 0,
-      preis_material: 0,
-      preis_arbeit: 0,
       is_archived: false,
       sort_order: katLeistungen.length
     }
@@ -113,31 +111,17 @@ export default function KatalogView() {
   const handleUpdateLeistung = async (id, field, value) => {
     setLeistungen(prev => prev.map(l => {
       if (l.id === id) {
-        const updated = { ...l, [field]: value }
-        if (field === 'preis_material' || field === 'preis_arbeit') {
-          updated.einzelpreis = (parseFloat(updated.preis_material) || 0) + (parseFloat(updated.preis_arbeit) || 0)
-        }
-        return updated
+        return { ...l, [field]: value }
       }
       return l
     }))
     
     const updateData = { [field]: value }
-    if (field === 'preis_material' || field === 'preis_arbeit') {
-      const current = leistungen.find(l => l.id === id)
-      const mat = field === 'preis_material' ? parseFloat(value) || 0 : parseFloat(current.preis_material) || 0
-      const arb = field === 'preis_arbeit' ? parseFloat(value) || 0 : parseFloat(current.preis_arbeit) || 0
-      updateData.einzelpreis = mat + arb
-    }
     
     try {
       const { error } = await supabase.from('katalog_leistungen').update(updateData).eq('id', id)
       if (error) {
-        if (error.message.includes('preis_material') || error.message.includes('preis_arbeit')) {
-          alert('Datenbankfehler: Die Spalten "preis_material" und "preis_arbeit" fehlen in Supabase! Bitte füge sie als Typ "numeric" zur Tabelle "katalog_leistungen" hinzu.')
-        } else {
-          console.error('Update Fehler:', error)
-        }
+        console.error('Update Fehler:', error)
       }
     } catch (err) {
       console.error(err)
@@ -347,19 +331,17 @@ export default function KatalogView() {
                     </div>
                   ) : (
                     <div className="divide-y divide-border/50">
-                      <div className="hidden lg:grid grid-cols-[30px_1fr_80px_100px_100px_100px_40px] gap-4 px-5 py-3 bg-white text-xs font-bold text-text-secondary uppercase tracking-wider sticky top-0 z-10 shadow-sm border-b border-border">
+                      <div className="hidden lg:grid grid-cols-[30px_1fr_80px_120px_40px] gap-4 px-5 py-3 bg-white text-xs font-bold text-text-secondary uppercase tracking-wider sticky top-0 z-10 shadow-sm border-b border-border">
                         <span></span>
                         <span>Beschreibung</span>
                         <span className="text-center">Einheit</span>
-                        <span className="text-right">Material</span>
-                        <span className="text-right">Arbeit</span>
-                        <span className="text-right text-primary-700">Total CHF</span>
+                        <span className="text-right text-primary-700">Preis CHF</span>
                         <span></span>
                       </div>
                       
                       <div className="p-3 sm:p-0 space-y-3 sm:space-y-0 bg-neutral-50 lg:bg-transparent">
                         {displayedLeistungen.map((pos, idx) => (
-                          <div key={pos.id} className={`sm:p-4 sm:px-5 grid grid-cols-1 lg:grid-cols-[30px_1fr_80px_100px_100px_100px_40px] gap-3 lg:gap-4 items-center transition-all bg-white sm:bg-transparent rounded-xl sm:rounded-none border border-border sm:border-transparent sm:border-b sm:border-b-border/50 shadow-sm sm:shadow-none hover:bg-white ${pos.is_archived ? 'opacity-50 grayscale' : ''}`}>
+                          <div key={pos.id} className={`sm:p-4 sm:px-5 grid grid-cols-1 lg:grid-cols-[30px_1fr_80px_120px_40px] gap-3 lg:gap-4 items-center transition-all bg-white sm:bg-transparent rounded-xl sm:rounded-none border border-border sm:border-transparent sm:border-b sm:border-b-border/50 shadow-sm sm:shadow-none hover:bg-white ${pos.is_archived ? 'opacity-50 grayscale' : ''}`}>
                             
                             {/* Sort Controls (Desktop only) */}
                             <div className="hidden lg:flex flex-col gap-0.5 items-center justify-center">
@@ -416,41 +398,21 @@ export default function KatalogView() {
                               />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 px-4 pb-2 lg:p-0 lg:contents">
-                              <div>
-                                <span className="lg:hidden text-[10px] text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded font-bold uppercase mb-1.5 inline-block">Material</span>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-2 text-xs text-text-secondary lg:hidden">CHF</span>
-                                  <input 
-                                    type="number" 
-                                    value={pos.preis_material || ''}
-                                    onChange={(e) => handleUpdateLeistung(pos.id, 'preis_material', e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2 lg:px-3 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm font-mono text-text-primary outline-none transition-all lg:text-right shadow-sm lg:shadow-none"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <span className="lg:hidden text-[10px] text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded font-bold uppercase mb-1.5 inline-block">Arbeit</span>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-2 text-xs text-text-secondary lg:hidden">CHF</span>
-                                  <input 
-                                    type="number" 
-                                    value={pos.preis_arbeit || ''}
-                                    onChange={(e) => handleUpdateLeistung(pos.id, 'preis_arbeit', e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2 lg:px-3 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm font-mono text-text-primary outline-none transition-all lg:text-right shadow-sm lg:shadow-none"
-                                    placeholder="0.00"
-                                  />
-                                </div>
+                            <div className="px-4 pb-2 lg:p-0">
+                              <span className="lg:hidden text-[10px] text-primary-700 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded font-bold uppercase mb-1.5 inline-block">Preis CHF</span>
+                              <div className="relative">
+                                <span className="absolute left-3 top-2 text-xs text-text-secondary lg:hidden">CHF</span>
+                                <input 
+                                  type="number" 
+                                  value={pos.einzelpreis || ''}
+                                  onChange={(e) => handleUpdateLeistung(pos.id, 'einzelpreis', e.target.value)}
+                                  className="w-full pl-9 pr-3 py-2 lg:px-3 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm font-mono text-primary-700 outline-none transition-all lg:text-right shadow-sm lg:shadow-none font-bold"
+                                  placeholder="0.00"
+                                />
                               </div>
                             </div>
 
-                            <div className="px-4 py-3 bg-neutral-50 lg:bg-transparent border-t border-border/50 lg:border-none flex items-center justify-between lg:justify-end lg:p-0 rounded-b-xl lg:rounded-none">
-                              <span className="lg:hidden text-[10px] font-bold text-text-secondary uppercase">Total</span>
-                              <span className="text-base lg:text-sm font-bold font-mono text-primary-700 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded">
-                                CHF {formatMoney(pos.einzelpreis || 0)}
-                              </span>
-                            </div>
+
 
                             <div className="flex justify-end lg:justify-center p-3 lg:p-0 border-t border-border/50 lg:border-none bg-white lg:bg-transparent rounded-b-xl lg:rounded-none">
                               {pos.is_archived ? (

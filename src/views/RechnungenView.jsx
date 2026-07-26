@@ -26,7 +26,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
         setIsLoading(true)
         const { data, error } = await supabase
           .from('rechnungen')
-          .select('*, kunden(name), projekte(name)')
+          .select('*, kunden(name), projekte(name, adresse)')
           .order('created_at', { ascending: false })
           
         if (error) throw error
@@ -135,11 +135,11 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
 
   const statusStyles = {
-    'Entwurf': 'border-gray-400 text-gray-500',
-    'Versendet': 'border-blue-500 text-blue-600',
-    'Bezahlt': 'border-emerald-500 text-emerald-600',
-    'Überfällig': 'border-red-500 text-red-600',
-    'Storniert': 'border-gray-700 text-gray-700',
+    'Entwurf': 'bg-gray-100 text-gray-600',
+    'Versendet': 'bg-blue-100 text-blue-700',
+    'Bezahlt': 'bg-emerald-100 text-emerald-700',
+    'Überfällig': 'bg-red-100 text-red-700',
+    'Storniert': 'bg-gray-100 text-gray-700',
   }
 
   if (selectedRechnung) {
@@ -334,14 +334,15 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
       {/* Rechnungen list */}
       <div className="w-full">
-        <div className="hidden lg:grid grid-cols-[140px_1fr_1fr_140px_100px_100px_120px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+        <div className="hidden lg:grid grid-cols-[140px_1.5fr_1.5fr_100px_120px_100px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('rechnung_nr')}>Rechnungsnr. <SortIcon columnKey="rechnung_nr" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('projekt')}>Projekt <SortIcon columnKey="projekt" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('created_at')}>Erstellt am <SortIcon columnKey="created_at" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('total')}>Betrag <SortIcon columnKey="total" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-center" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
           <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('faellig_am')}>Fällig am <SortIcon columnKey="faellig_am" /></span>
-          <span className="text-right">Aktionen</span>
+          <span className="text-right sr-only">Aktionen</span>
         </div>
 
         {isLoading ? (
@@ -354,7 +355,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
             <div
               key={r.id}
               onClick={() => setSelectedRechnung(r)}
-              className="flex flex-col lg:grid lg:grid-cols-[140px_1fr_1fr_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-emerald-500 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+              className="flex flex-col lg:grid lg:grid-cols-[140px_1.5fr_1.5fr_100px_120px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-emerald-500 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
                 <span className="text-sm font-mono font-bold text-primary-600">
@@ -365,17 +366,25 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
               <div className="flex flex-col">
                 <span className="text-base lg:text-sm font-semibold text-text-primary truncate">{r.kunden?.name || 'Unbekannt'}</span>
-                <span className="text-xs lg:text-sm text-text-secondary truncate mt-0.5 lg:hidden">📍 {r.projekte?.name || 'Kein Projekt'}</span>
+                <span className="text-xs lg:text-sm text-text-secondary truncate mt-0.5 lg:hidden">
+                  🏗️ {r.projekte?.name || 'Kein Projekt'}
+                  {r.projekte?.adresse && ` - ${r.projekte.adresse.split(',')[0]}`}
+                </span>
               </div>
 
-              <span className="hidden lg:block text-sm text-text-secondary truncate">{r.projekte?.name || 'Kein Projekt'}</span>
+              <span className="hidden lg:block text-sm text-text-secondary truncate">
+                {r.projekte?.name || 'Kein Projekt'}
+                {r.projekte?.adresse && ` - ${r.projekte.adresse.split(',')[0]}`}
+              </span>
+              
+              <span className="hidden lg:block text-sm text-text-secondary lg:text-right truncate">{formatDate(r.created_at)}</span>
 
-              <div className="flex items-center justify-between w-full lg:w-auto mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-300 lg:border-none lg:pt-0">
+              <div className="flex items-center justify-between w-full lg:contents mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-300 lg:border-none lg:pt-0">
                 <span className="text-sm font-bold text-text-primary lg:text-right">
                   {formatCurrency(r.total)}
                 </span>
                 <div className="lg:flex lg:justify-center lg:items-center">
-                  <span className={`inline-block px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-bold uppercase ${statusStyles[r.status] || statusStyles['Entwurf']}`}>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${statusStyles[r.status] || statusStyles['Entwurf']}`}>
                     {r.status || 'Entwurf'}
                   </span>
                 </div>

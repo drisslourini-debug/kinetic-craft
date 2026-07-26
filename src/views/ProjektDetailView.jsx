@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
@@ -9,17 +10,135 @@ const PROJEKT_KATEGORIEN = [
   'Sanierung'
 ];
 
+// ----------------------
+// SUBCOMPONENTS
+// ----------------------
+
+const SettingsBlock = ({ title, description, isEditing, onEdit, onCancel, onSave, isSaving, children, readOnlyView }) => (
+  <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6 mb-6">
+    <div className="flex justify-between items-start mb-6">
+      <div>
+        <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+        {description && <p className="text-sm text-text-secondary mt-1">{description}</p>}
+      </div>
+      {!isEditing && (
+        <button 
+          onClick={onEdit} 
+          className="p-2 text-text-secondary hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer" 
+          title="Bearbeiten"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+        </button>
+      )}
+    </div>
+    
+    <div>
+      {isEditing ? (
+        <div className="animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {children}
+          </div>
+          <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4">
+            <button 
+              onClick={onCancel} 
+              className="px-5 py-2.5 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+            >
+              Abbrechen
+            </button>
+            <button 
+              onClick={onSave} 
+              disabled={isSaving} 
+              className="px-6 py-2.5 text-sm font-bold bg-primary-600 text-white rounded-xl hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+            >
+              {isSaving ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Speichert...
+                </>
+              ) : 'Speichern'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col border-t border-border pt-4">
+          {readOnlyView}
+        </div>
+      )}
+    </div>
+  </div>
+)
+
+const SettingsRow = ({ label, value }) => (
+  <div className="flex flex-col sm:flex-row py-3 border-b border-border last:border-b-0 hover:bg-surface-50 transition-colors px-2 rounded-lg -mx-2">
+    <div className="sm:w-1/3 text-sm font-semibold text-text-secondary">{label}</div>
+    <div className="sm:w-2/3 text-sm text-text-primary font-medium">{value || <span className="text-gray-400 italic">Nicht angegeben</span>}</div>
+  </div>
+)
+
+const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "", error = null }) => (
+  <div className={fullWidth ? "md:col-span-2" : ""}>
+    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">
+      {label} {error && <span className="text-red-500 font-normal ml-1 lowercase">({error})</span>}
+    </label>
+    <input
+      type={type}
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={`w-full px-3 py-2 bg-surface border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors ${error ? 'border-red-400 bg-red-50/50' : 'border-border'}`}
+    />
+  </div>
+)
+
+const SelectField = ({ label, value, onChange, options, fullWidth = false }) => (
+  <div className={fullWidth ? "md:col-span-2" : ""}>
+    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">{label}</label>
+    <select
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
+    >
+      <option value="">-- Bitte wählen --</option>
+      {options.map(opt => (
+        <option key={opt.value || opt} value={opt.value || opt}>{opt.label || opt}</option>
+      ))}
+    </select>
+  </div>
+)
+
+const TextAreaField = ({ label, value, onChange, fullWidth = true, placeholder = "", small = false }) => (
+  <div className={fullWidth ? "md:col-span-2" : ""}>
+    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">{label}</label>
+    <textarea
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={`w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors resize-y ${small ? 'h-20' : 'h-32'}`}
+    />
+  </div>
+)
+
+// ----------------------
+// MAIN COMPONENT
+// ----------------------
+
 export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate }) {
+  const [parent] = useAutoAnimate()
   const [projekt, setProjekt] = useState(initialProjekt)
   const [offerten, setOfferten] = useState([])
   const [rechnungen, setRechnungen] = useState([])
   const [kunde, setKunde] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('projektdaten') // projektdaten, offerten, rechnungen
-  const [isDirty, setIsDirty] = useState(false)
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+
+  // Edit State
+  const [editState, setEditState] = useState(null) // null, 'stammdaten', 'termine', 'notizen'
+  const [draft, setDraft] = useState({})
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     async function loadDetails() {
@@ -66,25 +185,33 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     loadDetails()
   }, [projekt.id])
 
-  const handleInputChange = (field, value) => {
-    setProjekt(prev => ({ ...prev, [field]: value }))
-    setIsDirty(true)
+  const startEdit = (blockName) => {
+    setDraft({ ...projekt })
+    setEditState(blockName)
   }
 
-  const handleSave = async () => {
+  const cancelEdit = () => {
+    setDraft({})
+    setEditState(null)
+  }
+
+  const handleDraftChange = (field, value) => {
+    setDraft(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSaveBlock = async () => {
     setIsSaving(true)
     
-    // We don't want to try and write read-only or joined fields
     const dataToSave = {
-      name: projekt.name,
-      kunden_id: projekt.kunden_id,
-      kategorie: projekt.kategorie,
-      adresse: projekt.adresse,
-      status: projekt.status,
-      startdatum: projekt.startdatum,
-      enddatum: projekt.enddatum,
-      notizen: projekt.notizen,
-      is_archived: projekt.is_archived
+      name: draft.name,
+      kunden_id: draft.kunden_id,
+      kategorie: draft.kategorie,
+      adresse: draft.adresse,
+      status: draft.status,
+      startdatum: draft.startdatum,
+      enddatum: draft.enddatum,
+      notizen: draft.notizen,
+      is_archived: draft.is_archived
     }
     
     try {
@@ -93,7 +220,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         .update(dataToSave)
         .eq('id', projekt.id)
         
-      setIsDirty(false)
+      setProjekt(draft)
+      setEditState(null)
     } catch (err) {
       console.error('Failed to update projekt:', err)
       alert('Fehler beim Speichern.')
@@ -120,14 +248,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     }
   }
 
-  const handleBackClick = () => {
-    if (isDirty) {
-      setShowUnsavedWarning(true)
-    } else {
-      onBack()
-    }
-  }
-
   if (!projekt) return null
 
   // Helper to format date
@@ -138,21 +258,14 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     })
   }
 
-  const statusStyles = {
-    'Entwurf': 'bg-gray-100 text-gray-600',
-    'Versendet': 'bg-primary-100 text-primary-700',
-    'Akzeptiert': 'bg-emerald-100 text-emerald-700',
-    'Abgelehnt': 'bg-red-100 text-red-600',
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl pb-16">
       {/* Header mit Zurück-Button & Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
-            onClick={handleBackClick}
-            className="p-2 rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer"
+            onClick={onBack}
+            className="p-2 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -161,55 +274,40 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{projekt.name}</h2>
-              {isDirty && <span className="w-2 h-2 rounded-full bg-amber-500" title="Ungespeicherte Änderungen"></span>}
             </div>
-          <p className="text-text-secondary mt-1 flex items-center gap-2">
-            <span>{projekt.adresse ? `📍 ${projekt.adresse}` : 'Keine Baustellenadresse'}</span>
-          </p>
+            <p className="text-text-secondary mt-1 flex items-center gap-2">
+              <span>{projekt.adresse ? `📍 ${projekt.adresse}` : 'Keine Baustellenadresse'}</span>
+            </p>
           </div>
         </div>
 
-        {/* Quick Actions (nur wenn nicht dirty) */}
-        <div className="flex items-center gap-2 self-start sm:self-auto ml-12 sm:ml-0 overflow-x-auto pb-2 sm:pb-0 hide-scrollbar w-full sm:w-auto">
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
           <button 
-            onClick={() => !isDirty && onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-            disabled={isDirty}
-            className="flex-shrink-0 px-3 py-1.5 bg-surface text-primary-600 text-xs font-semibold rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+            onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+            className="px-3 py-2 text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
           >
             + Neue Offerte
           </button>
           <button 
-            onClick={() => !isDirty && onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-            disabled={isDirty}
-            className="flex-shrink-0 px-3 py-1.5 bg-surface text-primary-600 text-xs font-semibold rounded-lg border border-primary-200 hover:bg-primary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap"
+            onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+            className="px-3 py-2 text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
           >
             + Neue Rechnung
           </button>
         </div>
       </div>
 
-      {/* Warnung bei ungespeicherten Änderungen, falls man Quick Actions nutzen will */}
-      {isDirty && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm flex items-start gap-3">
-          <svg className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div>
-            <strong>Ungespeicherte Änderungen:</strong> Bitte speichere das Projekt zuerst ab, bevor du eine Offerte oder Rechnung erstellst.
-          </div>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-border">
+      {/* Tabs - Pill Design */}
+      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
         {['projektdaten', 'offerten', 'rechnungen'].map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-2 text-sm font-semibold capitalize border-b-2 transition-colors cursor-pointer ${
+            onClick={() => { setActiveTab(tab); setEditState(null); }}
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
               activeTab === tab 
-                ? 'border-primary-500 text-primary-600' 
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
+                ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
+                : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
             {tab}
@@ -220,126 +318,94 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
       {isLoading ? (
         <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
       ) : (
-        <div className="space-y-8 animate-fade-in">
+        <div className="animate-fade-in" ref={parent}>
           
           {/* TAB: PROJEKTDATEN */}
           {activeTab === 'projektdaten' && (
-            <div className="animate-fade-in-up grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
-                <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Projektname</label>
-                    <input 
-                      type="text" 
-                      value={projekt.name || ''} 
-                      onChange={e => handleInputChange('name', e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Kategorie</label>
-                    <select 
-                      value={projekt.kategorie || ''}
-                      onChange={(e) => handleInputChange('kategorie', e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                    >
-                      <option value="">-- Bitte wählen --</option>
-                      {PROJEKT_KATEGORIEN.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Baustellen-Adresse</label>
-                    <AddressAutocomplete 
-                      value={projekt.adresse || ''}
-                      onChange={(val) => handleInputChange('adresse', val)}
-                      placeholder="Strasse eingeben (Auto-Fill)..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Status</label>
-                    <select 
-                      value={projekt.status || 'Aktiv'}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 font-medium focus:ring-1 focus:ring-primary-400"
-                    >
-                      <option value="Aktiv">Aktiv</option>
-                      <option value="In Arbeit">In Arbeit</option>
-                      <option value="Abgeschlossen">Abgeschlossen</option>
-                    </select>
-                  </div>
-                </div>
-
-                {kunde && (
-                  <div className="pt-6 border-t border-border">
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1">
-                      <span>👤</span> Zugehöriger Kunde
-                    </label>
-                    <div 
-                      className="mt-2 font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
-                      onClick={() => kunde && onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
-                    >{kunde.name}</div>
-                    {kunde.ort && <div className="text-sm text-text-secondary mt-0.5">{kunde.ort}</div>}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
-                  <h3 className="text-lg font-bold text-text-primary">Termine</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Startdatum</label>
-                      <input 
-                        type="date"
-                        value={projekt.startdatum || ''}
-                        onChange={(e) => handleInputChange('startdatum', e.target.value)}
-                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Enddatum</label>
-                      <input 
-                        type="date"
-                        value={projekt.enddatum || ''}
-                        onChange={(e) => handleInputChange('enddatum', e.target.value)}
-                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-text-primary mb-4">Besonderheiten & Notizen</h3>
-                  <textarea 
-                    value={projekt.notizen || ''}
-                    onChange={(e) => handleInputChange('notizen', e.target.value)}
-                    className="w-full h-32 px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Zugangscodes, Materiallagerplatz, Besonderheiten zur Baustelle..."
+            <div className="animate-fade-in-up space-y-4">
+              
+              <SettingsBlock
+                title="Stammdaten"
+                isEditing={editState === 'stammdaten'}
+                onEdit={() => startEdit('stammdaten')}
+                onCancel={cancelEdit}
+                onSave={handleSaveBlock}
+                isSaving={isSaving}
+                readOnlyView={
+                  <>
+                    <SettingsRow label="Projektname" value={projekt.name} />
+                    <SettingsRow label="Kategorie" value={projekt.kategorie} />
+                    <SettingsRow label="Baustellen-Adresse" value={projekt.adresse} />
+                    <SettingsRow label="Status" value={
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                        projekt.status === 'Abgeschlossen' ? 'bg-emerald-100 text-emerald-700' :
+                        projekt.status === 'In Arbeit' ? 'bg-amber-100 text-amber-700' :
+                        'bg-indigo-100 text-indigo-700'
+                      }`}>
+                        {projekt.status || 'Aktiv'}
+                      </span>
+                    } />
+                    {kunde && (
+                      <SettingsRow label="Zugehöriger Kunde" value={
+                        <div 
+                          className="font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
+                          onClick={() => kunde && onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
+                        >
+                          {kunde.name} {kunde.ort && <span className="text-text-secondary font-normal ml-2">📍 {kunde.ort}</span>}
+                        </div>
+                      } />
+                    )}
+                  </>
+                }
+              >
+                <InputField label="Projektname" value={draft.name} onChange={v => handleDraftChange('name', v)} />
+                <SelectField label="Kategorie" value={draft.kategorie} onChange={v => handleDraftChange('kategorie', v)} options={PROJEKT_KATEGORIEN} />
+                <div className="md:col-span-2">
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Baustellen-Adresse (Auto-Fill)</label>
+                  <AddressAutocomplete 
+                    value={draft.adresse || ''}
+                    onChange={(val) => handleDraftChange('adresse', val)}
+                    placeholder="Strasse eingeben (Auto-Fill)..."
+                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
                   />
                 </div>
-              </div>
+                <SelectField label="Status" value={draft.status || 'Aktiv'} onChange={v => handleDraftChange('status', v)} options={['Aktiv', 'In Arbeit', 'Abgeschlossen']} />
+              </SettingsBlock>
 
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 md:col-span-2">
-                <div>
-                  {isDirty && (
-                    <span className="text-sm text-amber-600 font-medium animate-pulse">
-                      Es gibt ungespeicherte Änderungen
-                    </span>
-                  )}
-                </div>
-                <button 
-                  onClick={handleSave}
-                  disabled={!isDirty || isSaving}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary-600/20"
-                >
-                  {isSaving ? 'Wird gespeichert...' : 'Änderungen speichern'}
-                </button>
-              </div>
+              <SettingsBlock
+                title="Termine"
+                isEditing={editState === 'termine'}
+                onEdit={() => startEdit('termine')}
+                onCancel={cancelEdit}
+                onSave={handleSaveBlock}
+                isSaving={isSaving}
+                readOnlyView={
+                  <>
+                    <SettingsRow label="Startdatum" value={formatDate(projekt.startdatum)} />
+                    <SettingsRow label="Enddatum" value={formatDate(projekt.enddatum)} />
+                  </>
+                }
+              >
+                <InputField type="date" label="Startdatum" value={draft.startdatum} onChange={v => handleDraftChange('startdatum', v)} />
+                <InputField type="date" label="Enddatum" value={draft.enddatum} onChange={v => handleDraftChange('enddatum', v)} />
+              </SettingsBlock>
+
+              <SettingsBlock
+                title="Besonderheiten & Notizen"
+                isEditing={editState === 'notizen'}
+                onEdit={() => startEdit('notizen')}
+                onCancel={cancelEdit}
+                onSave={handleSaveBlock}
+                isSaving={isSaving}
+                readOnlyView={
+                  <SettingsRow label="Notizen" value={projekt.notizen ? <span className="whitespace-pre-wrap">{projekt.notizen}</span> : ''} />
+                }
+              >
+                <TextAreaField label="Notizen" value={draft.notizen} onChange={v => handleDraftChange('notizen', v)} placeholder="Zugangscodes, Materiallagerplatz, Besonderheiten zur Baustelle..." />
+              </SettingsBlock>
 
               {/* Subtle Delete Button */}
-              <div className="md:col-span-2 mt-8 pt-6 border-t border-border flex justify-end">
+              <div className="mt-8 pt-6 border-t border-border flex justify-end">
                 <button
                   onClick={() => setShowDeleteWarning(true)}
                   className="flex items-center gap-2 px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors cursor-pointer"
@@ -364,13 +430,11 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     <p className="text-text-secondary mt-1">Sichere den Auftrag und schreibe jetzt die erste Offerte.</p>
                   </div>
                   <button 
-                    onClick={() => !isDirty && onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-                    disabled={isDirty}
-                    className="mt-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer relative z-10"
+                    onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                    className="mt-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer relative z-10"
                   >
                     + Erste Offerte erstellen
                   </button>
-                  {/* Subtle document decoration background */}
                   <div className="absolute -right-8 -bottom-8 w-40 h-40 border border-amber-100 rounded-lg transform rotate-12 bg-amber-50/20 z-0 pointer-events-none"></div>
                 </div>
               ) : (
@@ -381,9 +445,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                       onClick={() => onNavigate && onNavigate('offerten', { offerteId: off.id })}
                       className="group bg-surface-card rounded-xl border border-dashed border-border overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer relative flex flex-col sm:flex-row"
                     >
-                      {/* Left accent strip */}
                       <div className="w-full sm:w-2 bg-amber-400 h-1.5 sm:h-auto"></div>
-                      
                       <div className="flex-1 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-4">
                           <div className="hidden sm:flex w-12 h-12 rounded-xl bg-amber-50 text-amber-600 items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
@@ -398,8 +460,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                             </div>
                           </div>
                         </div>
-                        
-                        {/* The "Document Total" Look */}
                         <div className="w-full sm:w-auto flex items-center justify-between sm:flex-col sm:items-end gap-1 border-t border-dashed border-border sm:border-none pt-3 sm:pt-0">
                           <div className="flex flex-col sm:items-end">
                             <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Total</span>
@@ -407,8 +467,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                               CHF {(off.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
                             </div>
                           </div>
-                          
-                          {/* "Stamp" Look for status */}
                           <div className={`mt-1 inline-block px-2.5 py-0.5 rounded border-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transform sm:-rotate-3 ${
                             off.status === 'Akzeptiert' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' :
                             off.status === 'Abgelehnt' ? 'border-red-500 text-red-600 bg-red-50' :
@@ -439,13 +497,11 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     <p className="text-text-secondary mt-1">Erstelle deine erste Rechnung, sobald Leistungen erbracht wurden.</p>
                   </div>
                   <button 
-                    onClick={() => !isDirty && onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-                    disabled={isDirty}
-                    className="mt-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer relative z-10"
+                    onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                    className="mt-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer relative z-10"
                   >
                     + Erste Rechnung erstellen
                   </button>
-                  {/* Subtle document decoration background */}
                   <div className="absolute -left-8 -bottom-8 w-40 h-40 border border-emerald-100 rounded-lg transform -rotate-12 bg-emerald-50/20 z-0 pointer-events-none"></div>
                 </div>
               ) : (
@@ -456,9 +512,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                       onClick={() => onNavigate && onNavigate('rechnungen', { rechnungId: re.id })}
                       className="group bg-surface-card rounded-xl border border-dashed border-border overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer relative flex flex-col sm:flex-row"
                     >
-                      {/* Left accent strip */}
                       <div className="w-full sm:w-2 bg-emerald-500 h-1.5 sm:h-auto"></div>
-                      
                       <div className="flex-1 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="flex items-center gap-4">
                           <div className="hidden sm:flex w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
@@ -474,8 +528,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                             </div>
                           </div>
                         </div>
-                        
-                        {/* The "Document Total" Look */}
                         <div className="w-full sm:w-auto flex items-center justify-between sm:flex-col sm:items-end gap-1 border-t border-dashed border-border sm:border-none pt-3 sm:pt-0">
                           <div className="flex flex-col sm:items-end">
                             <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Total</span>
@@ -483,8 +535,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                               CHF {(re.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
                             </div>
                           </div>
-                          
-                          {/* "Stamp" Look for status */}
                           <div className={`mt-1 inline-block px-2.5 py-0.5 rounded border-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transform sm:rotate-3 ${
                             re.status === 'Bezahlt' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' :
                             re.status === 'Überfällig' ? 'border-red-500 text-red-600 bg-red-50' :
@@ -502,38 +552,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Unsaved Changes Modal */}
-      {showUnsavedWarning && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
-            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            </div>
-            <h3 className="text-xl font-bold text-text-primary mb-2">Ungespeicherte Änderungen</h3>
-            <p className="text-text-secondary mb-6 text-sm">
-              Du hast Änderungen an diesem Projekt vorgenommen. Möchtest du sie verwerfen oder abbrechen und speichern?
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button 
-                onClick={() => setShowUnsavedWarning(false)}
-                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors"
-              >
-                Abbrechen
-              </button>
-              <button 
-                onClick={() => {
-                  setShowUnsavedWarning(false)
-                  onBack()
-                }}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors"
-              >
-                Änderungen verwerfen
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -558,7 +576,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
               <button 
                 onClick={handleDelete}
                 disabled={isSaving}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center cursor-pointer"
               >
                 {isSaving ? 'Lösche...' : 'Ja, endgültig löschen'}
               </button>

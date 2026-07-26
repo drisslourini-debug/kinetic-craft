@@ -209,11 +209,12 @@ export default function ProjekteView({ onNavigate, viewParams }) {
         </div>
       ) : (
         <div className="w-full">
-          {/* Desktop table header */}
-          <div className="hidden sm:grid grid-cols-[1.5fr_1fr_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+          <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
             <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('name')}>Projektname <SortIcon columnKey="name" /></span>
             <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
+            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kategorie')}>Kategorie <SortIcon columnKey="kategorie" /></span>
             <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('startdatum')}>Startdatum <SortIcon columnKey="startdatum" /></span>
+            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('enddatum')}>Enddatum <SortIcon columnKey="enddatum" /></span>
             <span className="cursor-pointer hover:text-text-primary flex items-center justify-center" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
             <span className="sr-only">Aktionen</span>
           </div>
@@ -225,28 +226,28 @@ export default function ProjekteView({ onNavigate, viewParams }) {
               <div
                 key={p.id}
                 onClick={() => setSelectedProjekt(p)}
-                className={`flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_120px_100px_40px] gap-2 sm:gap-4 p-3 sm:px-5 sm:py-3.5 bg-surface-card sm:bg-transparent rounded-xl sm:rounded-none border-l-4 sm:border-l-4 ${statusColorClass} border border-border sm:border-x-0 sm:border-t-0 sm:border-b sm:last:border-b-0 hover:shadow-md sm:hover:shadow-none sm:hover:bg-neutral-50/80 transition-all duration-200 active:scale-[0.99] sm:active:scale-100 cursor-pointer items-start sm:items-center relative group`}
+                className={`flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${statusColorClass} hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 cursor-pointer items-start lg:items-center relative group`}
               >
                 {/* Primary Info */}
-                <div className="min-w-0 pr-12 sm:pr-0 w-full flex flex-col justify-center">
+                <div className="min-w-0 w-full flex flex-col justify-center">
                   {p.adresse ? (
                     <>
-                      <div className="flex items-center gap-1.5 text-[15px] sm:text-sm font-bold text-text-primary truncate">
-                        <span className="sm:hidden text-primary-500">📍</span> {p.adresse}
+                      <div className="flex items-center gap-1.5 text-base lg:text-sm font-bold text-text-primary truncate">
+                        <span className="lg:hidden text-primary-500">📍</span> {p.adresse}
                       </div>
-                      <div className="text-xs text-text-secondary truncate mt-0.5 sm:ml-5 font-medium">
+                      <div className="text-xs text-text-secondary truncate mt-0.5 font-medium">
                         {p.name}
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-[15px] sm:text-sm font-bold text-text-primary truncate">
-                      <span className="sm:hidden text-primary-500">🏗️</span> {p.name}
+                    <div className="flex items-center gap-1.5 text-base lg:text-sm font-bold text-text-primary truncate">
+                      <span className="lg:hidden text-primary-500">🏗️</span> {p.name}
                     </div>
                   )}
 
                   {/* Mobile Map Button (Floating) */}
                   {p.adresse && (
-                    <div className="absolute top-3 right-3 sm:hidden">
+                    <div className="absolute top-4 right-4 lg:hidden">
                       <a 
                         href={`https://maps.google.com/?q=${encodeURIComponent(p.adresse)}`} 
                         target="_blank" 
@@ -262,21 +263,31 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                 </div>
 
                 {/* Mobile Kunde (shown below title) / Desktop Kunde */}
-                <div className="text-xs sm:text-sm text-text-secondary truncate flex items-center gap-1">
-                  <span className="sm:hidden">👤</span> {p.kunden?.name || '-'}
+                <div className="text-sm text-text-secondary truncate flex items-center gap-1 mt-1 lg:mt-0">
+                  <span className="lg:hidden">👤</span> {p.kunden?.name || '-'}
+                </div>
+
+                {/* Kategorie (Desktop) */}
+                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                  {p.kategorie || '-'}
                 </div>
 
                 {/* Mobile Startdatum / Desktop Startdatum */}
-                <div className="text-xs sm:text-sm text-text-secondary truncate flex items-center gap-2 mt-1 sm:mt-0">
-                  <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden relative shrink-0">
+                <div className="text-sm text-text-secondary truncate flex items-center gap-2 mt-1 lg:mt-0">
+                  <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden relative shrink-0 lg:hidden">
                     <div className={`absolute left-0 top-0 h-full ${p.status === 'In Arbeit' ? 'w-1/2 bg-emerald-500 animate-pulse' : p.status === 'Abgeschlossen' ? 'w-full bg-emerald-500' : 'w-1/4 bg-blue-500'}`}></div>
                   </div>
                   {p.startdatum ? new Date(p.startdatum).toLocaleDateString('de-CH') : '-'}
                 </div>
 
+                {/* Enddatum (Desktop) */}
+                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                  {p.enddatum ? new Date(p.enddatum).toLocaleDateString('de-CH') : '-'}
+                </div>
+
                 {/* Status */}
-                <div className="absolute bottom-3 right-3 sm:relative sm:bottom-0 sm:right-0 sm:flex sm:items-center sm:justify-center">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-medium ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
+                <div className="absolute bottom-4 right-4 lg:relative lg:bottom-0 lg:right-0 lg:flex lg:items-center lg:justify-center">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
                     {p.status === 'In Arbeit' && (
                       <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

@@ -9,11 +9,15 @@ export default function OfferteCreateDrawer({ onClose, onSuccess, prefilledKunde
   const [selectedProjektId, setSelectedProjektId] = useState('')
   
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [settings, setSettings] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     async function loadData() {
       try {
+        const { data: setts } = await supabase.from('einstellungen').select('*').eq('id', 1).single()
+        if (setts) setSettings(setts)
+        
         const { data: kData, error: kErr } = await supabase
           .from('kunden')
           .select('id, name')
@@ -65,16 +69,31 @@ export default function OfferteCreateDrawer({ onClose, onSuccess, prefilledKunde
     setError('')
     
     try {
+      
+      // Generate Next Nr
+      const prefix = 'OF-' + new Date().getFullYear() + '-';
+      let nextNum = settings?.startnummer_offerten || 1000;
+      const { data: existing } = await supabase.from('offerten').select('offerte_nr').not('offerte_nr', 'is', null).order('created_at', { ascending: false }).limit(10);
+      if (existing && existing.length > 0) {
+        const nums = existing.map(e => {
+          const match = e.offerte_nr.match(/\d+$/);
+          return match ? parseInt(match[0], 10) : 0;
+        }).filter(n => n > 0);
+        if (nums.length > 0) nextNum = Math.max(...nums) + 1;
+      }
+      
       const draftData = {
         kunden_id: selectedKundeId,
         projekt_id: selectedProjektId || null,
         status: 'Entwurf',
         total: 0,
+        offerte_nr: prefix + nextNum,
         daten: {
           leistungen: [],
-          konditionen: { rabatt: 0, mwst: 8.1 },
+          konditionen: { rabatt: settings?.standard_rabatt || 0, mwst: settings?.standard_mwst || 8.1 },
           texte: { einleitungstext: '', schlusstext: '' },
           ausfuehrung: { start: '', dauer: '', notizen: '' },
+          gueltig_bis: new Date(Date.now() + (settings?.gueltigkeit_offerten_tage || 30) * 24 * 60 * 60 * 1000).toISOString(),
           pauschalpreis: null
         }
       }

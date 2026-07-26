@@ -1001,6 +1001,18 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
   useEffect(() => {
     // 1. Katalog laden aus Supabase
     async function loadCatalog() {
+      // 0. Settings laden
+      try {
+        const { data: setts } = await supabase.from('einstellungen').select('*').eq('id', 1).single()
+        if (setts) {
+          setSettings(setts)
+          setFormData(prev => ({ 
+            ...prev, 
+            konditionen: { rabatt: setts.standard_rabatt || 0, mwst: setts.standard_mwst || 8.1 } 
+          }))
+        }
+      } catch (e) { console.log(e) }
+
       if (!supabase) {
         setCatalog(DEFAULT_CATALOG)
         return
@@ -1079,6 +1091,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
 
   // API states
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [settings, setSettings] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(null)
   const [submitError, setSubmitError] = useState(null)
 
@@ -1195,11 +1208,12 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
           .order('rechnung_nr', { ascending: false })
           .limit(1)
         
-        let nextNum = 1
+        let nextNum = settings?.startnummer_rechnungen || 1000
         if (existing && existing.length > 0 && existing[0].rechnung_nr) {
           const lastNr = existing[0].rechnung_nr
           const parts = lastNr.split('-')
-          nextNum = parseInt(parts[2] || 0) + 1
+          const existingNum = parseInt(parts[2] || 0)
+          nextNum = existingNum >= nextNum ? existingNum + 1 : nextNum
         }
         const RechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
 
@@ -1210,7 +1224,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         const mwst = parseFloat(formData.konditionen.mwst) || 0
         const finalTotal = totalNachRabatt * (1 + mwst / 100)
 
-        let zahlungsfristTage = 30
+        let zahlungsfristTage = settings?.zahlungsfrist_tage || 30
         if (formData.rechnungsdetails?.zahlungsziel?.includes('10')) zahlungsfristTage = 10
         if (formData.rechnungsdetails?.zahlungsziel?.includes('14')) zahlungsfristTage = 14
 

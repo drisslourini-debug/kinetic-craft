@@ -211,19 +211,21 @@ export default function KundenView({ onNavigate, viewParams }) {
 
       {/* Table / Card list */}
       <div className="w-full">
-        {/* Desktop table header */}
-        <div className="hidden lg:grid grid-cols-[1.5fr_1fr_1.5fr_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+        <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
           <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
             Kunde {getSortIcon('name')}
           </button>
           <button onClick={() => handleSort('ort')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
-            Ort {getSortIcon('ort')}
+            Adresse {getSortIcon('ort')}
           </button>
           <button onClick={() => handleSort('email')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
             E-Mail {getSortIcon('email')}
           </button>
           <button onClick={() => handleSort('telefon')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
             Telefon {getSortIcon('telefon')}
+          </button>
+          <button onClick={() => handleSort('created_at')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
+            Erfasst am {getSortIcon('created_at')}
           </button>
           <button onClick={() => handleSort('status')} className="flex justify-center items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group">
             Status {getSortIcon('status')}
@@ -259,7 +261,7 @@ export default function KundenView({ onNavigate, viewParams }) {
             <div
               key={kunde.id}
               onClick={() => setSelectedKunde(kunde)}
-              className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1fr_1.5fr_120px_100px_40px] gap-2 lg:gap-4 p-3 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-xl lg:rounded-none border border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:shadow-md lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+              className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
             >
               {/* Primary Info */}
               <div className="flex items-center gap-3 w-full lg:w-auto pr-16 lg:pr-0">
@@ -268,9 +270,12 @@ export default function KundenView({ onNavigate, viewParams }) {
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   <div className="font-bold text-base lg:text-sm text-text-primary truncate pr-2">{displayName}</div>
+                  <span className="text-xs lg:hidden text-text-secondary truncate mt-0.5">
+                    📍 {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
+                  </span>
                   
                   {/* Floating Action Buttons Desktop/Mobile integration */}
-                  <div className="flex gap-2 mt-1.5 lg:hidden">
+                  <div className="flex gap-2 mt-2 lg:hidden">
                     {kunde.telefon && (
                       <a 
                         href={`tel:${kunde.telefon}`} 
@@ -295,12 +300,9 @@ export default function KundenView({ onNavigate, viewParams }) {
                 </div>
               </div>
 
-              {/* Ort */}
-              <div className="flex lg:contents items-center w-full mt-1 lg:mt-0 text-sm">
-                <span className="text-text-secondary lg:flex lg:items-center truncate">
-                  <span className="lg:hidden text-xs text-text-secondary mr-1">📍</span>
-                  {kunde.ort || '-'}
-                </span>
+              {/* Adresse (Desktop) */}
+              <div className="hidden lg:block text-sm text-text-secondary truncate">
+                {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
               </div>
 
               {/* Desktop E-Mail */}
@@ -315,6 +317,11 @@ export default function KundenView({ onNavigate, viewParams }) {
                 {kunde.telefon ? (
                   <a href={`tel:${kunde.telefon}`} onClick={e => e.stopPropagation()} className="hover:text-emerald-600 transition-colors">{kunde.telefon}</a>
                 ) : '-'}
+              </div>
+
+              {/* Erstellt am (Desktop) */}
+              <div className="hidden lg:block text-sm text-text-secondary truncate">
+                {kunde.created_at ? new Date(kunde.created_at).toLocaleDateString('de-CH') : '-'}
               </div>
 
               {/* Status */}
