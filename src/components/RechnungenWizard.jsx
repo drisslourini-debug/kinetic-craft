@@ -15,21 +15,6 @@ const STEPS = [
 
 const EINHEITEN = ['m²', 'Std', 'lfm', 'Stk', 'Pauschal']
 
-const QUICK_SELECT_START = [
-  'Nach Absprache',
-  'So bald wie möglich',
-  'Nächste Woche',
-  'Nächsten Monat',
-]
-
-const QUICK_SELECT_DAUER = [
-  '1-2 Tage',
-  'ca. 1 Woche',
-  'ca. 2 Wochen',
-  'ca. 1 Monat',
-]
-
-
 
 const DEFAULT_CATALOG = {
   Malerarbeiten: [
