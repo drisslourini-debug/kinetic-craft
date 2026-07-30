@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
+import { formatDate } from '../lib/formatters'
 import KundeDetailView from './KundeDetailView'
 import KundeCreateModal from './KundeCreateModal'
 
@@ -344,7 +345,7 @@ export default function KundenView({ onNavigate, viewParams }) {
 
               {/* Erstellt am (Desktop) */}
               <div className="hidden lg:block text-sm text-text-secondary truncate">
-                {kunde.created_at ? new Date(kunde.created_at).toLocaleDateString('de-CH') : '-'}
+                {kunde.created_at ? formatDate(kunde.created_at) : '-'}
               </div>
 
               {/* Status */}

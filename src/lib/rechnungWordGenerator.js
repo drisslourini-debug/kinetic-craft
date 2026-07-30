@@ -3,17 +3,7 @@ import {
   WidthType, BorderStyle, AlignmentType, HeadingLevel, PageBreak 
 } from 'docx';
 import { saveAs } from 'file-saver';
-
-const formatMoney = (val) => {
-  return parseFloat(val).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('de-CH', {
-    day: '2-digit', month: 'long', year: 'numeric'
-  });
-};
+import { formatMoney, formatDateLong } from './formatters';
 
 export const generateRechnungWord = async (rechnung, kunde, projekt, settings, akontoRechnungen = []) => {
   const daten = rechnung.daten || {};
@@ -118,7 +108,7 @@ export const generateRechnungWord = async (rechnung, kunde, projekt, settings, a
             children: [
               new Paragraph({ alignment: AlignmentType.RIGHT, children: [
                 new TextRun({ text: 'Datum: ', color: '888888', size: 19 }),
-                new TextRun({ text: formatDate(rechnung.rechnungsdatum), bold: true, size: 19 })
+                new TextRun({ text: formatDateLong(rechnung.rechnungsdatum), bold: true, size: 19 })
               ]}),
               new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 100 }, children: [
                 new TextRun({ text: 'Zahlungsfrist: ', color: '888888', size: 19 }),
@@ -126,7 +116,7 @@ export const generateRechnungWord = async (rechnung, kunde, projekt, settings, a
               ]}),
               new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 100 }, children: [
                 new TextRun({ text: 'Fällig am: ', color: '888888', size: 19 }),
-                new TextRun({ text: formatDate(rechnung.faellig_am), bold: true, size: 19 })
+                new TextRun({ text: formatDateLong(rechnung.faellig_am), bold: true, size: 19 })
               ]}),
               ...(projekt?.name ? [
                 new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 100 }, children: [
@@ -249,7 +239,7 @@ export const generateRechnungWord = async (rechnung, kunde, projekt, settings, a
   if (rechnung.typ === 'schluss' && akontoRechnungen.length > 0) {
     children.push(new Paragraph({ spacing: { before: 400 }, children: [new TextRun({ text: 'Bereits bezahlte Akontozahlungen:', bold: true, size: 19 })] }));
     akontoRechnungen.forEach(ar => {
-      children.push(new Paragraph({ children: [new TextRun({ text: `${ar.rechnung_nr} vom ${formatDate(ar.rechnungsdatum)}: – CHF ${formatMoney(ar.total || 0)}`, color: '555555' })] }));
+      children.push(new Paragraph({ children: [new TextRun({ text: `${ar.rechnung_nr} vom ${formatDateLong(ar.rechnungsdatum)}: – CHF ${formatMoney(ar.total || 0)}`, color: '555555' })] }));
     });
     children.push(
       new Paragraph({ spacing: { before: 200 }, children: [

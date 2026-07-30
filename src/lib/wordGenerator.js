@@ -3,17 +3,7 @@ import {
   WidthType, BorderStyle, AlignmentType, HeadingLevel, PageBreak 
 } from 'docx';
 import { saveAs } from 'file-saver';
-
-const formatMoney = (val) => {
-  return parseFloat(val).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('de-CH', {
-    day: '2-digit', month: 'long', year: 'numeric'
-  });
-};
+import { formatMoney, formatDateLong } from './formatters';
 
 export const generateOfferteWord = async (offerte, kunde, projekt, settings) => {
   const daten = offerte.daten || {};
@@ -107,7 +97,7 @@ export const generateOfferteWord = async (offerte, kunde, projekt, settings) => 
             children: [
               new Paragraph({ alignment: AlignmentType.RIGHT, children: [
                 new TextRun({ text: 'Datum: ', color: '888888', size: 19 }),
-                new TextRun({ text: formatDate(offerte.created_at), bold: true, size: 19 })
+                new TextRun({ text: formatDateLong(offerte.created_at), bold: true, size: 19 })
               ]}),
               ...(projekt?.name ? [
                 new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { before: 100 }, children: [

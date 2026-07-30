@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
+import { formatDate } from '../lib/formatters'
 import ProjektDetailView from './ProjektDetailView'
 import ProjektCreateModal from './ProjektCreateModal'
 
@@ -278,12 +279,12 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                   <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden relative shrink-0 lg:hidden">
                     <div className={`absolute left-0 top-0 h-full ${p.status === 'In Arbeit' ? 'w-1/2 bg-emerald-500 animate-pulse' : p.status === 'Abgeschlossen' ? 'w-full bg-emerald-500' : 'w-1/4 bg-blue-500'}`}></div>
                   </div>
-                  {p.startdatum ? new Date(p.startdatum).toLocaleDateString('de-CH') : '-'}
+                  {p.startdatum ? formatDate(p.startdatum) : '-'}
                 </div>
 
                 {/* Enddatum (Desktop) */}
                 <div className="hidden lg:block text-sm text-text-secondary truncate">
-                  {p.enddatum ? new Date(p.enddatum).toLocaleDateString('de-CH') : '-'}
+                  {p.enddatum ? formatDate(p.enddatum) : '-'}
                 </div>
 
                 {/* Status */}

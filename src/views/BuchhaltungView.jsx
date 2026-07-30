@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatDate, formatCurrency } from '../lib/formatters'
 import AusgabeCreateModal from './AusgabeCreateModal'
 
 export default function BuchhaltungView({ onNavigate }) {
@@ -117,14 +118,6 @@ export default function BuchhaltungView({ onNavigate }) {
     }
   }
 
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(val || 0)
-  }
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  }
 
   // Filter out data if a category is selected
   const filteredAusgaben = filterCategory 

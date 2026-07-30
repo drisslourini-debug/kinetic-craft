@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import logo from '../assets/logo.png'
 import html2pdf from 'html2pdf.js'
 import { generateRechnungWord } from '../lib/rechnungWordGenerator'
-
+import { formatDateLong, formatMoney } from '../lib/formatters'
 export default function RechnungPrintView({ rechnung, kunde, projekt, onClose, previewMode = false }) {
   const [settings, setSettings] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -65,17 +65,6 @@ export default function RechnungPrintView({ rechnung, kunde, projekt, onClose, p
   const pauschalpreis = parseFloat(daten.pauschalpreis || 0)
   const isPauschal = pauschalpreis > 0
   const finalTotal = isPauschal ? pauschalpreis : calculatedTotal
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: 'long', year: 'numeric'
-    })
-  }
-
-  const formatMoney = (val) => {
-    return parseFloat(val).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
 
   const gold = '#c5a057'
   const darkGold = '#a07d3a'
@@ -360,7 +349,7 @@ export default function RechnungPrintView({ rechnung, kunde, projekt, onClose, p
           </div>
           
           <div style={{ textAlign: 'right', fontSize: '9.5pt', lineHeight: '1.7' }}>
-            <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDate(rechnung.created_at)}</span></div>
+            <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDateLong(rechnung.created_at)}</span></div>
             {daten.konditionen?.gueltigkeit && (
               <div><span style={{ color: '#888' }}>Gültigkeit:</span> <span style={{ fontWeight: 500 }}>{daten.konditionen.gueltigkeit}</span></div>
             )}

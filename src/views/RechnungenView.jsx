@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
-import { formatCurrency } from '../lib/formatters'
+import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
 import RechnungDetailView from './RechnungDetailView'
 import DocumentCreateModal from '../components/DocumentCreateModal'
 
@@ -130,13 +130,6 @@ export default function RechnungenView({ onNavigate, viewParams }) {
       height: (monthlyTotals[i] / maxVal) * 100
     }))
   }, [rechnungen])
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    })
-  }
 
 
 
@@ -337,7 +330,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
           >
             <option value="">Alle Monate</option>
             {availableMonths.map(m => (
-              <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}</option>
+              <option key={m} value={m}>{formatMonthYear(m)}</option>
             ))}
           </select>
 

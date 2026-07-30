@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { formatDate, formatCurrency } from '../lib/formatters'
 
 export default function DashboardView({ onNavigate }) {
   const [data, setData] = useState({
@@ -124,14 +125,6 @@ export default function DashboardView({ onNavigate }) {
     fetchDashboardData()
   }, [])
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(amount || 0)
-  }
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12">

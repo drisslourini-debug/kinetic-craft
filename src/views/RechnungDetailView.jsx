@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import RechnungPrintView from './RechnungPrintView'
 import { generateRechnungWord } from '../lib/rechnungWordGenerator'
+import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
 
 export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [kunde, setKunde] = useState(null)
@@ -346,17 +347,6 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
 
   if (!rechnung) return null
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    })
-  }
-
-  const formatMoney = (val) => {
-    return parseFloat(val || 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
 
   // Parse daten safely
   const daten = rechnung.daten || {}
@@ -650,7 +640,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                       <span>✅</span> Vollständig bezahlt
                     </h3>
                     <p className="text-emerald-700 text-sm">
-                      Zahlungseingang: {new Date(rechnung.bezahlt_am).toLocaleDateString('de-CH')}
+                      Zahlungseingang: {formatDate(rechnung.bezahlt_am)}
                     </p>
                     <p className="text-emerald-700 font-bold">
                       Betrag: CHF {formatMoney(rechnung.bezahlt)}
@@ -686,7 +676,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-2 block">Fälligkeitsdatum (automatisch)</label>
                     <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50">
-                      {rechnung.faellig_am ? new Date(rechnung.faellig_am).toLocaleDateString('de-CH') : 'Wird beim Speichern berechnet'}
+                      {rechnung.faellig_am ? formatDate(rechnung.faellig_am) : 'Wird beim Speichern berechnet'}
                     </div>
                   </div>
                 </div>

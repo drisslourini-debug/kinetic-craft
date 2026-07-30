@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
 import OffertePrintView from './OffertePrintView'
 import KatalogDrawer from '../components/KatalogDrawer'
 import OfferteDuplicateModal from '../components/OfferteDuplicateModal'
@@ -568,12 +569,6 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
   if (!offerte) return null
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    })
-  }
 
   // Parse daten safely
   const daten = offerte.daten || {}
@@ -1080,13 +1075,13 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                       </div>
                                       {!isInfo && (
                                         <div className="text-xs text-text-secondary mt-1">
-                                          {pos.menge} {pos.einheit} à CHF {(parseFloat(pos.einzelpreis) || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                                          {pos.menge} {pos.einheit} à {formatCurrency(parseFloat(pos.einzelpreis) || 0)}
                                         </div>
                                       )}
                                     </div>
                                     {!isInfo && (
                                       <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
-                                        CHF {posTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                                        {formatCurrency(posTotal)}
                                       </div>
                                     )}
                                   </div>
@@ -1104,8 +1099,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                       <>
                                         <div className="text-sm text-text-secondary text-right">{pos.menge}</div>
                                         <div className="text-sm text-text-secondary">{pos.einheit}</div>
-                                        <div className="text-sm text-text-secondary text-right">CHF {(parseFloat(pos.einzelpreis) || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}</div>
-                                        <div className="text-sm font-bold text-text-primary text-right">CHF {posTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })}</div>
+                                        <div className="text-sm text-text-secondary text-right">{formatCurrency(parseFloat(pos.einzelpreis) || 0)}</div>
+                                        <div className="text-sm font-bold text-text-primary text-right">{formatCurrency(posTotal)}</div>
                                       </>
                                     ) : (
                                       <div className="col-span-4"></div>
@@ -1256,7 +1251,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                     <div>
                                       <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
                                       <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary">
-                                        CHF {((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                                        {formatCurrency((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
                                       </div>
                                     </div>
                                   </div>
@@ -1466,18 +1461,18 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                       <div className="space-y-3">
                         <div className="flex justify-between text-sm">
                           <span className="text-text-secondary">Zwischensumme</span>
-                          <span className="text-text-primary">CHF {(isEditing ? editRawTotal : rawTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-text-primary">{formatCurrency(isEditing ? editRawTotal : rawTotal)}</span>
                         </div>
                         {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
                           <div className="flex justify-between text-sm text-red-600 font-medium">
                             <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
-                            <span>- CHF {(isEditing ? editRabattBetrag : rabattBetrag).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span>- {formatCurrency(isEditing ? editRabattBetrag : rabattBetrag)}</span>
                           </div>
                         )}
                         {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-text-secondary">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
-                            <span className="text-text-primary">CHF {(isEditing ? editMwstBetrag : mwstBetrag).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="text-text-primary">{formatCurrency(isEditing ? editMwstBetrag : mwstBetrag)}</span>
                           </div>
                         )}
                         {isEditing && isPauschal && editPauschalpreis && (
@@ -1488,12 +1483,12 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                         )}
                         <div className="pt-4 mt-4 border-t border-border flex justify-between items-center">
                           <span className="font-bold text-xl text-text-primary">Total</span>
-                          <span className="font-black text-3xl tracking-tight text-text-primary">CHF {(isEditing ? editFinalTotal : finalTotal).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="font-black text-3xl tracking-tight text-text-primary">{formatCurrency(isEditing ? editFinalTotal : finalTotal)}</span>
                         </div>
                         {isEditing && editOptionalTotal > 0 && (
                           <div className="pt-3 mt-1 border-t border-border/50 flex justify-between text-xs text-text-secondary">
                             <span>Optionale Positionen</span>
-                            <span>CHF {editOptionalTotal.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span>{formatCurrency(editOptionalTotal)}</span>
                           </div>
                         )}
                       </div>

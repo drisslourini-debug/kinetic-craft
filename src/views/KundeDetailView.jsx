@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
+import { formatDate, formatCurrency } from '../lib/formatters'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
 const KUNDENTYPEN = [
@@ -196,12 +197,6 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     
     loadDetails()
   }, [kunde.id])
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    })
-  }
 
   if (!kunde) return null
 
@@ -661,7 +656,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                         </div>
                         <div className="sm:text-right font-bold text-text-primary text-sm mt-1 sm:mt-0 flex sm:block justify-between items-center">
                           <span className="sm:hidden text-xs font-normal text-text-secondary">Total:</span>
-                          CHF {(off.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                          {formatCurrency(off.total || 0)}
                         </div>
                         <div className="hidden sm:block text-right">
                           <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${
@@ -723,7 +718,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                           </div>
                         </div>
                         <div className="sm:text-right font-bold text-text-primary text-sm">
-                          CHF {(re.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                          {formatCurrency(re.total || 0)}
                         </div>
                         <div className="sm:text-right">
                           <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${
@@ -821,7 +816,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                         <h3 className="text-sm font-semibold text-gray-900 text-center line-clamp-2 w-full break-words" title={datei.name}>{datei.name}</h3>
                       </div>
                       <div className="mt-auto border-t border-gray-100 pt-3 flex justify-between text-[10px] text-gray-500">
-                        <span>{new Date(datei.created_at).toLocaleDateString()}</span>
+                        <span>{formatDate(datei.created_at)}</span>
                         <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{datei.kategorie}</span>
                       </div>
                     </div>

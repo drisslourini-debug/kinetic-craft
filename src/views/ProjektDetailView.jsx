@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
+import { formatDate, formatCurrency } from '../lib/formatters'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 
 const PROJEKT_KATEGORIEN = [
@@ -306,13 +307,6 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
 
   if (!projekt) return null
 
-  // Helper to format date
-  const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    })
-  }
 
   return (
     <div className="space-y-6 max-w-6xl pb-16">
@@ -548,7 +542,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                           <div className="flex flex-col sm:items-end">
                             <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Total</span>
                             <div className="font-mono font-bold text-lg text-text-primary">
-                              CHF {(off.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                              {formatCurrency(off.total || 0)}
                             </div>
                           </div>
                           <div className={`mt-1 inline-block px-2.5 py-0.5 rounded border-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transform sm:-rotate-3 ${
@@ -616,7 +610,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                           <div className="flex flex-col sm:items-end">
                             <span className="text-xs text-text-secondary uppercase tracking-widest font-semibold">Total</span>
                             <div className="font-mono font-bold text-lg text-text-primary">
-                              CHF {(re.total || 0).toLocaleString('de-CH', { minimumFractionDigits: 2 })}
+                              {formatCurrency(re.total || 0)}
                             </div>
                           </div>
                           <div className={`mt-1 inline-block px-2.5 py-0.5 rounded border-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider transform sm:rotate-3 ${
@@ -715,7 +709,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                         <h3 className="text-sm font-semibold text-gray-900 text-center line-clamp-2 w-full break-words" title={datei.name}>{datei.name}</h3>
                       </div>
                       <div className="mt-auto border-t border-gray-100 pt-3 flex justify-between text-[10px] text-gray-500">
-                        <span>{new Date(datei.created_at).toLocaleDateString()}</span>
+                        <span>{formatDate(datei.created_at)}</span>
                         <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{datei.kategorie}</span>
                       </div>
                     </div>

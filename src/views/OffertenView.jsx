@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
-import { formatCurrency } from '../lib/formatters'
+import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import OfferteCreateDrawer from '../components/OfferteCreateDrawer'
 import OfferteDetailView from './OfferteDetailView'
@@ -126,11 +126,6 @@ export default function OffertenView({ viewParams, onNavigate }) {
     }
   }, [showCreateDrawer, viewParams])
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('de-CH', {
-      day: '2-digit', month: '2-digit', year: 'numeric'
-    })
-  }
 
   const statusStyles = {
     'Entwurf': 'bg-gray-100 text-gray-600',
@@ -429,7 +424,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
           >
             <option value="">Alle Monate</option>
             {availableMonths.map(m => (
-              <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}</option>
+              <option key={m} value={m}>{formatMonthYear(m)}</option>
             ))}
           </select>
 
@@ -570,7 +565,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
                 >
                   <option value="">Alle Monate</option>
                   {availableMonths.map(m => (
-                    <option key={m} value={m}>{new Date(m + '-01').toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}</option>
+                    <option key={m} value={m}>{formatMonthYear(m)}</option>
                   ))}
                 </select>
               </div>
