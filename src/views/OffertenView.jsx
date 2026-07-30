@@ -3,7 +3,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
 import { ErrorBoundary } from '../components/ErrorBoundary'
-import OfferteCreateDrawer from '../components/OfferteCreateDrawer'
+import DocumentCreateModal from '../components/DocumentCreateModal'
 import OfferteDetailView from './OfferteDetailView'
 
 export default function OffertenView({ viewParams, onNavigate }) {
@@ -592,13 +592,11 @@ export default function OffertenView({ viewParams, onNavigate }) {
       )}
       {/* Create Drawer */}
       {showCreateDrawer && (
-        <OfferteCreateDrawer 
+        <DocumentCreateModal 
+          type="offerte"
+          isOpen={showCreateDrawer}
           onClose={() => setShowCreateDrawer(false)}
-          prefilledKundeId={viewParams?.kundeId}
-          onSuccess={(newId) => {
-            setShowCreateDrawer(false)
-            onNavigate('offerten', { offerteId: newId, edit: true })
-          }}
+          onNavigate={onNavigate}
         />
       )}
     </>
