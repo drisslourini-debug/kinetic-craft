@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { generateNextRechnungNr } from '../lib/documentService'
 
 export default function RechnungDuplicateModal({ onClose, onSuccess, currentRechnung }) {
   const [kundenList, setKundenList] = useState([])
@@ -87,20 +88,7 @@ export default function RechnungDuplicateModal({ onClose, onSuccess, currentRech
         newDaten.ausfuehrung.dauer = ''
       }
 
-      const year = new Date().getFullYear()
-      const { data: existing } = await supabase
-        .from('rechnungen')
-        .select('rechnung_nr')
-        .ilike('rechnung_nr', `RE-${year}-%`)
-        .order('rechnung_nr', { ascending: false })
-        .limit(1)
-      
-      let nextNum = 1
-      if (existing && existing.length > 0) {
-        const parts = existing[0].rechnung_nr.split('-')
-        nextNum = parseInt(parts[2]) + 1
-      }
-      const newNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+      const newNr = await generateNextRechnungNr(supabase)
 
       const duplicateData = {
         rechnung_nr: newNr,

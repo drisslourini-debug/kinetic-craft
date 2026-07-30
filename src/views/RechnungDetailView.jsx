@@ -4,6 +4,7 @@ import RechnungPrintView from './RechnungPrintView'
 import { generateRechnungWord } from '../lib/rechnungWordGenerator'
 import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
+import { generateNextRechnungNr } from '../lib/documentService'
 
 export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [kunde, setKunde] = useState(null)
@@ -164,21 +165,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
     if (!window.confirm('Diese Rechnung wirklich kopieren?')) return
     setIsUpdating(true)
     try {
-      // Generate next rechnung_nr
-      const year = new Date().getFullYear()
-      const { data: existing } = await supabase
-        .from('rechnungen')
-        .select('rechnung_nr')
-        .ilike('rechnung_nr', `RE-${year}-%`)
-        .order('rechnung_nr', { ascending: false })
-        .limit(1)
-      
-      let nextNum = 1
-      if (existing && existing.length > 0) {
-        const parts = existing[0].rechnung_nr.split('-')
-        nextNum = parseInt(parts[2]) + 1
-      }
-      const newNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+      const newNr = await generateNextRechnungNr(supabase)
 
       const { data, error } = await supabase
         .from('rechnungen')

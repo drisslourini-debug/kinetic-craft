@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
+import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
 import OffertePrintView from './OffertePrintView'
 import KatalogDrawer from '../components/KatalogDrawer'
 import OfferteDuplicateModal from '../components/OfferteDuplicateModal'
@@ -161,35 +162,12 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
     if (!window.confirm('Diese Offerte in eine Rechnung umwandeln?')) return
     setIsUpdating(true)
     try {
-      // Generate next rechnung_nr: RE-YYYY-NNN
-      const year = new Date().getFullYear()
-      const { data: existing } = await supabase
-        .from('rechnungen')
-        .select('rechnung_nr')
-        .ilike('rechnung_nr', `RE-${year}-%`)
-        .order('rechnung_nr', { ascending: false })
-        .limit(1)
-      
-      let nextNum = 1
-      if (existing && existing.length > 0) {
-        const lastNr = existing[0].rechnung_nr
-        const parts = lastNr.split('-')
-        nextNum = parseInt(parts[2]) + 1
-      }
-      const rechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+      const rechnungNr = await generateNextRechnungNr(supabase)
 
       // Calculate faellig_am based on customer's payment term
-      let fristTage = 30
-      if (kunde?.zahlungsziel) {
-        if (kunde.zahlungsziel.includes('10')) fristTage = 10
-        else if (kunde.zahlungsziel.includes('14')) fristTage = 14
-        else if (kunde.zahlungsziel.includes('30')) fristTage = 30
-        else if (kunde.zahlungsziel.includes('Bar') || kunde.zahlungsziel.includes('Voraus')) fristTage = 0
-      }
-
+      const fristTage = parseZahlungsfrist(kunde?.zahlungsziel)
       const rechnungsdatum = new Date()
-      const faelligAm = new Date(rechnungsdatum)
-      faelligAm.setDate(faelligAm.getDate() + fristTage)
+      const faelligAm = calculateDueDate(rechnungsdatum, fristTage)
 
       const { data: newRechnung, error } = await supabase
         .from('rechnungen')
@@ -203,7 +181,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           daten: offerte.daten,
           rechnungsdatum: rechnungsdatum.toISOString().split('T')[0],
           zahlungsfrist_tage: fristTage,
-          faellig_am: faelligAm.toISOString().split('T')[0],
+          faellig_am: faelligAm,
           status: 'Entwurf'
         }])
         .select()

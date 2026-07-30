@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { DEFAULT_CATALOG, EINHEITEN } from '../lib/constants'
+import { generateNextRechnungNr, parseZahlungsfrist } from '../lib/documentService'
 import AddressAutocomplete from './AddressAutocomplete'
 import RechnungPrintView from '../views/RechnungPrintView'
 
@@ -1145,26 +1146,12 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         }
 
         // 3. Rechnungn-Nummer generieren
-        const year = new Date().getFullYear()
-        const { data: existing } = await supabase
-          .from('rechnungen')
-          .select('rechnung_nr')
-          .ilike('rechnung_nr', `RE-${year}-%`)
-        
-        let nextNum = settings?.startnummer_rechnungen || 1000
-        if (existing && existing.length > 0) {
-          const numbers = existing.map(r => parseInt(r.rechnung_nr?.split('-')[2] || 0))
-          const maxNum = Math.max(...numbers)
-          nextNum = maxNum >= nextNum ? maxNum + 1 : nextNum
-        }
-        const RechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
+        const RechnungNr = await generateNextRechnungNr(supabase, settings?.startnummer_rechnungen)
 
         // 4. Rechnungn-Historie anlegen
         const { finalTotal } = calculateDocumentTotals(flatLeistungen, formData.konditionen, null)
 
-        let zahlungsfristTage = settings?.zahlungsfrist_tage || 30
-        if (formData.rechnungsdetails?.zahlungsziel?.includes('10')) zahlungsfristTage = 10
-        if (formData.rechnungsdetails?.zahlungsziel?.includes('14')) zahlungsfristTage = 14
+        const zahlungsfristTage = parseZahlungsfrist(formData.rechnungsdetails?.zahlungsziel, settings?.zahlungsfrist_tage || 30)
 
         const { data: newRechnung } = await supabase.from('rechnungen').insert([{
           rechnung_nr: RechnungNr,
