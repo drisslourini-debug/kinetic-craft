@@ -4,39 +4,15 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import { formatMoney, formatDateLong } from './formatters';
+import { calculateDocumentTotals } from './calculations';
 
 export const generateOfferteWord = async (offerte, kunde, projekt, settings) => {
   const daten = offerte.daten || {};
   const leistungen = daten.leistungen || [];
   
-  let rawTotal = 0;
-  let optionenTotal = 0;
-
-  leistungen.forEach(pos => {
-    const isInfo = (!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0);
-    const isOption = pos.optional === true;
-    
-    if (!isInfo) {
-      const posTotal = (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0);
-      if (isOption) {
-        optionenTotal += posTotal;
-      } else {
-        rawTotal += posTotal;
-      }
-    }
-  });
-
+  const { rawTotal, optionenTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal, isPauschal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis);
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0);
   const mwst = parseFloat(daten.konditionen?.mwst || 0);
-
-  const rabattBetrag = rawTotal * (rabatt / 100);
-  const totalNachRabatt = rawTotal - rabattBetrag;
-  const mwstBetrag = totalNachRabatt * (mwst / 100);
-  const calculatedTotal = totalNachRabatt + mwstBetrag;
-  
-  const pauschalpreis = parseFloat(daten.pauschalpreis || 0);
-  const isPauschal = pauschalpreis > 0;
-  const finalTotal = isPauschal ? pauschalpreis : calculatedTotal;
 
   // Basic styling
   const gold = 'C5A057';

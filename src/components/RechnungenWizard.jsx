@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/formatters'
+import { calculateDocumentTotals } from '../lib/calculations'
 import AddressAutocomplete from './AddressAutocomplete'
 import RechnungPrintView from '../views/RechnungPrintView'
 
@@ -1200,11 +1201,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         const RechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
 
         // 4. Rechnungn-Historie anlegen
-        const rawTotal = flatLeistungen.reduce((sum, pos) => sum + (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0), 0)
-        const rabatt = parseFloat(formData.konditionen.rabatt) || 0
-        const totalNachRabatt = rawTotal * (1 - rabatt / 100)
-        const mwst = parseFloat(formData.konditionen.mwst) || 0
-        const finalTotal = totalNachRabatt * (1 + mwst / 100)
+        const { finalTotal } = calculateDocumentTotals(flatLeistungen, formData.konditionen, null)
 
         let zahlungsfristTage = settings?.zahlungsfrist_tage || 30
         if (formData.rechnungsdetails?.zahlungsziel?.includes('10')) zahlungsfristTage = 10

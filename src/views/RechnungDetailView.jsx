@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import RechnungPrintView from './RechnungPrintView'
 import { generateRechnungWord } from '../lib/rechnungWordGenerator'
 import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
+import { calculateDocumentTotals } from '../lib/calculations'
 
 export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [kunde, setKunde] = useState(null)
@@ -277,13 +278,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
     try {
       const cleanLeistungen = editLeistungen.map(({ _id, ...pos }) => pos)
       
-      const calcTotal = cleanLeistungen
-        .filter(p => !p.optional)
-        .reduce((sum, p) => sum + (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0), 0)
-      const rabattBetrag = calcTotal * (editKonditionen.rabatt / 100)
-      const nachRabatt = calcTotal - rabattBetrag
-      const mwstBetrag = nachRabatt * (editKonditionen.mwst / 100)
-      const finalTotal = isPauschal && editPauschalpreis ? parseFloat(editPauschalpreis) : nachRabatt + mwstBetrag
+      const { finalTotal } = calculateDocumentTotals(cleanLeistungen, editKonditionen, isPauschal ? editPauschalpreis : null)
 
       const updatedDaten = {
         ...rechnung.daten,
@@ -351,28 +346,16 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   // Parse daten safely
   const daten = rechnung.daten || {}
   const leistungen = daten.leistungen || []
-  const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
-  const mwst = parseFloat(daten.konditionen?.mwst || 0)
-  
-  const rawTotal = leistungen
-    .filter(p => !p.optional)
-    .reduce((sum, pos) => sum + (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0), 0)
-  const rabattBetrag = rawTotal * (rabatt / 100)
-  const totalNachRabatt = rawTotal - rabattBetrag
-  const mwstBetrag = totalNachRabatt * (mwst / 100)
-  const finalTotal = daten.pauschalpreis ? parseFloat(daten.pauschalpreis) : totalNachRabatt + mwstBetrag
+  const { rawTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
 
   // Edit-mode live calculation
-  const editRawTotal = editLeistungen
-    .filter(p => !p.optional)
-    .reduce((sum, p) => sum + (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0), 0)
-  const editRabattBetrag = editRawTotal * (editKonditionen.rabatt / 100)
-  const editNachRabatt = editRawTotal - editRabattBetrag
-  const editMwstBetrag = editNachRabatt * (editKonditionen.mwst / 100)
-  const editFinalTotal = isPauschal && editPauschalpreis ? parseFloat(editPauschalpreis) : editNachRabatt + editMwstBetrag
-  const editOptionalTotal = editLeistungen
-    .filter(p => p.optional)
-    .reduce((sum, p) => sum + (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0), 0)
+  const editTotals = calculateDocumentTotals(editLeistungen, editKonditionen, isPauschal ? editPauschalpreis : null)
+  const editRawTotal = editTotals.rawTotal
+  const editRabattBetrag = editTotals.rabattBetrag
+  const editMwstBetrag = editTotals.mwstBetrag
+  const editFinalTotal = editTotals.finalTotal
+  const editOptionalTotal = editTotals.optionenTotal
+  const editNachRabatt = editTotals.totalNachRabatt
 
   const previewRechnung = isEditing ? {
     ...rechnung,
