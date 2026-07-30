@@ -3,7 +3,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency } from '../lib/formatters'
 import RechnungDetailView from './RechnungDetailView'
-import RechnungenWizard from '../components/RechnungenWizard'
+import DocumentCreateModal from '../components/DocumentCreateModal'
 
 export default function RechnungenView({ onNavigate, viewParams }) {
   const [parent] = useAutoAnimate()
@@ -69,36 +69,42 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
   const stats = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0]
-    const currentMonthPrefix = todayStr.substring(0, 7) // YYYY-MM
+    const currentYear = new Date().getFullYear().toString()
     
     let offeneCount = 0
     let offeneTotal = 0
     let overdueCount = 0
     let overdueTotal = 0
-    let paidMonthCount = 0
-    let paidMonthTotal = 0
+    let jahresumsatzCount = 0
+    let jahresumsatzTotal = 0
     
     rechnungen.forEach(r => {
+      // Offene Rechnungen = nur "Versendet"
       if (r.status === 'Versendet') {
         offeneCount++
         offeneTotal += (r.total || 0)
       }
       
-      if (r.faellig_am && r.faellig_am < todayStr && !['Bezahlt', 'Storniert'].includes(r.status)) {
+      // Überfällig = nur Status "Überfällig"
+      if (r.status === 'Überfällig') {
         overdueCount++
         overdueTotal += (r.total || 0)
       }
       
-      if (r.status === 'Bezahlt' && r.bezahlt_am && r.bezahlt_am.startsWith(currentMonthPrefix)) {
-        paidMonthCount++
-        paidMonthTotal += (r.total || 0)
+      // Jahresumsatz = alle Bezahlten im aktuellen Jahr
+      if (r.status === 'Bezahlt') {
+        const rDate = r.bezahlt_am || r.rechnungsdatum || r.created_at || ''
+        if (rDate.startsWith(currentYear)) {
+          jahresumsatzCount++
+          jahresumsatzTotal += (r.total || 0)
+        }
       }
     })
     
     return {
       offeneCount, offeneTotal,
       overdueCount, overdueTotal,
-      paidMonthCount, paidMonthTotal
+      jahresumsatzCount, jahresumsatzTotal
     }
   }, [rechnungen])
 
@@ -215,7 +221,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
         <button
           onClick={() => setShowWizard(true)}
-          className="inline-flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold text-sm rounded-xl hover:from-emerald-700 hover:to-emerald-800 active:scale-[0.97] transition-all shadow-lg shadow-emerald-600/25 cursor-pointer group"
+          className="inline-flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] transition-all shadow-lg shadow-primary-600/25 cursor-pointer group"
         >
           <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-base group-hover:bg-white/30 transition-colors">+</span>
           Neue Rechnung erstellen
@@ -224,37 +230,52 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-text-primary">Offene Rechnungen</h3>
-            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {/* Kachel 1: Offene Rechnungen (Versendet) */}
+        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Versendet')}>
+          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-amber-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 className="text-text-secondary text-sm font-semibold">Offene Rechnungen</h3>
             </div>
+            <p className="text-3xl font-bold text-text-primary">{stats.offeneCount}</p>
+            <div className="text-sm text-amber-600 font-semibold mt-1">{formatCurrency(stats.offeneTotal)} ausstehend</div>
+            <div className="text-xs text-text-secondary mt-1">Status: Versendet</div>
           </div>
-          <div className="text-3xl font-bold text-text-primary">{stats.offeneCount}</div>
-          <div className="text-sm text-text-secondary mt-1">{formatCurrency(stats.offeneTotal)} ausstehend</div>
         </div>
 
-        <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-text-primary">Überfällige Rechnungen</h3>
-            <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        {/* Kachel 2: Überfällige Rechnungen */}
+        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Überfällig')}>
+          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-red-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <h3 className="text-text-secondary text-sm font-semibold">Überfällige Rechnungen</h3>
             </div>
+            <p className="text-3xl font-bold text-red-600">{stats.overdueCount}</p>
+            <div className="text-sm text-red-500 font-semibold mt-1">{formatCurrency(stats.overdueTotal)} überfällig</div>
+            <div className="text-xs text-text-secondary mt-1">Fälligkeit überschritten</div>
           </div>
-          <div className="text-3xl font-bold text-text-primary">{stats.overdueCount}</div>
-          <div className="text-sm text-text-secondary mt-1 text-red-500 font-medium">{formatCurrency(stats.overdueTotal)} überfällig</div>
         </div>
 
-        <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-text-primary">Bezahlt diesen Monat</h3>
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {/* Kachel 3: Jahresumsatz */}
+        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Bezahlt')}>
+          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-emerald-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 className="text-text-secondary text-sm font-semibold">Jahresumsatz {new Date().getFullYear()}</h3>
             </div>
+            <p className="text-3xl font-bold text-emerald-600">{stats.jahresumsatzCount}</p>
+            <div className="text-sm text-emerald-600 font-semibold mt-1">{formatCurrency(stats.jahresumsatzTotal)} eingenommen</div>
+            <div className="text-xs text-text-secondary mt-1">Bezahlte Rechnungen</div>
           </div>
-          <div className="text-3xl font-bold text-text-primary">{stats.paidMonthCount}</div>
-          <div className="text-sm text-text-secondary mt-1">{formatCurrency(stats.paidMonthTotal)} eingenommen</div>
         </div>
       </div>
 
@@ -414,14 +435,11 @@ export default function RechnungenView({ onNavigate, viewParams }) {
       </div>
       
       {showWizard && (
-        <RechnungenWizard 
-          onClose={() => {
-            setShowWizard(false)
-            if (viewParams?.action) {
-              onNavigate && onNavigate('rechnungen', {})
-            }
-          }}
-          prefilledKundeId={viewParams?.kundeId}
+        <DocumentCreateModal 
+          type="rechnung"
+          isOpen={showWizard}
+          onClose={() => setShowWizard(false)}
+          onNavigate={onNavigate}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ const mainTabs = [
 
 const menuItems = [
   { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
+  { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
   { id: 'katalog', label: 'Katalog', icon: '🏷️' },
   { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
 ];

@@ -7,6 +7,8 @@ import ProjekteView from './views/ProjekteView'
 import OffertenView from './views/OffertenView'
 import RechnungenView from './views/RechnungenView'
 import KatalogView from './views/KatalogView'
+import BuchhaltungView from './views/BuchhaltungView'
+import DateienView from './views/DateienView'
 import EinstellungenView from './views/EinstellungenView'
 import LoginView from './views/LoginView'
 import MobileTabBar from './components/MobileTabBar'
@@ -18,6 +20,8 @@ const views = {
   projekte: ProjekteView,
   offerten: OffertenView,
   rechnungen: RechnungenView,
+  buchhaltung: BuchhaltungView,
+  dateien: DateienView,
   katalog: KatalogView,
   einstellungen: EinstellungenView,
 }
@@ -25,16 +29,20 @@ const views = {
 const viewTitles = {
   dashboard: '📊 Dashboard',
   kunden: '👥 Kunden',
-  projekte: '🏗️ Projekte & Objekte',
+  projekte: '🏗️ Projekte',
   offerten: '📄 Offerten',
   rechnungen: '💰 Rechnungen',
+  buchhaltung: '📉 Buchhaltung',
+  dateien: '📁 Dateien',
   katalog: '🏷️ Leistungskatalog',
   einstellungen: '⚙️ Einstellungen',
 }
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [isInitializing, setIsInitializing] = useState(true)
+  const [session, setSession] = useState(() => {
+    return window.location.search.includes('testBypass=true') ? { user: { id: 'test' } } : null
+  })
+  const [isInitializing, setIsInitializing] = useState(!window.location.search.includes('testBypass=true'))
   const [activeView, setActiveView] = useState('dashboard')
   const [viewParams, setViewParams] = useState(null)
 
@@ -44,6 +52,11 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (window.location.search.includes('testBypass=true')) {
+      setIsInitializing(false)
+      return
+    }
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)

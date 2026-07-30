@@ -12,6 +12,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState(null)
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
       <ProjektDetailView 
         projekt={selectedProjekt} 
         onNavigate={onNavigate}
+        initialTab={viewParams?.activeTab || 'projektdaten'}
         onBack={() => {
           setSelectedProjekt(null)
           // Refresh to capture potential name/status changes
@@ -106,6 +108,21 @@ export default function ProjekteView({ onNavigate, viewParams }) {
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return <span className="text-gray-300 ml-1">↕</span>
     return sortConfig.direction === 'asc' ? <span className="text-primary-600 ml-1">↑</span> : <span className="text-primary-600 ml-1">↓</span>
+  }
+
+  const handleDeleteProjekt = async (id, e) => {
+    if (e) e.stopPropagation()
+    setActiveMenuId(null)
+    if (!window.confirm('Projekt wirklich ins Archiv verschieben?')) return
+    
+    try {
+      const { error } = await supabase.from('projekte').update({ is_archived: true }).eq('id', id)
+      if (error) throw error
+      setProjekte(prev => prev.filter(p => p.id !== id))
+    } catch (err) {
+      console.error(err)
+      alert('Fehler beim Archivieren')
+    }
   }
 
   // Stats calculation
@@ -244,22 +261,6 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                       <span className="lg:hidden text-primary-500">🏗️</span> {p.name}
                     </div>
                   )}
-
-                  {/* Mobile Map Button (Floating) */}
-                  {p.adresse && (
-                    <div className="absolute top-4 right-4 lg:hidden">
-                      <a 
-                        href={`https://maps.google.com/?q=${encodeURIComponent(p.adresse)}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center hover:bg-neutral-200 active:scale-95 transition-all shadow-sm border border-neutral-200"
-                        title="Auf Karte zeigen"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-                      </a>
-                    </div>
-                  )}
                 </div>
 
                 {/* Mobile Kunde (shown below title) / Desktop Kunde */}
@@ -298,9 +299,56 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                   </span>
                 </div>
 
-                {/* Chevron Icon for details (Right Arrow) */}
-                <div className="hidden sm:flex items-center justify-end text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                {/* Quick Actions (3-dot Menu) */}
+                <div className="absolute top-2 right-2 lg:relative lg:top-0 lg:right-0 flex items-center justify-end">
+                  <div className="relative">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
+                      className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                    </button>
+                    
+                    {activeMenuId === p.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                        <div className="absolute right-0 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                          <div className="p-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedProjekt(p); }} 
+                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              Details anzeigen
+                            </button>
+                            
+                            {p.adresse && (
+                              <a 
+                                href={`https://maps.google.com/?q=${encodeURIComponent(p.adresse)}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }}
+                                className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                                Auf Karte zeigen
+                              </a>
+                            )}
+                            
+                            <div className="my-1 border-t border-border"></div>
+                            
+                            <button 
+                              onClick={(e) => handleDeleteProjekt(p.id, e)} 
+                              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Archivieren
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )})}

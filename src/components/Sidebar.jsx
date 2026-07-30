@@ -5,9 +5,11 @@ import logoImg from '../assets/logo.png'
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'kunden', label: 'Kunden', icon: '👥' },
-  { id: 'projekte', label: 'Projekte & Objekte', icon: '🏗️' },
+  { id: 'projekte', label: 'Projekte', icon: '🏗️' },
   { id: 'offerten', label: 'Offerten', icon: '📄' },
-  { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
+  { id: 'rechnungen', label: 'Rechnungen', icon: '🧾' },
+  { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
+  { id: 'dateien', label: 'Archiv', icon: '📁' },
   { id: 'katalog', label: 'Katalog', icon: '🏷️' },
   { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
 ]

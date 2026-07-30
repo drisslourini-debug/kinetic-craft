@@ -13,6 +13,7 @@ export default function KundenView({ onNavigate, viewParams }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState(null)
   
   // Sort state
   const [sortField, setSortField] = useState('name')
@@ -51,11 +52,18 @@ export default function KundenView({ onNavigate, viewParams }) {
     fetchKunden()
   }, [viewParams, selectedKunde])
 
+  useEffect(() => {
+    if (viewParams?.action === 'create' && !selectedKunde) {
+      setIsCreateModalOpen(true)
+    }
+  }, [viewParams, selectedKunde])
+
   if (selectedKunde) {
     return (
       <KundeDetailView 
         kunde={selectedKunde} 
         onNavigate={onNavigate}
+        initialTab={viewParams?.activeTab || 'stammdaten'}
         onBack={() => {
           setSelectedKunde(null)
           // Refresh list to show potentially updated names
@@ -110,6 +118,21 @@ export default function KundenView({ onNavigate, viewParams }) {
   const getSortIcon = (field) => {
     if (sortField !== field) return <span className="text-border opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
     return sortDirection === 'asc' ? <span className="text-primary-600">↑</span> : <span className="text-primary-600">↓</span>
+  }
+
+  const handleDeleteKunde = async (id, e) => {
+    if (e) e.stopPropagation()
+    setActiveMenuId(null)
+    if (!window.confirm('Kunden wirklich ins Archiv verschieben?')) return
+    
+    try {
+      const { error } = await supabase.from('kunden').update({ is_archived: true }).eq('id', id)
+      if (error) throw error
+      setKunden(prev => prev.filter(k => k.id !== id))
+    } catch (err) {
+      console.error(err)
+      alert('Fehler beim Archivieren')
+    }
   }
 
   // Stats calculation
@@ -325,7 +348,7 @@ export default function KundenView({ onNavigate, viewParams }) {
               </div>
 
               {/* Status */}
-              <div className="absolute top-4 right-4 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
+              <div className="absolute top-4 right-14 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                   kunde.status === 'Aktiv'
                     ? 'bg-emerald-100 text-emerald-700'
@@ -335,9 +358,65 @@ export default function KundenView({ onNavigate, viewParams }) {
                 </span>
               </div>
 
-              {/* Chevron Icon for details (Right Arrow) */}
-              <div className="hidden lg:flex items-center justify-end text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              {/* Quick Actions (3-dot Menu) */}
+              <div className="absolute top-2 right-2 lg:relative lg:top-0 lg:right-0 flex items-center justify-end">
+                <div className="relative">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === kunde.id ? null : kunde.id); }}
+                    className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                  </button>
+                  
+                  {activeMenuId === kunde.id && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                      <div className="absolute right-0 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-1">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedKunde(kunde); }} 
+                            className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                          >
+                            <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            Details anzeigen
+                          </button>
+                          
+                          {kunde.telefon && (
+                            <a 
+                              href={`tel:${kunde.telefon}`}
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                              Anrufen
+                            </a>
+                          )}
+                          
+                          {kunde.email && (
+                            <a 
+                              href={`mailto:${kunde.email}`}
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
+                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                              E-Mail senden
+                            </a>
+                          )}
+                          
+                          <div className="my-1 border-t border-border"></div>
+                          
+                          <button 
+                            onClick={(e) => handleDeleteKunde(kunde.id, e)} 
+                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Archivieren
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );

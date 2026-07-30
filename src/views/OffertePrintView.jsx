@@ -154,6 +154,100 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
     })
   }
 
+  const handleSaveToArchive = () => {
+    setIsGenerating(true)
+    const element = document.getElementById('pdf-content')
+    const footerElement = document.getElementById('pdf-footer')
+    
+    if (footerElement) footerElement.style.display = 'none'
+
+    const originalClassName = element.className
+    const originalStyles = {
+      padding: element.style.padding,
+      width: element.style.width,
+      minHeight: element.style.minHeight,
+      display: element.style.display,
+      flexDirection: element.style.flexDirection
+    }
+
+    element.className = "bg-white mx-auto print:my-0 print:shadow-none"
+    element.style.padding = '0'
+    element.style.width = '160mm'
+    element.style.minHeight = 'auto'
+    element.style.display = 'block'
+    element.style.flexDirection = 'unset'
+    
+    const filename = `Offerte_${offerte.offerte_nr || offerte.id}_Atelier77.pdf`
+    const opt = {
+      margin:       [20, 25, 25, 25],
+      filename:     filename,
+      image:        { type: 'jpeg', quality: 1.0 },
+      html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['css', 'legacy'], avoid: 'tr, .avoid-break' }
+    }
+
+    html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
+      const totalPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setDrawColor(197, 160, 87);
+        pdf.setLineWidth(0.3);
+        pdf.line(25, 275, 185, 275);
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(153, 153, 153);
+        
+        const text1 = `${settings?.firmenname || 'Malerei Leandro Lüthi'} • ${settings?.strasse || 'Landoltstrasse 99'} • ${settings?.plz_ort || '3007 Bern'} • ${settings?.telefon || '+41 (0)78 402 12 22'} • ${settings?.email || 'leandro@atelier-77.ch'}`;
+        const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
+        const text2 = `UID: CHE-489.750.760${bank}`;
+        
+        const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+        const text2Width = pdf.getStringUnitWidth(text2) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+        
+        pdf.text(text1, (210 - text1Width) / 2, 281);
+        pdf.text(text2, (210 - text2Width) / 2, 286);
+      }
+    }).output('blob').then(async (blob) => {
+      try {
+        const file = new File([blob], filename, { type: 'application/pdf' })
+        const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+        
+        const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+        if (uploadError) throw uploadError
+        
+        const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
+        
+        const { error: dbError } = await supabase.from('dateien').insert([{
+          name: filename, 
+          typ: 'application/pdf', 
+          url: publicUrl, 
+          size_bytes: file.size, 
+          kunde_id: kunde?.id,
+          projekt_id: projekt?.id || null,
+          kategorie: 'Offerte'
+        }])
+        if (dbError) throw dbError
+        
+        alert('PDF wurde erfolgreich im Archiv (Dateien) gespeichert!')
+      } catch(err) {
+        console.error('Error saving PDF to archive:', err)
+        alert('Fehler beim Speichern ins Archiv.')
+      } finally {
+        element.className = originalClassName
+        Object.assign(element.style, originalStyles)
+        if (footerElement) footerElement.style.display = 'block'
+        setIsGenerating(false)
+      }
+    }).catch(err => {
+      console.error('PDF error:', err)
+      element.className = originalClassName
+      Object.assign(element.style, originalStyles)
+      if (footerElement) footerElement.style.display = 'block'
+      setIsGenerating(false)
+      alert('Fehler beim Generieren.')
+    })
+  }
+
   return (
     <div className={previewMode ? "relative w-full h-full bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0" : "fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0"}>
       {/* ===== ACTION BAR (hidden when printing) ===== */}
@@ -189,12 +283,19 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
             🖨️ Drucken
           </button>
           <button 
+            onClick={handleSaveToArchive} 
+            disabled={isGenerating}
+            className={`px-3 sm:px-4 py-2 text-gray-700 text-sm font-bold rounded-xl border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
+          >
+            {isGenerating ? '⏳...' : '💾 Ins Archiv'}
+          </button>
+          <button 
             onClick={handleDownloadPDF} 
             disabled={isGenerating}
             className={`px-4 sm:px-5 py-2 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
             style={{ backgroundColor: gold }}
           >
-            {isGenerating ? '⏳ PDF wird generiert...' : '📄 PDF herunterladen'}
+            {isGenerating ? '⏳ Generiert...' : '📄 Download'}
           </button>
         </div>
       </div>

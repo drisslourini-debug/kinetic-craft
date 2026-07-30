@@ -695,48 +695,68 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
           {/* Secondary Actions Dropdown */}
           <div className="relative">
-            <button
+            <button 
               onClick={() => setShowActionMenu(!showActionMenu)}
-              className="p-2.5 text-text-secondary hover:text-text-primary hover:bg-surface-card border border-transparent hover:border-border rounded-xl transition-all cursor-pointer"
-              title="Weitere Aktionen"
+              className="w-10 h-10 flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors shrink-0 cursor-pointer"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
             </button>
-
-            {/* Action Menu Dropdown */}
+            
             {showActionMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowActionMenu(false)} />
-                <div className="absolute right-0 mt-2 w-56 bg-surface-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in">
-                  <div className="p-2 space-y-1">
+                <div className="fixed inset-0 z-40" onClick={() => setShowActionMenu(false)}></div>
+                <div className="absolute right-0 top-12 w-56 bg-surface-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-slide-in-right sm:animate-fade-in-up">
+                  <div className="p-1">
                     {daten.docUrl && (
                       <a 
                         href={daten.docUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         onClick={() => setShowActionMenu(false)}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-primary-50 hover:text-primary-600 rounded-xl transition-colors"
+                        className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                        Google Doc öffnen
+                        <span className="text-lg">📄</span> Google Doc öffnen
                       </a>
                     )}
-                    <button
+                    <button 
                       onClick={() => { setShowActionMenu(false); handleDuplicate(); }}
-                      className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-semibold text-text-primary hover:bg-primary-50 hover:text-primary-600 rounded-xl transition-colors cursor-pointer"
+                      disabled={isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
-                      Offerte duplizieren
+                      <span className="text-lg">📋</span> Duplizieren
                     </button>
                     {status === 'Akzeptiert' && (
                       <button
                         onClick={() => { setShowActionMenu(false); handleConvertToRechnung(); }}
-                        className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors cursor-pointer"
+                        disabled={isEditing}
+                        className="w-full text-left px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        In Rechnung umwandeln
+                        <span className="text-lg">🧾</span> In Rechnung umwandeln
                       </button>
                     )}
+                    <button 
+                      onClick={async () => {
+                        setShowActionMenu(false);
+                        if (offerte.is_archived) {
+                          if (!window.confirm('Offerte wiederherstellen?')) return
+                          setIsUpdating(true)
+                          try {
+                            await supabase.from('offerten').update({ is_archived: false }).eq('id', offerte.id)
+                            window.location.reload()
+                          } catch (err) {
+                            console.error('Fehler beim Wiederherstellen:', err)
+                          } finally {
+                            setIsUpdating(false)
+                          }
+                        } else {
+                          handleArchive();
+                        }
+                      }}
+                      disabled={isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <span className="text-lg">📦</span> {offerte.is_archived ? 'Wiederherstellen' : 'Archivieren'}
+                    </button>
                   </div>
                   {/* Mobile Status Select embedded in action menu */}
                   <div className="sm:hidden border-t border-border p-3 bg-surface">
@@ -1584,41 +1604,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                     </div>
           </div>
 
-          {/* Action Buttons for Duplicating / Archiving */}
-          <div className="pt-8 mt-4 border-t border-border flex justify-between items-center">
-            {offerte.is_archived ? (
-              <button 
-                onClick={async () => {
-                  if (!window.confirm('Offerte wiederherstellen?')) return
-                  setIsUpdating(true)
-                  try {
-                    await supabase.from('offerten').update({ is_archived: false }).eq('id', offerte.id)
-                    window.location.reload()
-                  } catch (err) {
-                    console.error('Fehler beim Wiederherstellen:', err)
-                  } finally {
-                    setIsUpdating(false)
-                  }
-                }}
-                className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-              >
-                Offerte wiederherstellen
-              </button>
-            ) : (
-              <button 
-                onClick={handleArchive}
-                className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors cursor-pointer"
-              >
-                Offerte archivieren
-              </button>
-            )}
-            <button 
-              onClick={handleDuplicate}
-              className="px-4 py-2 bg-surface-card border border-border text-text-primary rounded-lg text-sm font-bold hover:bg-primary-50 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <span>📑</span> Offerte duplizieren
-            </button>
-          </div>
+          {/* Action Buttons removed from bottom - now in top menu */}
         </div>
 
         {showLivePreview && isEditing && (

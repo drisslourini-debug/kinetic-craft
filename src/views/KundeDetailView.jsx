@@ -139,10 +139,12 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
   const [projekte, setProjekte] = useState([])
   const [offerten, setOfferten] = useState([])
   const [rechnungen, setRechnungen] = useState([])
+  const [dateien, setDateien] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   
   const [activeTab, setActiveTab] = useState(initialTab) // stammdaten, projekte, offerten, rechnungen
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
 
   // Edit State
   const [editState, setEditState] = useState(null) // null, 'stammdaten', 'kontakt', 'konditionen'
@@ -177,6 +179,14 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           .eq('kunden_id', kunde.id)
           .order('created_at', { ascending: false })
         if (rData) setRechnungen(rData)
+
+        const { data: dData } = await supabase
+          .from('dateien')
+          .select('*')
+          .eq('kunde_id', kunde.id)
+          .order('created_at', { ascending: false })
+        if (dData) setDateien(dData)
+
       } catch (err) {
         console.error('Error loading details:', err)
       } finally {
@@ -267,7 +277,27 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     }
   }
 
-  const handleDelete = async () => {
+  const handleRenameFile = async (id, oldName) => {
+    const fileExt = oldName.split('.').pop()
+    const baseName = oldName.substring(0, oldName.lastIndexOf('.')) || oldName
+    const userPrompt = window.prompt('Neuer Dateiname (ohne Endung):', baseName)
+    
+    if (!userPrompt || userPrompt.trim() === baseName) return
+
+    const newName = `${userPrompt.trim()}.${fileExt}`
+
+    try {
+      const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', id)
+      if (error) throw error
+      setDateien(prev => prev.map(d => d.id === id ? { ...d, name: newName } : d))
+    } catch (err) {
+      console.error(err)
+      alert('Umbenennen fehlgeschlagen')
+    }
+  }
+
+  const handleArchive = async () => {
+    if (!window.confirm('Kunde ins Archiv verschieben? Er taucht in keinen Suchen mehr auf.')) return;
     try {
       setIsSaving(true)
       const { error } = await supabase
@@ -280,6 +310,31 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     } catch (err) {
       console.error('Failed to archive kunde:', err)
       alert('Fehler beim Archivieren des Kunden.')
+    } finally {
+      setIsSaving(false)
+      setShowDeleteWarning(false)
+    }
+  }
+
+  const handleHardDelete = async () => {
+    if (projekte.length > 0 || offerten.length > 0 || rechnungen.length > 0) {
+      alert('Der Kunde kann nicht gelöscht werden, da noch Projekte, Offerten oder Rechnungen verknüpft sind. Bitte archiviere ihn stattdessen.')
+      setShowDeleteWarning(false)
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const { error } = await supabase
+        .from('kunden')
+        .delete()
+        .eq('id', kunde.id)
+        
+      if (error) throw error
+      onBack()
+    } catch (err) {
+      console.error('Failed to delete kunde:', err)
+      alert('Fehler beim Löschen des Kunden.')
     } finally {
       setIsSaving(false)
       setShowDeleteWarning(false)
@@ -314,7 +369,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           </div>
         </div>
 
-        {/* Quick Actions (Create Project/Invoice/Quote) */}
+        {/* Quick Actions */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
           <button
             onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: kunde.id })}
@@ -334,12 +389,51 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           >
             + Rechnung
           </button>
+          <button
+            onClick={() => setActiveTab('dateien')}
+            className="px-3 py-2 text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+          >
+            + Datei
+          </button>
+          
+          <div className="relative">
+            <button
+              aria-label="Weitere Aktionen"
+              onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+              className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+            </button>
+            {isHeaderMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                  <div className="p-1">
+                    <button 
+                      onClick={() => { setIsHeaderMenuOpen(false); handleArchive(); }}
+                      className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
+                    >
+                      <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                      Kunde archivieren
+                    </button>
+                    <button 
+                      onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Unwiderruflich löschen
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Tabs - Pill Design to match Einstellungen */}
       <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-        {['stammdaten', 'projekte', 'offerten', 'rechnungen'].map(tab => (
+        {['stammdaten', 'projekte', 'offerten', 'rechnungen', 'dateien'].map(tab => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setEditState(null); }}
@@ -449,15 +543,6 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 <TextAreaField label="Notizen / Referenzen" value={draft.notizen} onChange={v => handleDraftChange('notizen', v)} small />
               </SettingsBlock>
 
-              <div className="mt-8 pt-6 border-t border-border flex justify-end">
-                <button
-                  onClick={() => setShowDeleteWarning(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors cursor-pointer"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  Kunde löschen
-                </button>
-              </div>
             </div>
           )}
 
@@ -658,6 +743,94 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               )}
             </div>
           )}
+
+          {/* TAB: DATEIEN (Archiv) */}
+          {activeTab === 'dateien' && (
+            <div className="animate-fade-in-up space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-text-primary">Kunden-Archiv</h3>
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 cursor-pointer transition-colors shadow-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                  Datei hochladen
+                  <input type="file" className="hidden" onChange={async (e) => {
+                    const file = e.target.files[0]
+                    if (!file) return
+
+                    const fileExt = file.name.split('.').pop()
+                    const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+                    const userPrompt = window.prompt('Bitte Dateiname eingeben (ohne Endung):', baseName)
+                    
+                    if (userPrompt === null) {
+                      e.target.value = null
+                      return
+                    }
+                    
+                    const finalName = userPrompt.trim() ? `${userPrompt.trim()}.${fileExt}` : file.name
+
+                    try {
+                      setIsLoading(true)
+                      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
+                      const filePath = `uploads/${fileName}`
+                      
+                      const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+                      if (uploadError) throw uploadError
+                      
+                      const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
+                      
+                      const { data, error: dbError } = await supabase.from('dateien').insert([{
+                        name: finalName, typ: file.type || fileExt, url: publicUrl, size_bytes: file.size, kunde_id: kunde.id, kategorie: 'Upload'
+                      }]).select()
+                      
+                      if (dbError) throw dbError
+                      if (data) setDateien([data[0], ...dateien])
+                    } catch(err) {
+                      console.error(err)
+                      alert('Fehler beim Upload')
+                    } finally {
+                      setIsLoading(false)
+                      e.target.value = null
+                    }
+                  }} />
+                </label>
+              </div>
+
+              {dateien.length === 0 ? (
+                <div className="bg-surface-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center gap-4">
+                  <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center text-neutral-400 mb-2">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-text-primary">Keine Dateien vorhanden</h3>
+                    <p className="text-text-secondary mt-1">Lade Dateien, Pläne oder Fotos für diesen Kunden hoch.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {dateien.map(datei => (
+                    <div key={datei.id} className="group relative bg-surface-card border border-border rounded-xl p-4 hover:shadow-md hover:border-primary-300 transition-all flex flex-col">
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
+                        <a href={datei.url} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white shadow-sm rounded-lg text-gray-500 hover:text-primary-600 transition-colors" title="Ansehen">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </a>
+                        <button onClick={() => handleRenameFile(datei.id, datei.name)} className="p-1.5 bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors" title="Umbenennen">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </button>
+                      </div>
+                      <div className="flex-1 flex flex-col items-center justify-center mb-3 pt-2">
+                        <div className="text-4xl mb-2">{datei.typ?.includes('pdf') ? '📄' : datei.typ?.includes('image') ? '🖼️' : '📎'}</div>
+                        <h3 className="text-sm font-semibold text-gray-900 text-center line-clamp-2 w-full break-words" title={datei.name}>{datei.name}</h3>
+                      </div>
+                      <div className="mt-auto border-t border-gray-100 pt-3 flex justify-between text-[10px] text-gray-500">
+                        <span>{new Date(datei.created_at).toLocaleDateString()}</span>
+                        <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">{datei.kategorie}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 
@@ -677,7 +850,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 Abbrechen
               </button>
               <button
-                onClick={handleDelete}
+                onClick={handleHardDelete}
                 className="px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center gap-2 cursor-pointer"
                 disabled={isSaving}
               >

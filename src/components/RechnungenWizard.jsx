@@ -1205,15 +1205,12 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
           .from('rechnungen')
           .select('rechnung_nr')
           .ilike('rechnung_nr', `RE-${year}-%`)
-          .order('rechnung_nr', { ascending: false })
-          .limit(1)
         
         let nextNum = settings?.startnummer_rechnungen || 1000
-        if (existing && existing.length > 0 && existing[0].rechnung_nr) {
-          const lastNr = existing[0].rechnung_nr
-          const parts = lastNr.split('-')
-          const existingNum = parseInt(parts[2] || 0)
-          nextNum = existingNum >= nextNum ? existingNum + 1 : nextNum
+        if (existing && existing.length > 0) {
+          const numbers = existing.map(r => parseInt(r.rechnung_nr?.split('-')[2] || 0))
+          const maxNum = Math.max(...numbers)
+          nextNum = maxNum >= nextNum ? maxNum + 1 : nextNum
         }
         const RechnungNr = `RE-${year}-${String(nextNum).padStart(3, '0')}`
 

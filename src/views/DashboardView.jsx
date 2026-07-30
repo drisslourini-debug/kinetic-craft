@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function DashboardView({ onNavigate }) {
-  const [stats, setStats] = useState({
-    offerten: 0,
-    projekte: 0,
-    kunden: 0,
-    umsatz: 0,
-    firmenname: ''
+  const [data, setData] = useState({
+    firmenname: '',
+    ueberfaellig: [],
+    offen: [],
+    inArbeit: [],
+    umsatzTotal: 0,
+    offenTotal: 0,
+    chartData: []
   })
-  const [activities, setActivities] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -19,25 +21,6 @@ export default function DashboardView({ onNavigate }) {
       try {
         setIsLoading(true)
         
-        // Fetch Kunden count
-        const { count: kundenCount } = await supabase
-          .from('kunden')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_archived', false)
-          
-        // Fetch Projekte count
-        const { count: projekteCount } = await supabase
-          .from('projekte')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_archived', false)
-          
-        // Fetch Offerten stats
-        const { data: offerten } = await supabase
-          .from('offerten')
-          .select('id, total, status, created_at, kunden(name)')
-          .eq('is_archived', false)
-          .order('created_at', { ascending: false })
-          
         // Fetch Firmenname
         const { data: settings } = await supabase
           .from('einstellungen')
@@ -46,41 +29,90 @@ export default function DashboardView({ onNavigate }) {
           .single()
           
         const firmenname = settings?.firmenname || ''
+
+        // Fetch Rechnungen for Action Center and KPIs
+        const { data: rechnungen } = await supabase
+          .from('rechnungen')
+          .select('id, rechnung_nr, total, faellig_am, bezahlt_am, status, kunden(name)')
+          .eq('is_archived', false)
+
+        const ueberfaellig = []
+        let offenTotal = 0
+        let umsatzTotal = 0
+
+        const currentDate = new Date()
+        const currentYear = currentDate.getFullYear()
         
-        let offertenOffen = 0
-        let umsatz = 0
-        const recentActivities = []
+        // Chart data init (last 6 months)
+        const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+        const chartDataMap = new Map()
         
-        if (offerten) {
-          offerten.forEach(o => {
-            if (o.status !== 'Abgelehnt' && o.status !== 'Akzeptiert') {
-              offertenOffen++
-            }
-            if (o.status === 'Akzeptiert') {
-              umsatz += o.total || 0
-            }
-            
-            // Add to activities (top 5)
-            if (recentActivities.length < 5) {
-              recentActivities.push({
-                action: `Offerte #${o.id} für ${o.kunden?.name || 'Unbekannt'} ${o.status === 'Akzeptiert' ? 'akzeptiert' : 'erstellt'}`,
-                time: new Date(o.created_at).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-                icon: o.status === 'Akzeptiert' ? '✅' : '📄',
-                target: 'offerten',
-                targetParams: { offerteId: o.id }
-              })
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
+          const key = `${d.getFullYear()}-${d.getMonth()}`
+          chartDataMap.set(key, { 
+            name: monthNames[d.getMonth()], 
+            Umsatz: 0,
+            sortKey: d.getTime()
+          })
+        }
+
+        if (rechnungen) {
+          rechnungen.forEach(r => {
+            if (r.status === 'Überfällig') {
+              ueberfaellig.push(r)
+              offenTotal += r.total || 0
+            } else if (r.status === 'Versendet') {
+              offenTotal += r.total || 0
+            } else if (r.status === 'Bezahlt') {
+              // YTD Umsatz
+              const dateStr = r.bezahlt_am || r.faellig_am || new Date().toISOString()
+              const d = new Date(dateStr)
+              
+              if (d.getFullYear() === currentYear) {
+                umsatzTotal += r.total || 0
+              }
+              // Chart Umsatz
+              const key = `${d.getFullYear()}-${d.getMonth()}`
+              if (chartDataMap.has(key)) {
+                const monthData = chartDataMap.get(key)
+                monthData.Umsatz += r.total || 0
+                chartDataMap.set(key, monthData)
+              }
             }
           })
         }
         
-        setStats({
-          offerten: offertenOffen,
-          projekte: projekteCount || 0,
-          kunden: kundenCount || 0,
-          umsatz: umsatz,
-          firmenname: firmenname
+        // Sort ueberfaellig
+        ueberfaellig.sort((a, b) => new Date(a.faellig_am) - new Date(b.faellig_am))
+        
+        const chartData = Array.from(chartDataMap.values()).sort((a, b) => a.sortKey - b.sortKey)
+
+        // Fetch Offerten (Offen)
+        const { data: offerten } = await supabase
+          .from('offerten')
+          .select('id, total, status, created_at, kunden(name)')
+          .eq('is_archived', false)
+          .in('status', ['Entwurf', 'Versendet'])
+          .order('created_at', { ascending: false })
+
+        // Fetch Projekte (In Arbeit)
+        const { data: projekte } = await supabase
+          .from('projekte')
+          .select('id, name, status, kunden(name)')
+          .eq('is_archived', false)
+          .eq('status', 'In Arbeit')
+          .order('created_at', { ascending: false })
+
+        setData({
+          firmenname,
+          ueberfaellig,
+          offen: offerten || [],
+          inArbeit: projekte || [],
+          umsatzTotal,
+          offenTotal,
+          chartData
         })
-        setActivities(recentActivities)
         
       } catch (err) {
         console.error('Failed to load dashboard data:', err)
@@ -92,110 +124,284 @@ export default function DashboardView({ onNavigate }) {
     fetchDashboardData()
   }, [])
 
-  const statCards = [
-    { label: 'Offene Offerten', value: stats.offerten.toString(), icon: '📄', trend: 'In Bearbeitung', color: 'from-primary-400 to-primary-600', target: 'offerten' },
-    { label: 'Aktive Projekte', value: stats.projekte.toString(), icon: '🏗️', trend: 'Laufende Baustellen', color: 'from-neutral-700 to-neutral-900', target: 'projekte' },
-    { label: 'Kunden', value: stats.kunden.toString(), icon: '👥', trend: 'Im CRM erfasst', color: 'from-stone-500 to-stone-700', target: 'kunden' },
-    { label: 'Umsatz (Akzeptiert)', value: `CHF ${stats.umsatz.toLocaleString('de-CH', { maximumFractionDigits: 0 })}`, icon: '💰', trend: 'Gesamttotal', color: 'from-primary-600 to-primary-800', target: 'rechnungen' },
-  ]
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(amount || 0)
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    return new Date(dateStr).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
 
   return (
-    <div className="space-y-8">
-      {/* Welcome header */}
-      <div>
-        <h2 className="text-2xl md:text-3xl font-bold text-text-primary">
-          {stats.firmenname ? `Grüezi beim ${stats.firmenname} Dashboard 👋` : 'Grüezi 👋'}
-        </h2>
-        <p className="text-text-secondary mt-1">
-          Willkommen zurück. Hier ist dein Überblick.
-        </p>
+    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-text-primary tracking-tight">
+            {data.firmenname ? `Grüezi beim ${data.firmenname} Dashboard 👋` : 'Grüezi 👋'}
+          </h2>
+          <p className="text-text-secondary mt-1">
+            <span className="md:hidden">Dein Action-Center. Hier ist dein Überblick für heute.</span>
+            <span className="hidden md:inline">Zahlen, Fakten und anstehende Aufgaben auf einen Blick.</span>
+          </p>
+        </div>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {statCards.map((stat) => (
-          <div
-            key={stat.label}
-            onClick={() => stat.target && onNavigate && onNavigate(stat.target)}
-            className="relative overflow-hidden bg-surface-card rounded-2xl border border-border p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between cursor-pointer active:scale-[0.98]"
-          >
-            <div className="flex items-start justify-between relative z-10">
-              <div>
-                <p className="text-text-secondary text-xs sm:text-sm font-medium">{stat.label}</p>
-                <p className="text-xl sm:text-2xl font-bold text-text-primary mt-0.5 sm:mt-1">{stat.value}</p>
-                <p className="text-[10px] sm:text-xs text-text-secondary mt-1 sm:mt-2">{stat.trend}</p>
+      {/* ---------------- MOBILE ONLY: QUICK ACTIONS ---------------- */}
+      <div className="md:hidden grid grid-cols-2 gap-2">
+        <button 
+          onClick={() => onNavigate && onNavigate('offerten', { action: 'create' })}
+          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+        >
+          <div className="w-6 h-6 rounded-md bg-primary-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
+          <span className="font-semibold text-text-primary text-xs">Neue Offerte</span>
+        </button>
+        <button 
+          onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create' })}
+          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+        >
+          <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
+          <span className="font-semibold text-text-primary text-xs">Neue Rechnung</span>
+        </button>
+        <button 
+          onClick={() => onNavigate && onNavigate('kunden', { action: 'create' })}
+          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+        >
+          <div className="w-6 h-6 rounded-md bg-stone-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
+          <span className="font-semibold text-text-primary text-xs">Neuer Kunde</span>
+        </button>
+        <button 
+          onClick={() => onNavigate && onNavigate('projekte', { action: 'create' })}
+          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+        >
+          <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
+          <span className="font-semibold text-text-primary text-xs">Neues Projekt</span>
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      ) : (
+        <>
+          {/* ---------------- DESKTOP ONLY: KPI WIDGETS & CHARTS ---------------- */}
+          <div className="hidden md:flex flex-col gap-6">
+            <div className="grid grid-cols-3 gap-6">
+              {/* KPI 1: YTD Revenue */}
+              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Bezahlter Umsatz (YTD)</p>
+                  <p className="text-3xl font-bold text-text-primary mt-2">{formatCurrency(data.umsatzTotal)}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center text-xl mt-4">💰</div>
               </div>
-              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-white text-base sm:text-lg shadow-sm shrink-0 ml-2`}>
-                {stat.icon}
+
+              {/* KPI 2: Open Invoices Amount */}
+              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Ausstehende Zahlungen</p>
+                  <p className="text-3xl font-bold text-red-600 mt-2">{formatCurrency(data.offenTotal)}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl mt-4">⏳</div>
+              </div>
+
+              {/* KPI 3: Pipeline (Open Offers) */}
+              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Offene Offerten (Pipeline)</p>
+                  <p className="text-3xl font-bold text-text-primary mt-2">{data.offen.length}</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl mt-4">📄</div>
               </div>
             </div>
-            {/* Decorative accent bar */}
-            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.color} opacity-80`} />
+
+            {/* Revenue Chart */}
+            <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm">
+              <h3 className="font-bold text-text-primary mb-6">Umsatzentwicklung (Letzte 6 Monate)</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `CHF ${value/1000}k`} />
+                    <Tooltip 
+                      cursor={{ fill: '#f1f5f9' }}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value) => [formatCurrency(value), 'Umsatz']}
+                    />
+                    <Bar dataKey="Umsatz" radius={[6, 6, 0, 0]}>
+                      {data.chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === data.chartData.length - 1 ? '#0284c7' : '#bae6fd'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Quick actions */}
-      <div className="bg-surface-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
-        <h3 className="text-base sm:text-lg font-semibold text-text-primary mb-3 sm:mb-4">Schnellzugriff</h3>
-        <div className="flex overflow-x-auto sm:grid sm:grid-cols-4 gap-3 pb-2 sm:pb-0 snap-x">
-          <button 
-            onClick={() => onNavigate && onNavigate('offerten')}
-            className="snap-start shrink-0 flex items-center gap-2 sm:gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-primary-50 text-primary-800 hover:bg-primary-100 transition-colors font-medium text-sm cursor-pointer border border-primary-100 whitespace-nowrap"
-          >
-            <span className="text-base sm:text-lg">📄</span>
-            Zu den Offerten
-          </button>
-          <button 
-            onClick={() => onNavigate && onNavigate('rechnungen')}
-            className="snap-start shrink-0 flex items-center gap-2 sm:gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors font-medium text-sm cursor-pointer border border-emerald-100 whitespace-nowrap"
-          >
-            <span className="text-base sm:text-lg">💰</span>
-            Zu den Rechnungen
-          </button>
-          <button 
-            onClick={() => onNavigate && onNavigate('kunden')}
-            className="snap-start shrink-0 flex items-center gap-2 sm:gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-surface text-text-primary hover:bg-neutral-100 transition-colors font-medium text-sm cursor-pointer border border-border whitespace-nowrap"
-          >
-            <span className="text-base sm:text-lg">👥</span>
-            Zu den Kunden
-          </button>
-          <button 
-            onClick={() => onNavigate && onNavigate('projekte')}
-            className="snap-start shrink-0 flex items-center gap-2 sm:gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-surface text-text-primary hover:bg-neutral-100 transition-colors font-medium text-sm cursor-pointer border border-border whitespace-nowrap"
-          >
-            <span className="text-base sm:text-lg">🏗️</span>
-            Zu den Projekten
-          </button>
-        </div>
-      </div>
-
-      {/* Recent activity */}
-      <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">Letzte Aktivitäten</h3>
-        <div className="space-y-3">
-          {isLoading ? (
-            <div className="text-sm text-text-secondary">Lade Aktivitäten...</div>
-          ) : activities.length === 0 ? (
-            <div className="text-sm text-text-secondary">Noch keine Aktivitäten vorhanden.</div>
-          ) : (
-            activities.map((activity, i) => (
-              <div 
-                key={i} 
-                onClick={() => activity.target && onNavigate && onNavigate(activity.target, activity.targetParams)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors cursor-pointer active:scale-[0.98]"
-              >
-                <span className="text-base">{activity.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-text-primary font-medium truncate">{activity.action}</p>
-                  <p className="text-xs text-text-secondary">{activity.time}</p>
+          {/* ---------------- ACTION CENTER (BOTH DESKTOP & MOBILE) ---------------- */}
+          <div className="md:mt-8">
+            <h2 className="hidden md:block text-xl font-bold text-text-primary mb-6">Deine Aufgaben (Action-Center)</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Column 1: Überfällig */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                  <h3 className="font-bold text-text-primary">Überfällige Rechnungen</h3>
+                  <span className="ml-auto bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{data.ueberfaellig.length}</span>
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                  {data.ueberfaellig.length === 0 ? (
+                    <div className="bg-white border border-gray-200/60 rounded-2xl p-6 text-center shadow-sm">
+                      <span className="text-2xl mb-2 block">🎉</span>
+                      <p className="text-sm text-text-secondary">Keine überfälligen Rechnungen.</p>
+                    </div>
+                  ) : (
+                    data.ueberfaellig.slice(0, 3).map(r => (
+                      <div 
+                        key={r.id}
+                        onClick={() => onNavigate && onNavigate('rechnungen', { rechnungId: r.id })}
+                        className="bg-white border border-gray-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col gap-3 border-l-[4px] border-l-red-500"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[11px] font-bold text-red-600 uppercase tracking-wider">Seit {formatDate(r.faellig_am)}</p>
+                            <p className="font-bold text-text-primary mt-1 line-clamp-1">{r.kunden?.name || 'Unbekannt'}</p>
+                          </div>
+                          <p className="font-bold text-text-primary ml-2">{formatCurrency(r.total)}</p>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if(onNavigate) onNavigate('rechnungen', { rechnungId: r.id })
+                          }}
+                          className="w-full py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                        >
+                          Mahnung senden &rarr;
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  {data.ueberfaellig.length > 3 && (
+                    <button 
+                      onClick={() => onNavigate && onNavigate('rechnungen')}
+                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                    >
+                      + {data.ueberfaellig.length - 3} weitere anzeigen
+                    </button>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+
+              {/* Column 2: Offen / Feedback */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
+                  <h3 className="font-bold text-text-primary">Wartet auf Feedback</h3>
+                  <span className="ml-auto bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{data.offen.length}</span>
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                  {data.offen.length === 0 ? (
+                    <div className="bg-white border border-gray-200/60 rounded-2xl p-6 text-center shadow-sm">
+                      <span className="text-2xl mb-2 block">✨</span>
+                      <p className="text-sm text-text-secondary">Alle Offerten sind beantwortet.</p>
+                    </div>
+                  ) : (
+                    data.offen.slice(0, 3).map(o => (
+                      <div 
+                        key={o.id}
+                        onClick={() => onNavigate && onNavigate('offerten', { offerteId: o.id })}
+                        className="bg-white border border-gray-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col gap-3 border-l-[4px] border-l-amber-400"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">{o.status} • {formatDate(o.created_at)}</p>
+                            <p className="font-bold text-text-primary mt-1 line-clamp-1">{o.kunden?.name || 'Unbekannt'}</p>
+                          </div>
+                          <p className="font-bold text-text-primary ml-2">{formatCurrency(o.total)}</p>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if(onNavigate) onNavigate('offerten', { offerteId: o.id })
+                          }}
+                          className="w-full py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                        >
+                          Bearbeiten &rarr;
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  {data.offen.length > 3 && (
+                    <button 
+                      onClick={() => onNavigate && onNavigate('offerten')}
+                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                    >
+                      + {data.offen.length - 3} weitere anzeigen
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Column 3: In Bearbeitung */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                  <h3 className="font-bold text-text-primary">In Bearbeitung</h3>
+                  <span className="ml-auto bg-gray-100 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">{data.inArbeit.length}</span>
+                </div>
+                
+                <div className="flex flex-col gap-3">
+                  {data.inArbeit.length === 0 ? (
+                    <div className="bg-white border border-gray-200/60 rounded-2xl p-6 text-center shadow-sm">
+                      <span className="text-2xl mb-2 block">🏖️</span>
+                      <p className="text-sm text-text-secondary">Aktuell keine aktiven Projekte.</p>
+                    </div>
+                  ) : (
+                    data.inArbeit.slice(0, 3).map(p => (
+                      <div 
+                        key={p.id}
+                        onClick={() => onNavigate && onNavigate('projekte', { projektId: p.id })}
+                        className="bg-white border border-gray-200/60 rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col gap-3 border-l-[4px] border-l-emerald-500"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Aktives Projekt</p>
+                            <p className="font-bold text-text-primary mt-1 line-clamp-1">{p.name}</p>
+                            <p className="text-sm text-text-secondary mt-0.5 line-clamp-1">{p.kunden?.name}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if(onNavigate) onNavigate('projekte', { projektId: p.id })
+                          }}
+                          className="w-full py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                        >
+                          Projekt öffnen &rarr;
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  {data.inArbeit.length > 3 && (
+                    <button 
+                      onClick={() => onNavigate && onNavigate('projekte')}
+                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                    >
+                      + {data.inArbeit.length - 3} weitere anzeigen
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
-

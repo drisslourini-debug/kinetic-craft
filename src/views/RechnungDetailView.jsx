@@ -10,7 +10,6 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [status, setStatus] = useState(rechnung.status || 'Entwurf')
   const [isUpdating, setIsUpdating] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('stammdaten')
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
 
@@ -37,6 +36,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [editSchluss, setEditSchluss] = useState('')
   const [editPauschalpreis, setEditPauschalpreis] = useState(null)
   const [isPauschal, setIsPauschal] = useState(false)
+  const [showLivePreview, setShowLivePreview] = useState(false)
 
   useEffect(() => {
     async function loadDetails() {
@@ -149,10 +149,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
     setIsUpdating(true)
     try {
       await supabase.from('rechnungen').update({ is_archived: true }).eq('id', rechnung.id)
-      window.location.reload()
+      onBack()
     } catch (err) {
       console.error('Fehler beim Archivieren:', err)
-      alert('Fehler beim Archivieren der Rechnung.')
+      alert('Fehler beim Archivieren.')
     } finally {
       setIsUpdating(false)
     }
@@ -384,70 +384,96 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
     .filter(p => p.optional)
     .reduce((sum, p) => sum + (parseFloat(p.menge) || 0) * (parseFloat(p.einzelpreis) || 0), 0)
 
+  const previewRechnung = isEditing ? {
+    ...rechnung,
+    daten: {
+      ...rechnung.daten,
+      leistungen: editLeistungen.map(({ _id, ...pos }) => pos),
+      konditionen: editKonditionen,
+      einleitungstext: editEinleitung,
+      schlusstext: editSchluss,
+      pauschalpreis: isPauschal ? editPauschalpreis : null
+    },
+    total: editFinalTotal
+  } : rechnung;
+
   if (showPrintView) {
     return <RechnungPrintView rechnung={rechnung} kunde={kunde} projekt={projekt} settings={settings} onClose={() => setShowPrintView(false)} />
   }
 
   return (
     <div className="space-y-6 relative">
-      {/* Header mit Zurück-Button & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start gap-3 sm:gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
           <button 
             onClick={handleBackClick}
-            className="p-2 mt-1 rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer shrink-0"
+            className="p-2 rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div>
+            <div className="flex items-center gap-3">
               <h2 className="text-2xl md:text-3xl font-bold text-text-primary truncate">
                 Rechnung {rechnung.rechnung_nr || `#${rechnung.id}`}
               </h2>
-              
-              <div className="relative inline-block">
-                <select
-                  value={status}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  disabled={isUpdating}
-                  className={`appearance-none pl-3 pr-8 py-1 text-xs font-bold rounded-full border-2 focus:outline-none transition-all cursor-pointer ${
-                    status === 'Bezahlt' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
-                    status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
-                    status === 'Überfällig' ? 'border-red-200 bg-red-50 text-red-700' :
-                    status === 'Storniert' ? 'border-gray-300 bg-gray-100 text-gray-800' :
-                    'border-gray-200 bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <option value="Entwurf">Entwurf</option>
-                  <option value="Versendet">Versendet</option>
-                  <option value="Bezahlt">Bezahlt</option>
-                  <option value="Überfällig">Überfällig</option>
-                  <option value="Storniert">Storniert</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-current opacity-50">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </div>
-
-              {(isUpdating || isDirty || isEditing) && (
-                <span className={`w-2 h-2 rounded-full ${isUpdating ? 'bg-primary-500 animate-pulse' : 'bg-amber-500'}`} title={isUpdating ? 'Speichert...' : 'Ungespeicherte Änderungen'}></span>
-              )}
+              {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
-            <p className="text-text-secondary mt-1 text-sm">Erstellt am {formatDate(rechnung.created_at)}</p>
+            <p className="text-text-secondary mt-1">Erstellt am {formatDate(rechnung.created_at)}</p>
           </div>
         </div>
-
-        {/* Primary Action + More Menu */}
-        <div className="flex items-center gap-2 self-start sm:self-auto pl-12 sm:pl-0 w-full sm:w-auto relative">
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={isUpdating}
+            className={`px-4 py-2.5 text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 ${
+              status === 'Bezahlt' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
+              status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
+              status === 'Überfällig' ? 'border-red-200 bg-red-50 text-red-700' :
+              status === 'Storniert' ? 'border-gray-300 bg-gray-100 text-gray-800' :
+              'border-gray-200 bg-gray-50 text-gray-700'
+            }`}
+          >
+            <option value="Entwurf">Entwurf</option>
+            <option value="Versendet">Versendet</option>
+            <option value="Bezahlt">Bezahlt</option>
+            <option value="Überfällig">Überfällig</option>
+            <option value="Storniert">Storniert</option>
+          </select>
+          
+          {/* Main Action: PDF View or Edit */}
+          {isEditing && (
+            <button
+              onClick={() => setShowLivePreview(!showLivePreview)}
+              className={`hidden xl:inline-flex items-center gap-2 px-4 py-2.5 font-bold text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
+                showLivePreview 
+                  ? 'bg-primary-50 text-primary-700 border-primary-200' 
+                  : 'bg-surface text-text-secondary border-border hover:bg-surface-card hover:text-text-primary'
+              }`}
+              title="Split-Screen Live-Vorschau (nur Desktop)"
+            >
+              {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+            </button>
+          )}
+          {!isEditing && (
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface border border-primary-200 text-primary-700 font-bold text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+            >
+              ✏️ Rechnung bearbeiten
+            </button>
+          )}
           <button
             onClick={() => setShowPrintView(true)}
-            disabled={isDirty || isEditing}
-            className="flex-1 sm:flex-none justify-center px-4 py-2 bg-primary-600 text-white text-sm font-bold rounded-xl hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm cursor-pointer flex items-center gap-2"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            PDF anzeigen/teilen
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">PDF anzeigen</span>
+            <span className="sm:hidden">PDF</span>
           </button>
           
           <div className="relative">
@@ -471,21 +497,27 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                       <span className="text-lg">📋</span> Duplizieren
                     </button>
                     <button 
-                      onClick={() => { setShowActionMenu(false); generateRechnungWord(rechnung, kunde, projekt, null); }}
-                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <span className="text-lg">📝</span> Als Word exportieren
-                    </button>
-                    <button 
-                      onClick={() => {
+                      onClick={async () => {
                         setShowActionMenu(false);
-                        const subject = encodeURIComponent(`Rechnung ${rechnung?.rechnung_nr || rechnung?.id || ''} - Atelier 77`);
-                        const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nAnbei erhalten Sie die Rechnung für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\nLeandro Lüthi\nMalerei Leandro Lüthi – Atelier 77`);
-                        window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`;
+                        if (rechnung.is_archived) {
+                          if (!window.confirm('Rechnung wiederherstellen?')) return
+                          setIsUpdating(true)
+                          try {
+                            await supabase.from('rechnungen').update({ is_archived: false }).eq('id', rechnung.id)
+                            window.location.reload()
+                          } catch (err) {
+                            console.error('Fehler beim Wiederherstellen:', err)
+                          } finally {
+                            setIsUpdating(false)
+                          }
+                        } else {
+                          handleArchive();
+                        }
                       }}
-                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                      disabled={isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-lg">✉️</span> E-Mail verfassen
+                      <span className="text-lg">📦</span> {rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}
                     </button>
                   </div>
                 </div>
@@ -507,31 +539,17 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-4 border-b border-border">
-        {['stammdaten', 'leistungen'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-2 text-sm font-semibold capitalize border-b-2 transition-colors cursor-pointer ${
-              activeTab === tab 
-                ? 'border-primary-500 text-primary-600' 
-                : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border'
-            }`}
-          >
-            {tab === 'stammdaten' ? 'Stammdaten' : `Leistungen & Kalkulation`}
-          </button>
-        ))}
-      </div>
+      
 
       {isLoading ? (
         <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
       ) : (
+        <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
         <div className="space-y-8 animate-fade-in">
           
           {/* TAB: STAMMDATEN */}
-          {activeTab === 'stammdaten' && (
-            <div className="animate-fade-in-up grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
                   <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
@@ -712,62 +730,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                   {isUpdating ? 'Wird gespeichert...' : 'Änderungen speichern'}
                 </button>
               </div>
-
-              {/* Subtle Delete Button */}
-              <div className="md:col-span-2 mt-8 pt-6 border-t border-border flex justify-end">
-                <button
-                  onClick={() => setShowDeleteWarning(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors cursor-pointer"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  Rechnung löschen
-                </button>
-              </div>
             </div>
-          )}
 
-          {/* TAB: LEISTUNGEN */}
-          {activeTab === 'leistungen' && (
-            <div className="animate-fade-in-up space-y-6">
-              
-              {/* Edit-Mode Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {isEditing && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold">
-                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                      Bearbeitungsmodus
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {!isEditing ? (
-                    <button
-                      onClick={startEditing}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-sm cursor-pointer"
-                    >
-                      ✏️ Rechnung bearbeiten
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={cancelEditing}
-                        className="px-4 py-2.5 bg-surface-card border border-border text-text-secondary font-semibold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        onClick={saveEditing}
-                        disabled={isUpdating}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-                      >
-                        {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
+            {/* TAB: LEISTUNGEN */}
+          <div className="space-y-6 mt-6">
               {/* Einleitungstext (only in edit mode) */}
               {isEditing && (
                 <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
@@ -1164,44 +1130,33 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                 </div>
               )}
             </div>
-          )}
+            {/* Action Buttons removed from bottom - now in top menu */}
+        </div>
 
-          {/* Action Buttons for Duplicating / Archiving */}
-          <div className="pt-8 mt-4 border-t border-border flex justify-between items-center">
-            {rechnung.is_archived ? (
-              <button 
-                onClick={async () => {
-                  if (!window.confirm('Rechnung wiederherstellen?')) return
-                  setIsUpdating(true)
-                  try {
-                    await supabase.from('rechnungen').update({ is_archived: false }).eq('id', rechnung.id)
-                    window.location.reload()
-                  } catch (err) {
-                    console.error('Fehler beim Wiederherstellen:', err)
-                  } finally {
-                    setIsUpdating(false)
-                  }
-                }}
-                className="px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-              >
-                Rechnung wiederherstellen
-              </button>
-            ) : (
-              <button 
-                onClick={handleArchive}
-                className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 transition-colors cursor-pointer"
-              >
-                Rechnung archivieren
-              </button>
-            )}
-            <button 
-              onClick={handleDuplicate}
-              className="px-4 py-2 bg-surface-card border border-border text-text-primary rounded-lg text-sm font-bold hover:bg-primary-50 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <span>📑</span> Rechnung duplizieren
-            </button>
+        {showLivePreview && isEditing && (
+          <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
+            <RechnungPrintView rechnung={previewRechnung} kunde={kunde} projekt={projekt} settings={settings} previewMode={true} />
           </div>
-          
+        )}
+      </div>
+      )}
+
+
+      {isEditing && (
+        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex items-center justify-end gap-3 animate-slide-up">
+          <button
+            onClick={cancelEditing}
+            className="px-5 py-2.5 bg-surface-card border border-border text-text-secondary font-bold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={saveEditing}
+            disabled={isUpdating}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+          >
+            {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
+          </button>
         </div>
       )}
 

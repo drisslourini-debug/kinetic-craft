@@ -10,6 +10,8 @@ export default function KatalogView() {
   const [isLoading, setIsLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeKatMenu, setActiveKatMenu] = useState(null)
+  const [activeLeistungMenu, setActiveLeistungMenu] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -133,6 +135,12 @@ export default function KatalogView() {
     setLeistungen(prev => prev.map(l => l.id === id ? { ...l, is_archived: isArchived } : l))
   }
 
+  const handleDeleteLeistung = async (id) => {
+    if (!window.confirm('Leistung endgültig löschen?')) return
+    await supabase.from('katalog_leistungen').delete().eq('id', id)
+    setLeistungen(prev => prev.filter(l => l.id !== id))
+  }
+
   const moveLeistung = async (id, index, direction, displayList) => {
     if (index + direction < 0 || index + direction >= displayList.length) return
     
@@ -245,14 +253,14 @@ export default function KatalogView() {
                     <div 
                       key={kat.id}
                       onClick={() => setActiveKategorie(kat)}
-                      className={`group flex flex-col justify-between p-3 rounded-xl cursor-pointer transition-all border ${
+                      className={`group relative flex flex-col justify-between p-3 rounded-xl cursor-pointer transition-all border ${
                         isActive 
-                          ? 'bg-primary-50 border-primary-200 shadow-sm' 
+                          ? 'bg-primary-50/50 border-primary-300 shadow-sm shadow-primary-500/10' 
                           : 'bg-transparent border-transparent hover:bg-neutral-50 hover:border-border'
                       }`}
                     >
                       <div className="flex justify-between items-center w-full">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col pr-8">
                           <span className={`font-semibold text-sm ${isActive ? 'text-primary-800' : 'text-text-primary'}`}>
                             {kat.name}
                           </span>
@@ -261,20 +269,46 @@ export default function KatalogView() {
                           </span>
                         </div>
                         
-                        {isActive && (
-                          <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); moveKategorie(idx, -1); }} disabled={idx === 0} className="p-1 hover:bg-primary-100 rounded text-primary-600 disabled:opacity-30 disabled:hover:bg-transparent"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg></button>
-                            <button onClick={(e) => { e.stopPropagation(); moveKategorie(idx, 1); }} disabled={idx === kategorien.length - 1} className="p-1 hover:bg-primary-100 rounded text-primary-600 disabled:opacity-30 disabled:hover:bg-transparent"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg></button>
+                        <div className="absolute right-2 top-2 flex items-center gap-1">
+                          <div className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); moveKategorie(idx, -1); }} disabled={idx === 0} className="p-0.5 hover:bg-primary-100 rounded text-primary-600 disabled:opacity-30 disabled:hover:bg-transparent"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg></button>
+                            <button onClick={(e) => { e.stopPropagation(); moveKategorie(idx, 1); }} disabled={idx === kategorien.length - 1} className="p-0.5 hover:bg-primary-100 rounded text-primary-600 disabled:opacity-30 disabled:hover:bg-transparent"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg></button>
                           </div>
-                        )}
-                      </div>
-                      
-                      {isActive && (
-                        <div className="flex gap-2 mt-3 pt-2 border-t border-primary-200/50">
-                          <button onClick={(e) => { e.stopPropagation(); handleRenameKategorie(kat); }} className="text-xs font-medium text-primary-700 hover:text-primary-900 bg-white/60 px-2 py-1 rounded">✏️ Bearbeiten</button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteKategorie(kat.id); }} className="text-xs font-medium text-red-600 hover:text-red-800 bg-white/60 px-2 py-1 rounded">🗑️ Löschen</button>
+                          
+                          <div className="relative">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setActiveKatMenu(activeKatMenu === kat.id ? null : kat.id); }}
+                              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                            </button>
+                            
+                            {activeKatMenu === kat.id && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveKatMenu(null); }} />
+                                <div className="absolute right-0 mt-1 w-36 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                  <div className="p-1">
+                                    <button 
+                                      onClick={() => { setActiveKatMenu(null); handleRenameKategorie(kat); }} 
+                                      className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                      Bearbeiten
+                                    </button>
+                                    <button 
+                                      onClick={() => { setActiveKatMenu(null); handleDeleteKategorie(kat.id); }} 
+                                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      Löschen
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )
                 })
@@ -289,7 +323,7 @@ export default function KatalogView() {
                 <div className="p-4 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface rounded-t-2xl">
                   <h3 className="font-bold text-text-primary flex items-center gap-2">
                     {isSearchActive ? (
-                      <><span>🔍</span> Suchergebnisse für "{searchTerm}"</>
+                      <><svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg> Suchergebnisse für "{searchTerm}"</>
                     ) : (
                       <>
                         <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-sm shadow-primary-500/50"></span>
@@ -323,7 +357,9 @@ export default function KatalogView() {
                 <div className="flex-1 overflow-y-auto pb-4 bg-neutral-50/30">
                   {displayedLeistungen.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-center">
-                      <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-2xl mb-4">📂</div>
+                      <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mb-4 text-primary-300">
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                      </div>
                       <p className="text-text-primary font-semibold mb-1">Keine Leistungen gefunden</p>
                       <p className="text-text-secondary text-sm">
                         {isSearchActive ? 'Versuche es mit einem anderen Suchbegriff.' : 'Füge neue Leistungen zu dieser Kategorie hinzu.'}
@@ -414,23 +450,46 @@ export default function KatalogView() {
 
 
 
-                            <div className="flex justify-end lg:justify-center p-3 lg:p-0 border-t border-border/50 lg:border-none bg-white lg:bg-transparent rounded-b-xl lg:rounded-none">
-                              {pos.is_archived ? (
-                                <button 
-                                  onClick={() => handleArchiveLeistung(pos.id, false)}
-                                  className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Wiederherstellen"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                </button>
-                              ) : (
-                                <button 
-                                  onClick={() => handleArchiveLeistung(pos.id, true)}
-                                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Archivieren"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                            <div className="flex justify-end lg:justify-center p-3 lg:p-0 border-t border-border/50 lg:border-none bg-white lg:bg-transparent rounded-b-xl lg:rounded-none relative">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setActiveLeistungMenu(activeLeistungMenu === pos.id ? null : pos.id); }}
+                                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                              </button>
+                              
+                              {activeLeistungMenu === pos.id && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveLeistungMenu(null); }} />
+                                  <div className="absolute right-3 lg:right-0 top-10 lg:top-8 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                    <div className="p-1">
+                                      {pos.is_archived ? (
+                                        <button 
+                                          onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, false); }}
+                                          className="w-full text-left px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                          Wiederherstellen
+                                        </button>
+                                      ) : (
+                                        <button 
+                                          onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, true); }}
+                                          className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-neutral-100 hover:text-text-primary rounded-lg transition-colors flex items-center gap-2"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                          Archivieren
+                                        </button>
+                                      )}
+                                      <button 
+                                        onClick={() => { setActiveLeistungMenu(null); handleDeleteLeistung(pos.id); }}
+                                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        Endgültig löschen
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
                               )}
                             </div>
                           </div>
