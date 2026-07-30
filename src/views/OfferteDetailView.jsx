@@ -5,7 +5,7 @@ import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
 import OffertePrintView from './OffertePrintView'
 import KatalogDrawer from '../components/KatalogDrawer'
-import OfferteDuplicateModal from '../components/OfferteDuplicateModal'
+import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 
 export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams }) {
   const [kunde, setKunde] = useState(null)
@@ -1597,8 +1597,9 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       )}
 
       {showDuplicateModal && (
-        <OfferteDuplicateModal
-          currentOfferte={offerte}
+        <DocumentDuplicateModal
+          type="offerte"
+          currentDocument={offerte}
           onClose={() => setShowDuplicateModal(false)}
           onSuccess={(newId) => {
             setShowDuplicateModal(false)

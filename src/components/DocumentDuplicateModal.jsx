@@ -1,14 +1,30 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { generateNextRechnungNr } from '../lib/documentService'
 
-export default function OfferteDuplicateModal({ onClose, onSuccess, currentOfferte }) {
+/**
+ * Unified modal for duplicating both Offerten and Rechnungen.
+ * Replaces the former OfferteDuplicateModal and RechnungDuplicateModal.
+ *
+ * @param {Object} props
+ * @param {'offerte' | 'rechnung'} props.type - Document type
+ * @param {Object} props.currentDocument - The document to duplicate
+ * @param {Function} props.onClose - Close handler
+ * @param {Function} props.onSuccess - Success handler (receives new document ID)
+ */
+export default function DocumentDuplicateModal({ type, currentDocument, onClose, onSuccess }) {
+  const isRechnung = type === 'rechnung'
+  const label = isRechnung ? 'Rechnung' : 'Offerte'
+  const documentNr = isRechnung
+    ? currentDocument.rechnung_nr
+    : (currentDocument.offerte_nr || `OF-${String(currentDocument.id).padStart(3, '0')}`)
+
   const [kundenList, setKundenList] = useState([])
   const [projekteList, setProjekteList] = useState([])
   
-  const [selectedKundeId, setSelectedKundeId] = useState(currentOfferte?.kunden_id || '')
-  const [selectedProjektId, setSelectedProjektId] = useState(currentOfferte?.projekt_id || '')
+  const [selectedKundeId, setSelectedKundeId] = useState(currentDocument?.kunden_id || '')
+  const [selectedProjektId, setSelectedProjektId] = useState(currentDocument?.projekt_id || '')
   
-  // Kopier-Optionen
   const [copyOptions, setCopyOptions] = useState({
     copyLeistungen: true
   })
@@ -49,7 +65,6 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
         if (pErr) throw pErr
         setProjekteList(pData || [])
         
-        // Wenn der Kunde gewechselt wurde und das alte Projekt nicht mehr passt
         if (selectedProjektId) {
           const projectStillExists = pData?.some(p => p.id === selectedProjektId)
           if (!projectStillExists) {
@@ -73,33 +88,48 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
     setError('')
     
     try {
-      // Tiefe Kopie der Daten, um Mutationen zu vermeiden
-      let newDaten = JSON.parse(JSON.stringify(currentOfferte.daten || {}))
-      let newTotal = currentOfferte.total || 0
+      let newDaten = JSON.parse(JSON.stringify(currentDocument.daten || {}))
+      let newTotal = currentDocument.total || 0
       
-      // Wenn Leistungen nicht kopiert werden sollen
       if (!copyOptions.copyLeistungen) {
         newDaten.leistungen = []
         newDaten.pauschalpreis = null
         newTotal = 0
       }
       
-      // Ausführung Start/Dauer zurücksetzen, da es ein neues Projekt sein könnte
       if (newDaten.ausfuehrung) {
         newDaten.ausfuehrung.start = ''
         newDaten.ausfuehrung.dauer = ''
       }
 
-      const duplicateData = {
-        kunden_id: selectedKundeId,
-        projekt_id: selectedProjektId || null,
-        status: 'Entwurf', // Duplikate sind immer zuerst Entwürfe
-        total: newTotal,
-        daten: newDaten
+      let duplicateData
+      if (isRechnung) {
+        const newNr = await generateNextRechnungNr(supabase)
+        duplicateData = {
+          rechnung_nr: newNr,
+          kunden_id: selectedKundeId,
+          projekt_id: selectedProjektId || null,
+          offerte_id: currentDocument.offerte_id,
+          typ: currentDocument.typ || 'gesamt',
+          rechnungsdatum: new Date().toISOString().split('T')[0],
+          zahlungsfrist_tage: currentDocument.zahlungsfrist_tage || 30,
+          status: 'Entwurf',
+          total: newTotal,
+          daten: newDaten
+        }
+      } else {
+        duplicateData = {
+          kunden_id: selectedKundeId,
+          projekt_id: selectedProjektId || null,
+          status: 'Entwurf',
+          total: newTotal,
+          daten: newDaten
+        }
       }
 
+      const tableName = isRechnung ? 'rechnungen' : 'offerten'
       const { data, error: insertErr } = await supabase
-        .from('offerten')
+        .from(tableName)
         .insert([duplicateData])
         .select()
         
@@ -110,7 +140,8 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
       }
     } catch (err) {
       console.error('Fehler beim Duplizieren:', err)
-      setError('Offerte konnte nicht dupliziert werden. Bitte versuche es erneut.')
+      setError(`${label} konnte nicht dupliziert werden. Bitte versuche es erneut.`)
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -127,7 +158,7 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
       <div className="bg-surface w-full max-w-md rounded-2xl shadow-2xl relative z-10 flex flex-col animate-scale-in">
         <div className="px-6 py-5 border-b border-border flex items-center justify-between">
           <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-            <span>📋</span> Offerte duplizieren
+            <span>📋</span> {label} duplizieren
           </h2>
           <button 
             onClick={onClose}
@@ -150,7 +181,7 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
           <div className="space-y-6">
             <div className="bg-primary-50/50 p-4 rounded-xl border border-primary-100">
               <p className="text-sm text-primary-800">
-                Du duplizierst die Offerte <strong>{currentOfferte.offerte_nr || `OF-2026-${String(currentOfferte.id).padStart(3, '0')}`}</strong>.
+                Du duplizierst die {label} <strong>{documentNr}</strong>.
               </p>
             </div>
 
@@ -199,7 +230,7 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
                     className="mt-1 shrink-0 w-4 h-4 text-primary-600 focus:ring-primary-500"
                   />
                   <div>
-                    <span className="block text-sm font-bold text-text-primary">Stammdaten & Leistungen kopieren</span>
+                    <span className="block text-sm font-bold text-text-primary">Stammdaten &amp; Leistungen kopieren</span>
                     <span className="block text-xs text-text-secondary mt-0.5">Komplettes Leistungsverzeichnis und Total übernehmen.</span>
                   </div>
                 </label>
@@ -243,7 +274,7 @@ export default function OfferteDuplicateModal({ onClose, onSuccess, currentOffer
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 Wird kopiert...
               </>
-            ) : 'Offerte kopieren'}
+            ) : `${label} kopieren`}
           </button>
         </div>
       </div>
