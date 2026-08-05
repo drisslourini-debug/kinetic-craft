@@ -6,145 +6,17 @@ import AddressAutocomplete from '../components/AddressAutocomplete'
 // SUBCOMPONENTS
 // ----------------------
 
-const SettingsBlock = ({ title, description, isEditing, onEdit, onCancel, onSave, isSaving, children, readOnlyView }) => (
-  <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6 mb-6">
-    <div className="flex justify-between items-start mb-6">
-      <div>
-        <h3 className="text-lg font-bold text-text-primary">{title}</h3>
-        {description && <p className="text-sm text-text-secondary mt-1">{description}</p>}
-      </div>
-      {!isEditing && onEdit && (
-        <button 
-          onClick={onEdit} 
-          className="p-2 text-text-secondary hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer" 
-          title="Bearbeiten"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-        </button>
-      )}
-    </div>
-    
-    <div>
-      {isEditing ? (
-        <div className="animate-fade-in">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {children}
-          </div>
-          <div className="mt-8 pt-6 border-t border-border flex justify-end gap-4">
-            <button 
-              onClick={onCancel} 
-              className="px-5 py-2.5 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-            >
-              Abbrechen
-            </button>
-            <button 
-              onClick={onSave} 
-              disabled={isSaving} 
-              className="px-6 py-2.5 text-sm font-bold bg-primary-600 text-white rounded-xl hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-600/20 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-            >
-              {isSaving ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Speichert...
-                </>
-              ) : 'Speichern'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col border-t border-border pt-4">
-          {readOnlyView}
-        </div>
-      )}
-    </div>
-  </div>
-)
-
-const SettingsRow = ({ label, value }) => (
-  <div className="flex flex-col sm:flex-row py-3 border-b border-border last:border-b-0 hover:bg-surface-50 transition-colors px-2 rounded-lg -mx-2">
-    <div className="sm:w-1/3 text-sm font-semibold text-text-secondary">{label}</div>
-    <div className="sm:w-2/3 text-sm text-text-primary font-medium">{value || <span className="text-gray-400 italic">Nicht angegeben</span>}</div>
-  </div>
-)
-
-const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "" }) => (
-  <div className={fullWidth ? "sm:col-span-2" : ""}>
-    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">{label}</label>
-    <input
-      type={type}
-      value={value || ''}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
-    />
-  </div>
-)
-
-const TextAreaField = ({ label, value, onChange, fullWidth = true, placeholder = "", small = false }) => (
-  <div className={fullWidth ? "sm:col-span-2" : ""}>
-    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">{label}</label>
-    <textarea
-      value={value || ''}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className={`w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors resize-y ${small ? 'h-20' : 'h-32'}`}
-    />
-  </div>
-)
-
-// --- TEMPLATE MANAGER SUBCOMPONENT ---
-
-const TemplateCategory = ({ categoryKey, title, templates, onAdd, onEdit, onDelete }) => {
-  const categoryTemplates = templates.filter(t => t.category === categoryKey);
-  
-  return (
-    <div className="mb-8 last:mb-0">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="text-md font-bold text-text-primary">{title}</h4>
-        <button 
-          onClick={() => onAdd(categoryKey)}
-          className="px-3 py-1.5 bg-primary-50 text-primary-600 text-xs font-bold rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-        >
-          + Neue Vorlage
-        </button>
-      </div>
-      
-      {categoryTemplates.length === 0 ? (
-        <div className="p-4 border border-dashed border-border rounded-xl text-sm text-text-secondary text-center bg-surface-50">
-          Keine Vorlagen definiert. Es wird der System-Standard verwendet.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {categoryTemplates.map(t => (
-            <div key={t.id} className="p-4 bg-surface rounded-xl border border-border shadow-sm flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between group hover:border-primary-200 transition-colors">
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm text-text-primary mb-1 truncate">{t.label}</div>
-                <div className="text-sm text-text-secondary line-clamp-2">{t.text}</div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button onClick={() => onEdit(t)} className="p-2 text-text-secondary hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-                <button onClick={() => onDelete(t.id)} className="p-2 text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+import { SettingsBlock, SettingsRow, InputField, TextAreaField } from '../components/ui/SettingsComponents'
+import TemplateCategory from '../components/einstellungen/TemplateCategory'
+import FirmenDaten from '../components/einstellungen/FirmenDaten'
+import Standardwerte from '../components/einstellungen/Standardwerte'
+import Nummernkreise from '../components/einstellungen/Nummernkreise'
 
 // ----------------------
 // MAIN COMPONENT
 // ----------------------
 
-export default function EinstellungenView() {
+export default function EinstellungenView({ userRole }) {
   const [activeTab, setActiveTab] = useState('unternehmen')
   const [settings, setSettings] = useState({
     firmenname: '',
@@ -155,6 +27,11 @@ export default function EinstellungenView() {
     email: '',
     website: '',
     bankverbindung: '',
+    qr_iban: '',
+    hr_nummer: '',
+    gerichtsstand: '',
+    logo_url: '',
+    primary_color: '#8b5cf6', // Standard Color
     standard_mwst: 8.1,
     standard_rabatt: 0,
     gueltigkeit_offerten_tage: 30,
@@ -171,15 +48,14 @@ export default function EinstellungenView() {
   const [isSaving, setIsSaving] = useState(false)
   const [dbError, setDbError] = useState(false)
   
-  // Template Modal State
   const [editingTemplate, setEditingTemplate] = useState(null)
   const [templateForm, setTemplateForm] = useState({ label: '', text: '', category: '' })
 
-  // Team Mock State
-  const [team] = useState([
-    { id: 1, name: 'Leandro Lüthi', email: 'leandro@atelier-77.ch', role: 'Inhaber', status: 'Aktiv' },
-    { id: 2, name: 'Amin (Dev)', email: 'amin@example.com', role: 'Administrator', status: 'Aktiv' }
-  ])
+  const [teamMembers, setTeamMembers] = useState({ active: [], pending: [] })
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'team' })
+  const [inviteLink, setInviteLink] = useState('')
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false)
 
   const defaultTextVorlagen = [
   { id: 'oe_1', category: 'offerte_einleitung', label: 'Standard', text: 'Gerne unterbreiten wir Ihnen folgende Offerte:' },
@@ -201,7 +77,7 @@ export default function EinstellungenView() {
       if (!supabase) return
       setIsLoading(true)
       try {
-        const { data, error } = await supabase.from('einstellungen').select('*').eq('id', 1).single()
+        const { data, error } = await supabase.from('einstellungen').select('*').limit(1).single()
         if (error) {
           if (error.code === 'PGRST205' || error.code === '42P01' || error.code === '42703') {
             console.warn('Tabelle einstellungen fehlt oder Spalte fehlt in Supabase. Fallback auf lokale Daten.')
@@ -211,7 +87,12 @@ export default function EinstellungenView() {
               setSettings(JSON.parse(localSettings))
             }
           } else if (error.code === 'PGRST116') {
-            await supabase.from('einstellungen').insert([{ id: 1, ...settings }])
+            const { data: newRow, error: insertErr } = await supabase.from('einstellungen').insert([{ ...settings }]).select().single()
+            if (newRow) {
+              setSettings({ ...settings, ...newRow })
+            } else if (insertErr) {
+              console.error('Error inserting initial settings:', insertErr)
+            }
           } else {
             console.error('Supabase Error:', error)
           }
@@ -221,7 +102,7 @@ export default function EinstellungenView() {
             // Seed the db only if column is null/undefined or first run after migration
             const seededSettings = { ...settings, ...data, text_vorlagen: defaultTextVorlagen };
             setSettings(seededSettings);
-            await supabase.from('einstellungen').upsert({ id: 1, ...seededSettings });
+            await supabase.from('einstellungen').update(seededSettings).eq('id', data.id);
             localStorage.setItem('atelier77_text_vorlagen_seeded', 'true');
           } else {
             // If it's [], it means the user deleted them all, respect that.
@@ -235,7 +116,49 @@ export default function EinstellungenView() {
       }
     }
     loadSettings()
+    loadTeamMembers()
   }, [])
+
+  async function loadTeamMembers() {
+    setIsLoadingTeam(true)
+    try {
+      const { data, error } = await supabase.rpc('get_team_members')
+      if (data && !error) {
+        setTeamMembers(data)
+      }
+    } catch (err) {
+      console.error('Error loading team:', err)
+    } finally {
+      setIsLoadingTeam(false)
+    }
+  }
+
+  const handleInviteUser = async (e) => {
+    e.preventDefault()
+    try {
+      const { data: token, error } = await supabase.rpc('create_invitation', { 
+        p_email: inviteForm.email, 
+        p_role: inviteForm.role 
+      })
+      if (error) throw error
+      
+      const link = `${window.location.origin}/#/register?token=${token}`
+      setInviteLink(link)
+      loadTeamMembers()
+    } catch (err) {
+      alert('Fehler beim Einladen: ' + err.message)
+    }
+  }
+
+  const handleDeleteInvite = async (token) => {
+    if (!window.confirm('Einladung wirklich zurückziehen?')) return
+    try {
+      await supabase.rpc('delete_invitation', { p_token: token })
+      loadTeamMembers()
+    } catch (err) {
+      alert('Fehler beim Löschen: ' + err.message)
+    }
+  }
 
   const startEdit = (blockName) => {
     setDraft({ ...settings })
@@ -258,9 +181,25 @@ export default function EinstellungenView() {
         // Fallback to localstorage
         localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(draft))
       } else {
-        const { error } = await supabase.from('einstellungen').upsert({ id: 1, ...draft })
-        if (error) {
-          if (error.code === '42703') { // Column missing
+        const payload = { ...draft }
+        delete payload.tenant_id // Never attempt to update tenant_id
+        
+        let saveErr;
+        if (draft.id) {
+          const { error } = await supabase.from('einstellungen').update(payload).eq('id', draft.id)
+          saveErr = error;
+        } else {
+          // If draft.id is missing (e.g. failed to load initial row), insert instead!
+          const { data, error } = await supabase.from('einstellungen').insert([payload]).select().single()
+          saveErr = error;
+          if (!error && data) {
+            setSettings({ ...draft, ...data }) // Update state with the new ID
+            setDraft({ ...draft, ...data })
+          }
+        }
+
+        if (saveErr) {
+          if (saveErr.code === '42703') { // Column missing
             console.warn('Spalte text_vorlagen fehlt in Supabase. Fallback auf lokale Daten.')
             setDbError(true)
             localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(draft))
@@ -272,7 +211,7 @@ export default function EinstellungenView() {
       setEditState(null)
     } catch (error) {
       console.error('Fehler beim Speichern:', error)
-      alert('Fehler beim Speichern der Einstellungen.')
+      alert(`Fehler beim Speichern: ${error?.message || error?.details || JSON.stringify(error)}`)
     } finally {
       setIsSaving(false)
     }
@@ -292,9 +231,22 @@ export default function EinstellungenView() {
       if (dbError) {
         localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(updatedSettings))
       } else {
-        const { error } = await supabase.from('einstellungen').upsert({ id: 1, text_vorlagen: newList })
-        if (error) {
-          if (error.code === '42703') {
+        let saveErr;
+        if (updatedSettings.id) {
+          const { error } = await supabase.from('einstellungen').update({ text_vorlagen: newList }).eq('id', updatedSettings.id)
+          saveErr = error;
+        } else {
+          const payload = { ...updatedSettings }
+          delete payload.tenant_id
+          const { data, error } = await supabase.from('einstellungen').insert([payload]).select().single()
+          saveErr = error;
+          if (!error && data) {
+            setSettings({ ...updatedSettings, ...data })
+          }
+        }
+
+        if (saveErr) {
+          if (saveErr.code === '42703') {
             setDbError(true)
             localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(updatedSettings))
           } else {
@@ -370,7 +322,7 @@ export default function EinstellungenView() {
   ]
 
   return (
-    <div className="space-y-8 max-w-5xl pb-16">
+    <div className="space-y-8 max-w-[1600px] pb-16">
       {/* Header */}
       <div>
         <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Einstellungen</h2>
@@ -382,8 +334,8 @@ export default function EinstellungenView() {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setEditState(null); }}
-            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
               activeTab === tab.id 
                 ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
                 : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-gray-300 hover:bg-gray-50'
@@ -402,65 +354,18 @@ export default function EinstellungenView() {
             TAB: UNTERNEHMEN 
         ========================================= */}
         {activeTab === 'unternehmen' && (
-          <div className="space-y-6">
-            <SettingsBlock
-              title="Stammdaten & Adresse"
-              description="Diese Angaben werden oben links auf deinen Offerten und Rechnungen angedruckt."
-              isEditing={editState === 'unternehmen'}
-              onEdit={() => startEdit('unternehmen')}
-              onCancel={cancelEdit}
-              onSave={() => handleSave('unternehmen')}
-              isSaving={isSaving}
-              readOnlyView={
-                <>
-                  <SettingsRow label="Name des Unternehmens" value={settings.firmenname} />
-                  <SettingsRow label="Strasse & Nr." value={settings.strasse} />
-                  <SettingsRow label="PLZ & Ort" value={settings.plz_ort} />
-                  <SettingsRow label="UID-Nummer" value={settings.uid} />
-                </>
-              }
-            >
-              <InputField label="Name des Unternehmens" value={draft.firmenname} onChange={v => handleDraftChange('firmenname', v)} />
-              <InputField label="UID-Nummer" value={draft.uid} onChange={v => handleDraftChange('uid', v)} placeholder="z.B. CHE-123.456.789 MWST" />
-              <div className="">
-                <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Strasse (Auto-Fill)</label>
-                <AddressAutocomplete 
-                  value={draft.strasse || ''} 
-                  onChange={(val, details) => {
-                    if (details) {
-                      setDraft(prev => ({...prev, strasse: details.strasse, plz_ort: `${details.plz} ${details.ort}`.trim()}))
-                    } else {
-                      handleDraftChange('strasse', val)
-                    }
-                  }}
-                  placeholder="Strasse eingeben..."
-                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
-                />
-              </div>
-              <InputField label="PLZ & Ort" value={draft.plz_ort} onChange={v => handleDraftChange('plz_ort', v)} placeholder="3000 Bern" />
-            </SettingsBlock>
-
-            <SettingsBlock
-              title="Kontaktdaten"
-              description="Diese Daten erscheinen auf dem PDF als Kontaktmöglichkeiten für deine Kunden."
-              isEditing={editState === 'kontakt'}
-              onEdit={() => startEdit('kontakt')}
-              onCancel={cancelEdit}
-              onSave={() => handleSave('kontakt')}
-              isSaving={isSaving}
-              readOnlyView={
-                <>
-                  <SettingsRow label="Geschäfts-E-Mail" value={settings.email} />
-                  <SettingsRow label="Telefonnummer" value={settings.telefon} />
-                  <SettingsRow label="Website" value={settings.website} />
-                </>
-              }
-            >
-              <InputField label="Geschäfts-E-Mail" type="email" value={draft.email} onChange={v => handleDraftChange('email', v)} />
-              <InputField label="Telefonnummer" type="tel" value={draft.telefon} onChange={v => handleDraftChange('telefon', v)} />
-              <InputField label="Website" type="url" value={draft.website} onChange={v => handleDraftChange('website', v)} />
-            </SettingsBlock>
-          </div>
+          <FirmenDaten
+            settings={settings}
+            draft={draft}
+            editState={editState}
+            isSaving={isSaving}
+            startEdit={startEdit}
+            cancelEdit={cancelEdit}
+            handleSave={handleSave}
+            handleDraftChange={handleDraftChange}
+            setDraft={setDraft}
+            userRole={userRole}
+          />
         )}
 
         {/* =========================================
@@ -468,64 +373,29 @@ export default function EinstellungenView() {
         ========================================= */}
         {activeTab === 'rechnungsstellung' && (
           <div className="space-y-6">
-            <SettingsBlock
-              title="Bank & MWST"
-              description="Die IBAN wird auf Rechnungen gedruckt. Die MWST gilt als Standard für neue Dokumente."
-              isEditing={editState === 'finanzen'}
-              onEdit={() => startEdit('finanzen')}
-              onCancel={cancelEdit}
-              onSave={() => handleSave('finanzen')}
+            <Standardwerte
+              settings={settings}
+              draft={draft}
+              editState={editState}
               isSaving={isSaving}
-              readOnlyView={
-                <>
-                  <SettingsRow label="Bankverbindung (IBAN)" value={settings.bankverbindung} />
-                  <SettingsRow label="Standard MwSt" value={settings.standard_mwst ? `${settings.standard_mwst}%` : '0%'} />
-                  <SettingsRow label="Standard Rabatt" value={settings.standard_rabatt ? `${settings.standard_rabatt}%` : '0%'} />
-                </>
-              }
-            >
-              <InputField label="Bankverbindung (IBAN)" value={draft.bankverbindung} onChange={v => handleDraftChange('bankverbindung', v)} fullWidth />
-              <InputField label="Standard MwSt (%)" type="number" value={draft.standard_mwst} onChange={v => handleDraftChange('standard_mwst', parseFloat(v))} />
-              <InputField label="Standard Rabatt (%)" type="number" value={draft.standard_rabatt} onChange={v => handleDraftChange('standard_rabatt', parseFloat(v))} />
-            </SettingsBlock>
-
-            <SettingsBlock
-              title="Fristen & Konditionen"
-              description="Standard-Tage für die Gültigkeit von Offerten und Zahlungsziele von Rechnungen."
-              isEditing={editState === 'fristen'}
-              onEdit={() => startEdit('fristen')}
-              onCancel={cancelEdit}
-              onSave={() => handleSave('fristen')}
+              startEdit={startEdit}
+              cancelEdit={cancelEdit}
+              handleSave={handleSave}
+              handleDraftChange={handleDraftChange}
+              userRole={userRole}
+            />
+            
+            <Nummernkreise
+              settings={settings}
+              draft={draft}
+              editState={editState}
               isSaving={isSaving}
-              readOnlyView={
-                <>
-                  <SettingsRow label="Offerten Gültigkeit" value={settings.gueltigkeit_offerten_tage ? `${settings.gueltigkeit_offerten_tage} Tage` : ''} />
-                  <SettingsRow label="Rechnungen Zahlungsfrist" value={settings.zahlungsfrist_tage ? `${settings.zahlungsfrist_tage} Tage` : ''} />
-                </>
-              }
-            >
-              <InputField label="Offerten Gültigkeit (Tage)" type="number" value={draft.gueltigkeit_offerten_tage} onChange={v => handleDraftChange('gueltigkeit_offerten_tage', parseInt(v))} />
-              <InputField label="Rechnungen Zahlungsfrist (Tage)" type="number" value={draft.zahlungsfrist_tage} onChange={v => handleDraftChange('zahlungsfrist_tage', parseInt(v))} />
-            </SettingsBlock>
-
-            <SettingsBlock
-              title="Nummernkreise"
-              description="Die nächste verfügbare Nummer für deine Dokumente."
-              isEditing={editState === 'nummern'}
-              onEdit={() => startEdit('nummern')}
-              onCancel={cancelEdit}
-              onSave={() => handleSave('nummern')}
-              isSaving={isSaving}
-              readOnlyView={
-                <>
-                  <SettingsRow label="Startnummer Offerten" value={settings.startnummer_offerten} />
-                  <SettingsRow label="Startnummer Rechnungen" value={settings.startnummer_rechnungen} />
-                </>
-              }
-            >
-              <InputField label="Startnummer Offerten" type="number" value={draft.startnummer_offerten} onChange={v => handleDraftChange('startnummer_offerten', parseInt(v))} />
-              <InputField label="Startnummer Rechnungen" type="number" value={draft.startnummer_rechnungen} onChange={v => handleDraftChange('startnummer_rechnungen', parseInt(v))} />
-            </SettingsBlock>
+              startEdit={startEdit}
+              cancelEdit={cancelEdit}
+              handleSave={handleSave}
+              handleDraftChange={handleDraftChange}
+              userRole={userRole}
+            />
           </div>
         )}
 
@@ -534,59 +404,58 @@ export default function EinstellungenView() {
         ========================================= */}
         {activeTab === 'vorlagen' && (
           <div className="space-y-6">
-            <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xl font-bold text-text-primary">Offerten Vorlagen</h3>
-                <button onClick={handleRestoreDefaults} className="text-sm font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-primary-100">Standard laden</button>
+            {userRole !== 'treuhand' && (
+              <div className="flex justify-end mb-6">
+                <button 
+                  onClick={handleRestoreDefaults}
+                  className="text-xs text-text-secondary hover:text-primary-600 flex items-center gap-1.5 transition-colors cursor-pointer bg-white px-3 py-1.5 border border-border rounded-lg shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Standard-Vorlagen wiederherstellen
+                </button>
               </div>
-              <p className="text-sm text-text-secondary mb-6">Erstelle Textbausteine (z.B. Einleitungen und Schlusstexte), die du später in der Offerte als "Pill" auswählen kannst.</p>
-              
+            )}
+            
+            <div className="space-y-6">
               <TemplateCategory 
-                categoryKey="offerte_einleitung"
-                title="Einleitungstexte"
+                title="Offerten - Einleitung" 
+                description="Der Einleitungstext oberhalb der Leistungs-Tabelle."
+                category="offerte_einleitung"
                 templates={settings.text_vorlagen || []}
                 onAdd={handleAddTemplate}
                 onEdit={handleEditTemplate}
                 onDelete={handleDeleteTemplate}
+                userRole={userRole}
+              />
+              <TemplateCategory 
+                title="Offerten - Schlusstext" 
+                description="Der Text nach der Total-Summe, oft für Grussformeln."
+                category="offerte_schluss"
+                templates={settings.text_vorlagen || []}
+                onAdd={handleAddTemplate}
+                onEdit={handleEditTemplate}
+                onDelete={handleDeleteTemplate}
+                userRole={userRole}
               />
               
-              <div className="h-px bg-border my-6"></div>
-              
               <TemplateCategory 
-                categoryKey="offerte_schluss"
-                title="Schlusstexte"
+                title="Rechnungen - Einleitung" 
+                category="rechnung_einleitung"
                 templates={settings.text_vorlagen || []}
                 onAdd={handleAddTemplate}
                 onEdit={handleEditTemplate}
                 onDelete={handleDeleteTemplate}
+                userRole={userRole}
               />
-            </div>
-
-            <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xl font-bold text-text-primary">Rechnungen Vorlagen</h3>
-                <button onClick={handleRestoreDefaults} className="text-sm font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-primary-100">Standard laden</button>
-              </div>
-              <p className="text-sm text-text-secondary mb-6">Erstelle Textbausteine, die du beim Erstellen einer Rechnung schnell auswählen kannst.</p>
-              
               <TemplateCategory 
-                categoryKey="rechnung_einleitung"
-                title="Einleitungstexte"
+                title="Rechnungen - Schlusstext" 
+                description="Enthält oft die Zahlungsfrist oder Danke-Sätze."
+                category="rechnung_schluss"
                 templates={settings.text_vorlagen || []}
                 onAdd={handleAddTemplate}
                 onEdit={handleEditTemplate}
                 onDelete={handleDeleteTemplate}
-              />
-              
-              <div className="h-px bg-border my-6"></div>
-              
-              <TemplateCategory 
-                categoryKey="rechnung_schluss"
-                title="Schlusstexte"
-                templates={settings.text_vorlagen || []}
-                onAdd={handleAddTemplate}
-                onEdit={handleEditTemplate}
-                onDelete={handleDeleteTemplate}
+                userRole={userRole}
               />
             </div>
           </div>
@@ -597,12 +466,15 @@ export default function EinstellungenView() {
         ========================================= */}
         {activeTab === 'team' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-2">
               <div>
                 <h3 className="text-lg font-bold text-text-primary">Teammitglieder</h3>
                 <p className="text-sm text-text-secondary mt-1">Personen mit Zugriff auf das System</p>
               </div>
-              <button className="px-4 py-2 bg-primary-50 text-primary-600 font-semibold text-sm rounded-lg hover:bg-primary-100 transition-colors cursor-not-allowed opacity-50 flex items-center gap-2">
+              <button 
+                onClick={() => { setInviteForm({ email: '', role: 'team' }); setInviteLink(''); setShowInviteModal(true); }}
+                className="px-4 py-2 bg-primary-600 text-white font-semibold text-sm rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
+              >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 Mitglied einladen
               </button>
@@ -616,33 +488,63 @@ export default function EinstellungenView() {
                       <th className="px-6 py-4">Name</th>
                       <th className="px-6 py-4">E-Mail</th>
                       <th className="px-6 py-4">Rolle</th>
-                      <th className="px-6 py-4 text-right">Status</th>
+                      <th className="px-6 py-4 text-right">Status / Aktion</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {team.map(member => (
-                      <tr key={member.id} className="hover:bg-surface-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs shadow-sm">
-                              {member.name.substring(0, 2).toUpperCase()}
-                            </div>
-                            <span className="font-semibold text-text-primary">{member.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-text-secondary font-medium">{member.email}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold">
-                            {member.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-100">
-                            {member.status}
-                          </span>
-                        </td>
+                    {isLoadingTeam ? (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-8 text-center text-text-secondary animate-pulse">Team wird geladen...</td>
                       </tr>
-                    ))}
+                    ) : teamMembers.active?.length === 0 && teamMembers.pending?.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-8 text-center text-text-secondary">Keine Teammitglieder gefunden.</td>
+                      </tr>
+                    ) : (
+                      <>
+                        {/* Active Members */}
+                        {teamMembers.active?.map(member => (
+                          <tr key={member.id} className="hover:bg-surface/50 transition-colors">
+                            <td className="px-6 py-4 font-medium text-text-primary">{member.name}</td>
+                            <td className="px-6 py-4 text-text-secondary">{member.email || 'Versteckt'}</td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {member.role}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                {member.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Pending Invitations */}
+                        {teamMembers.pending?.map(invite => (
+                          <tr key={invite.id} className="hover:bg-surface/50 transition-colors">
+                            <td className="px-6 py-4 font-medium text-text-secondary italic">Noch nicht registriert</td>
+                            <td className="px-6 py-4 text-text-secondary">{invite.email}</td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 opacity-70">
+                                {invite.role}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                  {invite.status}
+                                </span>
+                                <button onClick={() => handleDeleteInvite(invite.token)} className="text-red-500 hover:text-red-700 p-1 rounded" title="Einladung zurückziehen">
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -660,7 +562,7 @@ export default function EinstellungenView() {
               <h3 className="text-xl font-bold text-text-primary">
                 {editingTemplate === 'new' ? 'Neue Vorlage erstellen' : 'Vorlage bearbeiten'}
               </h3>
-              <button onClick={() => setEditingTemplate(null)} className="p-2 text-text-secondary hover:text-text-primary rounded-lg transition-colors bg-surface hover:bg-neutral-100 cursor-pointer">
+              <button onClick={() => setEditingTemplate(null)} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary rounded-lg transition-colors bg-surface hover:bg-neutral-100 cursor-pointer flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -673,7 +575,7 @@ export default function EinstellungenView() {
                   value={templateForm.label}
                   onChange={e => setTemplateForm({...templateForm, label: e.target.value})}
                   placeholder="z.B. Standard, Förmlich, Winteraktion..."
-                  className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
+                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors"
                 />
               </div>
               
@@ -683,7 +585,7 @@ export default function EinstellungenView() {
                   value={templateForm.text}
                   onChange={e => setTemplateForm({...templateForm, text: e.target.value})}
                   placeholder="Der Textbaustein..."
-                  className="w-full h-40 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors resize-y"
+                  className="w-full h-40 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors resize-y"
                 />
               </div>
             </div>
@@ -691,13 +593,13 @@ export default function EinstellungenView() {
             <div className="p-6 border-t border-border bg-surface-card flex justify-end gap-3">
               <button 
                 onClick={() => setEditingTemplate(null)}
-                className="px-5 py-2.5 text-sm font-semibold text-text-secondary hover:text-text-primary bg-surface border border-border rounded-xl transition-colors cursor-pointer hover:bg-neutral-100"
+                className="px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold text-text-secondary hover:text-text-primary bg-surface border border-border rounded-xl transition-colors cursor-pointer hover:bg-neutral-100"
               >
                 Abbrechen
               </button>
               <button 
                 onClick={handleSaveTemplateForm}
-                className="px-6 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer"
+                className="px-6 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white rounded-xl text-base sm:text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer"
               >
                 Vorlage speichern
               </button>
@@ -705,6 +607,89 @@ export default function EinstellungenView() {
           </div>
         </div>
       )}
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-fade-in-up">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="text-lg font-bold text-text-primary">Neues Mitglied einladen</h3>
+              <button onClick={() => setShowInviteModal(false)} className="text-text-secondary hover:text-text-primary p-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {!inviteLink ? (
+                <form onSubmit={handleInviteUser} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-text-primary mb-1.5">E-Mail Adresse</label>
+                    <input 
+                      type="email" 
+                      required
+                      value={inviteForm.email}
+                      onChange={e => setInviteForm({...inviteForm, email: e.target.value})}
+                      className="w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                      placeholder="mitarbeiter@firma.ch"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-text-primary mb-1.5">Rolle</label>
+                    <select 
+                      value={inviteForm.role}
+                      onChange={e => setInviteForm({...inviteForm, role: e.target.value})}
+                      className="w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+                    >
+                      <option value="team">Team (Standard-Zugriff)</option>
+                      <option value="admin">Admin (Zugriff auf Einstellungen)</option>
+                    </select>
+                  </div>
+                  <div className="pt-4 flex gap-3">
+                    <button type="button" onClick={() => setShowInviteModal(false)} className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">Abbrechen</button>
+                    <button type="submit" className="flex-1 py-2.5 px-4 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20">Einladung erstellen</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h4 className="text-lg font-bold text-text-primary">Einladungslink generiert!</h4>
+                  <p className="text-sm text-text-secondary">Kopiere diesen Link und schicke ihn an das neue Teammitglied.</p>
+                  
+                  <div className="relative group">
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={inviteLink}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-text-primary text-sm focus:outline-none pr-12"
+                    />
+                    <button 
+                      onClick={() => { navigator.clipboard.writeText(inviteLink); alert('Kopiert!'); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-primary-600 transition-colors bg-gray-50"
+                      title="Link kopieren"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    </button>
+                  </div>
+
+                  <a 
+                    href={`mailto:${inviteForm.email}?subject=Einladung zu Atelier 77&body=Hallo,%0D%0A%0D%0ADu wurdest eingeladen. Klicke hier um dich zu registrieren:%0D%0A${inviteLink}`}
+                    className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 bg-primary-50 text-primary-700 font-bold rounded-xl hover:bg-primary-100 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    Per E-Mail versenden
+                  </a>
+                  
+                  <button onClick={() => setShowInviteModal(false)} className="w-full mt-2 py-2.5 px-4 text-gray-500 font-semibold hover:text-gray-700 transition-colors">
+                    Schliessen
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

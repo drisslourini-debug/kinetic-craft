@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
 import RechnungDetailView from './RechnungDetailView'
 import DocumentCreateModal from '../components/DocumentCreateModal'
+import { calculateRechnungStatus } from '../lib/statusLogic'
+import StatCard from '../components/StatCard'
 
-export default function RechnungenView({ onNavigate, viewParams }) {
+export default function RechnungenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
   const [rechnungen, setRechnungen] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -33,17 +35,21 @@ export default function RechnungenView({ onNavigate, viewParams }) {
         
         if (data) {
           // Auto-overdue logic
-          const today = new Date().toISOString().split('T')[0]
-          const toUpdate = data.filter(r => r.status === 'Versendet' && r.faellig_am && r.faellig_am < today)
+          const today = new Date()
+          const updatesByStatus = {}
           
-          if (toUpdate.length > 0) {
-            const updateIds = toUpdate.map(r => r.id)
-            await supabase.from('rechnungen').update({ status: 'Überfällig' }).in('id', updateIds)
-            
-            for (const r of data) {
-              if (updateIds.includes(r.id)) {
-                r.status = 'Überfällig'
-              }
+          for (const r of data) {
+            const calculatedStatus = calculateRechnungStatus(r, today)
+            if (calculatedStatus !== r.status) {
+              r.status = calculatedStatus
+              if (!updatesByStatus[calculatedStatus]) updatesByStatus[calculatedStatus] = []
+              updatesByStatus[calculatedStatus].push(r.id)
+            }
+          }
+          
+          if (Object.keys(updatesByStatus).length > 0) {
+            for (const [newStatus, ids] of Object.entries(updatesByStatus)) {
+              await supabase.from('rechnungen').update({ status: newStatus }).in('id', ids)
             }
           }
           
@@ -75,28 +81,44 @@ export default function RechnungenView({ onNavigate, viewParams }) {
     let offeneTotal = 0
     let overdueCount = 0
     let overdueTotal = 0
-    let jahresumsatzCount = 0
-    let jahresumsatzTotal = 0
+    let bezahltCount = 0
+    let bezahltTotal = 0
     
     rechnungen.forEach(r => {
-      // Offene Rechnungen = nur "Versendet"
-      if (r.status === 'Versendet') {
+      const isArchived = r.is_archived
+      if (isArchived) return
+
+      // Offene Rechnungen = Versendet oder Teilbezahlt
+      if (r.status === 'Versendet' || r.status === 'Teilbezahlt') {
         offeneCount++
-        offeneTotal += (r.total || 0)
+        offeneTotal += Math.max(0, (r.total || 0) - (r.bezahlt || 0))
       }
       
-      // Überfällig = nur Status "Überfällig"
-      if (r.status === 'Überfällig') {
+      // Überfällig = nur Status "Überfällig" oder "Gemahnt"
+      if (r.status === 'Überfällig' || r.status === 'Gemahnt') {
         overdueCount++
-        overdueTotal += (r.total || 0)
+        overdueTotal += Math.max(0, (r.total || 0) - (r.bezahlt || 0))
       }
       
-      // Jahresumsatz = alle Bezahlten im aktuellen Jahr
-      if (r.status === 'Bezahlt') {
-        const rDate = r.bezahlt_am || r.rechnungsdatum || r.created_at || ''
-        if (rDate.startsWith(currentYear)) {
-          jahresumsatzCount++
-          jahresumsatzTotal += (r.total || 0)
+      // Jahresumsatz = Echte bezahlte Beträge (ohne Ausbuchungen)
+      if (r.bezahlt > 0) {
+        if (r.status === 'Bezahlt') bezahltCount++
+        
+        const zahlungen = r.daten?.zahlungen || []
+        if (zahlungen.length > 0) {
+          zahlungen.forEach(z => {
+            if (z.betrag > 0 && z.typ !== 'Ausbuchung') {
+              if (new Date(z.datum).getFullYear().toString() === currentYear) {
+                bezahltTotal += z.betrag
+              }
+            }
+          })
+        } else if (r.status === 'Bezahlt' || r.status === 'Teilbezahlt') {
+          // Fallback für alte Rechnungen ohne Detailhistorie
+          const rDate = r.bezahlt_am || r.rechnungsdatum || r.created_at || ''
+          if (rDate.startsWith(currentYear)) {
+            bezahltTotal += (r.bezahlt || 0)
+          }
         }
       }
     })
@@ -104,7 +126,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
     return {
       offeneCount, offeneTotal,
       overdueCount, overdueTotal,
-      jahresumsatzCount, jahresumsatzTotal
+      bezahltCount, bezahltTotal
     }
   }, [rechnungen])
 
@@ -134,15 +156,17 @@ export default function RechnungenView({ onNavigate, viewParams }) {
 
 
   const statusStyles = {
-    'Entwurf': 'bg-gray-100 text-gray-600',
-    'Versendet': 'bg-blue-100 text-blue-700',
-    'Bezahlt': 'bg-emerald-100 text-emerald-700',
-    'Überfällig': 'bg-red-100 text-red-700',
-    'Storniert': 'bg-gray-100 text-gray-700',
+    'Entwurf': 'bg-gray-100 text-gray-800 border border-gray-200',
+    'Versendet': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'Teilbezahlt': 'bg-amber-100 text-amber-800 border border-amber-200',
+    'Überfällig': 'bg-red-100 text-red-800 border border-red-200',
+    'Gemahnt': 'bg-red-100 text-red-800 border border-red-200',
+    'Bezahlt': 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+    'Storniert': 'bg-gray-100 text-gray-600 border border-gray-200 line-through',
   }
 
   if (selectedRechnung) {
-    return <RechnungDetailView rechnung={selectedRechnung} onBack={() => setSelectedRechnung(null)} onNavigate={onNavigate} />
+    return <RechnungDetailView rechnung={selectedRechnung} onBack={() => setSelectedRechnung(null)} onNavigate={onNavigate} userRole={userRole} />
   }
 
   let filteredRechnungen = rechnungen.filter(r => {
@@ -211,65 +235,55 @@ export default function RechnungenView({ onNavigate, viewParams }) {
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Rechnungen</h2>
           <p className="text-text-secondary mt-1">Rechnungen verwalten und überwachen.</p>
         </div>
-
-        <button
-          onClick={() => setShowWizard(true)}
-          className="inline-flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] transition-all shadow-lg shadow-primary-600/25 cursor-pointer group"
-        >
-          <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-base group-hover:bg-white/30 transition-colors">+</span>
-          Neue Rechnung erstellen
-        </button>
+        <div>
+          {userRole !== 'treuhand' && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+              Neue Rechnung erstellen
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Kachel 1: Offene Rechnungen (Versendet) */}
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Versendet')}>
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-amber-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <h3 className="text-text-secondary text-sm font-semibold">Offene Rechnungen</h3>
-            </div>
-            <p className="text-3xl font-bold text-text-primary">{stats.offeneCount}</p>
-            <div className="text-sm text-amber-600 font-semibold mt-1">{formatCurrency(stats.offeneTotal)} ausstehend</div>
-            <div className="text-xs text-text-secondary mt-1">Status: Versendet</div>
-          </div>
-        </div>
+        <StatCard 
+          title="Offene Rechnungen"
+          value={stats.offeneCount}
+          secondaryValue={`${formatCurrency(stats.offeneTotal)} ausstehend`}
+          subtitle="Status: Versendet"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />'
+          color="amber"
+          onClick={() => setFilterStatus('Versendet')}
+          isActive={filterStatus === 'Versendet'}
+        />
 
-        {/* Kachel 2: Überfällige Rechnungen */}
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Überfällig')}>
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-red-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              </div>
-              <h3 className="text-text-secondary text-sm font-semibold">Überfällige Rechnungen</h3>
-            </div>
-            <p className="text-3xl font-bold text-red-600">{stats.overdueCount}</p>
-            <div className="text-sm text-red-500 font-semibold mt-1">{formatCurrency(stats.overdueTotal)} überfällig</div>
-            <div className="text-xs text-text-secondary mt-1">Fälligkeit überschritten</div>
-          </div>
-        </div>
+        <StatCard 
+          title="Überfällig & Gemahnt"
+          value={stats.overdueCount}
+          secondaryValue={`${formatCurrency(stats.overdueTotal)} überfällig`}
+          subtitle="Fälligkeit überschritten"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />'
+          color="red"
+          onClick={() => setFilterStatus('Überfällig')}
+          isActive={filterStatus === 'Überfällig'}
+        />
 
-        {/* Kachel 3: Jahresumsatz */}
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group cursor-pointer" onClick={() => setFilterStatus('Bezahlt')}>
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-emerald-100 opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </div>
-              <h3 className="text-text-secondary text-sm font-semibold">Jahresumsatz {new Date().getFullYear()}</h3>
-            </div>
-            <p className="text-3xl font-bold text-emerald-600">{stats.jahresumsatzCount}</p>
-            <div className="text-sm text-emerald-600 font-semibold mt-1">{formatCurrency(stats.jahresumsatzTotal)} eingenommen</div>
-            <div className="text-xs text-text-secondary mt-1">Bezahlte Rechnungen</div>
-          </div>
-        </div>
+        <StatCard 
+          title={`Jahresumsatz ${new Date().getFullYear()}`}
+          value={stats.bezahltCount}
+          secondaryValue={`${formatCurrency(stats.bezahltTotal)} eingenommen`}
+          subtitle="Bezahlte Rechnungen"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+          color="emerald"
+          onClick={() => setFilterStatus('Bezahlt')}
+          isActive={filterStatus === 'Bezahlt'}
+        />
       </div>
 
       {/* Umsatz Chart */}
@@ -305,7 +319,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Rechnungen suchen nach Nummer, Kunde oder Projekt..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
         </div>
 
@@ -320,6 +334,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
             <option value="Versendet">Versendet</option>
             <option value="Bezahlt">Bezahlt</option>
             <option value="Überfällig">Überfällig</option>
+            <option value="Gemahnt">Gemahnt</option>
             <option value="Storniert">Storniert</option>
           </select>
 
@@ -369,7 +384,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
             <div
               key={r.id}
               onClick={() => setSelectedRechnung(r)}
-              className="flex flex-col lg:grid lg:grid-cols-[140px_1.5fr_1.5fr_100px_120px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-emerald-500 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+              className="flex flex-col lg:grid lg:grid-cols-[140px_1.5fr_1.5fr_100px_120px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-emerald-500 hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
                 <span className="text-sm font-mono font-bold text-primary-600">
@@ -415,7 +430,7 @@ export default function RechnungenView({ onNavigate, viewParams }) {
               <div className="flex lg:hidden w-full gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button 
                   onClick={() => setSelectedRechnung(r)}
-                  className="flex-1 flex justify-center items-center gap-1.5 py-2 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium border border-primary-100 active:scale-[0.98] transition-transform"
+                  className="flex-1 flex justify-center items-center gap-1.5 py-3 min-h-[48px] bg-primary-50 text-primary-700 rounded-lg text-base font-medium border border-primary-100 active:scale-[0.98] transition-transform"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                   Details

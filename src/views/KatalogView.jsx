@@ -3,7 +3,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/formatters'
 
-export default function KatalogView() {
+export default function KatalogView({ userRole }) {
   const [kategorien, setKategorien] = useState([])
   const [leistungen, setLeistungen] = useState([])
   const [activeKategorie, setActiveKategorie] = useState(null)
@@ -104,22 +104,24 @@ export default function KatalogView() {
       einheit: 'm²',
       einzelpreis: 0,
       is_archived: false,
-      sort_order: katLeistungen.length
+      sort_order: katLeistungen.length,
+      ertragskonto: '3400 Dienstleistungserlöse'
     }
     const { data } = await supabase.from('katalog_leistungen').insert([newLeistung]).select()
     if (data && data.length > 0) setLeistungen([...leistungen, data[0]])
   }
 
-  const handleUpdateLeistung = async (id, field, value) => {
+  const handleLocalUpdate = (id, field, value) => {
     setLeistungen(prev => prev.map(l => {
       if (l.id === id) {
         return { ...l, [field]: value }
       }
       return l
     }))
-    
+  }
+
+  const handleSaveUpdate = async (id, field, value) => {
     const updateData = { [field]: value }
-    
     try {
       const { error } = await supabase.from('katalog_leistungen').update(updateData).eq('id', id)
       if (error) {
@@ -198,8 +200,7 @@ export default function KatalogView() {
             type="text"
             placeholder="Suchen..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2.5 w-full sm:w-64 bg-surface-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 shadow-sm"
+            className="pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 w-full sm:w-64 bg-surface-card border border-border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 shadow-sm"
           />
         </div>
       </div>
@@ -213,27 +214,28 @@ export default function KatalogView() {
           <div className={`lg:col-span-1 bg-surface-card rounded-2xl border border-border flex flex-col shadow-sm ${isSearchActive ? 'hidden lg:flex lg:opacity-50 lg:pointer-events-none' : ''}`}>
             <div className="p-4 border-b border-border flex justify-between items-center bg-surface rounded-t-2xl">
               <h3 className="font-bold text-text-primary">Kategorien</h3>
-              <button 
-                onClick={handleAddKategorie}
-                className="text-xs bg-primary-100 text-primary-700 px-2 py-1.5 rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
-              >
-                + Neu
-              </button>
+              {userRole !== 'treuhand' && (
+                <button 
+                  onClick={handleAddKategorie}
+                  className="text-base sm:text-xs bg-primary-100 text-primary-700 px-4 py-2 sm:px-2 sm:py-1.5 min-h-[48px] sm:min-h-0 flex items-center justify-center rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
+                >
+                  + Neu
+                </button>
+              )}
             </div>
             
             {/* Mobile Category Dropdown */}
             <div className="lg:hidden p-4 border-b border-border bg-surface">
               <select 
                 value={activeKategorie?.id || ''} 
-                onChange={(e) => setActiveKategorie(kategorien.find(k => k.id.toString() === e.target.value))}
-                className="w-full px-3 py-2.5 bg-white border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                className="w-full px-3 py-3 min-h-[48px] bg-white border border-border rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30"
               >
                 {kategorien.map(kat => (
                   <option key={kat.id} value={kat.id}>{kat.name} ({leistungen.filter(l => l.kategorie_id === kat.id && !l.is_archived).length})</option>
                 ))}
               </select>
               
-              {activeKategorie && (
+              {activeKategorie && userRole !== 'treuhand' && (
                 <div className="flex justify-end gap-2 mt-2">
                   <button onClick={() => handleRenameKategorie(activeKategorie)} className="text-xs text-text-secondary hover:text-primary-600 font-medium">Umbenennen</button>
                   <button onClick={() => handleDeleteKategorie(activeKategorie.id)} className="text-xs text-text-secondary hover:text-red-600 font-medium">Löschen</button>
@@ -277,8 +279,7 @@ export default function KatalogView() {
                           
                           <div className="relative">
                             <button 
-                              onClick={(e) => { e.stopPropagation(); setActiveKatMenu(activeKatMenu === kat.id ? null : kat.id); }}
-                              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors"
+                              className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors flex items-center justify-center"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                             </button>
@@ -343,10 +344,10 @@ export default function KatalogView() {
                       Archivierte zeigen
                     </label>
                     
-                    {!isSearchActive && (
+                    {!isSearchActive && userRole !== 'treuhand' && (
                       <button 
                         onClick={handleAddLeistung}
-                        className="text-sm bg-primary-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap"
+                        className="text-base sm:text-sm bg-primary-600 text-white px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 w-full sm:w-auto flex items-center justify-center rounded-xl font-semibold hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap"
                       >
                         + Leistung
                       </button>
@@ -367,17 +368,18 @@ export default function KatalogView() {
                     </div>
                   ) : (
                     <div className="divide-y divide-border/50">
-                      <div className="hidden lg:grid grid-cols-[30px_1fr_80px_120px_40px] gap-4 px-5 py-3 bg-white text-xs font-bold text-text-secondary uppercase tracking-wider sticky top-0 z-10 shadow-sm border-b border-border">
+                      <div className="hidden lg:grid grid-cols-[30px_1fr_80px_130px_120px_40px] gap-4 px-5 py-3 bg-white text-xs font-bold text-text-secondary uppercase tracking-wider sticky top-0 z-10 shadow-sm border-b border-border">
                         <span></span>
                         <span>Beschreibung</span>
                         <span className="text-center">Einheit</span>
+                        <span className="text-center">Konto</span>
                         <span className="text-right text-primary-700">Preis CHF</span>
                         <span></span>
                       </div>
                       
                       <div className="p-3 sm:p-0 space-y-3 sm:space-y-0 bg-neutral-50 lg:bg-transparent">
                         {displayedLeistungen.map((pos, idx) => (
-                          <div key={pos.id} className={`sm:p-4 sm:px-5 grid grid-cols-1 lg:grid-cols-[30px_1fr_80px_120px_40px] gap-3 lg:gap-4 items-center transition-all bg-white sm:bg-transparent rounded-xl sm:rounded-none border border-border sm:border-transparent sm:border-b sm:border-b-border/50 shadow-sm sm:shadow-none hover:bg-white ${pos.is_archived ? 'opacity-50 grayscale' : ''}`}>
+                          <div key={pos.id} className={`sm:p-4 sm:px-5 grid grid-cols-1 lg:grid-cols-[30px_1fr_80px_130px_120px_40px] gap-3 lg:gap-4 items-center transition-all bg-white sm:bg-transparent rounded-xl sm:rounded-none border border-border sm:border-transparent sm:border-b sm:border-b-border/50 shadow-sm sm:shadow-none hover:bg-white ${pos.is_archived ? 'opacity-50 grayscale' : ''}`}>
                             
                             {/* Sort Controls (Desktop only) */}
                             <div className="hidden lg:flex flex-col gap-0.5 items-center justify-center">
@@ -402,8 +404,8 @@ export default function KatalogView() {
                               <div className="flex gap-1">
                                 {!isSearchActive && (
                                   <>
-                                    <button onClick={() => moveLeistung(pos.id, idx, -1, displayedLeistungen)} disabled={idx === 0} className="p-1.5 bg-white border border-border rounded text-text-secondary disabled:opacity-30"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg></button>
-                                    <button onClick={() => moveLeistung(pos.id, idx, 1, displayedLeistungen)} disabled={idx === displayedLeistungen.length - 1} className="p-1.5 bg-white border border-border rounded text-text-secondary disabled:opacity-30"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg></button>
+                                    <button onClick={() => moveLeistung(pos.id, idx, -1, displayedLeistungen)} disabled={idx === 0} className="p-3 bg-white border border-border rounded text-text-secondary disabled:opacity-30 min-w-[48px] min-h-[48px] flex items-center justify-center"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" /></svg></button>
+                                    <button onClick={() => moveLeistung(pos.id, idx, 1, displayedLeistungen)} disabled={idx === displayedLeistungen.length - 1} className="p-3 bg-white border border-border rounded text-text-secondary disabled:opacity-30 min-w-[48px] min-h-[48px] flex items-center justify-center"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg></button>
                                   </>
                                 )}
                               </div>
@@ -416,8 +418,10 @@ export default function KatalogView() {
                                 <input 
                                   type="text" 
                                   value={pos.beschreibung}
-                                  onChange={(e) => handleUpdateLeistung(pos.id, 'beschreibung', e.target.value)}
-                                  className="w-full px-3 py-2 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm font-medium text-text-primary outline-none transition-all shadow-sm lg:shadow-none"
+                                  onChange={(e) => handleLocalUpdate(pos.id, 'beschreibung', e.target.value)}
+                                  onBlur={(e) => handleSaveUpdate(pos.id, 'beschreibung', e.target.value)}
+                                  disabled={userRole === 'treuhand'}
+                                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-base sm:text-sm font-medium text-text-primary outline-none transition-all shadow-sm lg:shadow-none disabled:opacity-80 disabled:cursor-not-allowed"
                                   placeholder="Beschreibung..."
                                 />
                               </div>
@@ -428,10 +432,29 @@ export default function KatalogView() {
                               <input 
                                 type="text" 
                                 value={pos.einheit || ''}
-                                onChange={(e) => handleUpdateLeistung(pos.id, 'einheit', e.target.value)}
-                                className="w-full px-3 py-2 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm text-text-primary outline-none transition-all lg:text-center shadow-sm lg:shadow-none"
+                                onChange={(e) => handleLocalUpdate(pos.id, 'einheit', e.target.value)}
+                                onBlur={(e) => handleSaveUpdate(pos.id, 'einheit', e.target.value)}
+                                disabled={userRole === 'treuhand'}
+                                className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-base sm:text-sm text-text-primary outline-none transition-all lg:text-center shadow-sm lg:shadow-none disabled:opacity-80 disabled:cursor-not-allowed"
                                 placeholder="m² / Stk"
                               />
+                            </div>
+
+                            <div className="px-4 pb-2 lg:p-0">
+                              <span className="lg:hidden text-[10px] text-text-secondary font-bold uppercase mb-1 block">Ertragskonto</span>
+                              <select 
+                                value={pos.ertragskonto || '3400 Dienstleistungserlöse'}
+                                onChange={(e) => {
+                                  handleLocalUpdate(pos.id, 'ertragskonto', e.target.value);
+                                  handleSaveUpdate(pos.id, 'ertragskonto', e.target.value);
+                                }}
+                                disabled={userRole === 'treuhand'}
+                                className="w-full px-2 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-base sm:text-xs text-text-secondary outline-none transition-all shadow-sm lg:shadow-none disabled:opacity-80 disabled:cursor-not-allowed"
+                              >
+                                <option value="3200 Handelserlöse">3200 Handelserlöse</option>
+                                <option value="3400 Dienstleistungserlöse">3400 Dienstleistungserlöse</option>
+                                <option value="3800 Sonstige Erlöse">3800 Sonstige Erlöse</option>
+                              </select>
                             </div>
 
                             <div className="px-4 pb-2 lg:p-0">
@@ -441,8 +464,10 @@ export default function KatalogView() {
                                 <input 
                                   type="number" 
                                   value={pos.einzelpreis || ''}
-                                  onChange={(e) => handleUpdateLeistung(pos.id, 'einzelpreis', e.target.value)}
-                                  className="w-full pl-9 pr-3 py-2 lg:px-3 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-sm font-mono text-primary-700 outline-none transition-all lg:text-right shadow-sm lg:shadow-none font-bold"
+                                  onChange={(e) => handleLocalUpdate(pos.id, 'einzelpreis', e.target.value ? parseFloat(e.target.value) : 0)}
+                                  onBlur={(e) => handleSaveUpdate(pos.id, 'einzelpreis', e.target.value ? parseFloat(e.target.value) : 0)}
+                                  disabled={userRole === 'treuhand'}
+                                  className="w-full pl-9 pr-3 py-3 sm:py-2 lg:px-3 min-h-[48px] sm:min-h-0 bg-surface lg:bg-transparent border border-border lg:border-transparent hover:border-border lg:focus:bg-white focus:border-primary-400 rounded-lg text-base sm:text-sm font-mono text-primary-700 outline-none transition-all lg:text-right shadow-sm lg:shadow-none font-bold disabled:opacity-80 disabled:cursor-not-allowed"
                                   placeholder="0.00"
                                 />
                               </div>
@@ -451,44 +476,48 @@ export default function KatalogView() {
 
 
                             <div className="flex justify-end lg:justify-center p-3 lg:p-0 border-t border-border/50 lg:border-none bg-white lg:bg-transparent rounded-b-xl lg:rounded-none relative">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setActiveLeistungMenu(activeLeistungMenu === pos.id ? null : pos.id); }}
-                                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                              </button>
-                              
-                              {activeLeistungMenu === pos.id && (
+                              {userRole !== 'treuhand' && (
                                 <>
-                                  <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveLeistungMenu(null); }} />
-                                  <div className="absolute right-3 lg:right-0 top-10 lg:top-8 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                    <div className="p-1">
-                                      {pos.is_archived ? (
-                                        <button 
-                                          onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, false); }}
-                                          className="w-full text-left px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                                          Wiederherstellen
-                                        </button>
-                                      ) : (
-                                        <button 
-                                          onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, true); }}
-                                          className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-neutral-100 hover:text-text-primary rounded-lg transition-colors flex items-center gap-2"
-                                        >
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                                          Archivieren
-                                        </button>
-                                      )}
-                                      <button 
-                                        onClick={() => { setActiveLeistungMenu(null); handleDeleteLeistung(pos.id); }}
-                                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5"
-                                      >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        Endgültig löschen
-                                      </button>
-                                    </div>
-                                  </div>
+                                  <button 
+                                    onClick={() => setActiveLeistungMenu(activeLeistungMenu === pos.id ? null : pos.id)}
+                                    className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                                  </button>
+                                  
+                                  {activeLeistungMenu === pos.id && (
+                                    <>
+                                      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveLeistungMenu(null); }} />
+                                      <div className="absolute right-3 lg:right-0 top-10 lg:top-8 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                        <div className="p-1">
+                                          {pos.is_archived ? (
+                                            <button 
+                                              onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, false); }}
+                                              className="w-full text-left px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                              Wiederherstellen
+                                            </button>
+                                          ) : (
+                                            <button 
+                                              onClick={() => { setActiveLeistungMenu(null); handleArchiveLeistung(pos.id, true); }}
+                                              className="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-neutral-100 hover:text-text-primary rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                              Archivieren
+                                            </button>
+                                          )}
+                                          <button 
+                                            onClick={() => { setActiveLeistungMenu(null); handleDeleteLeistung(pos.id); }}
+                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5 cursor-pointer"
+                                          >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            Endgültig löschen
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
                                 </>
                               )}
                             </div>

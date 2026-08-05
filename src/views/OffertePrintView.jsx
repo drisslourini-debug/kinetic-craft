@@ -9,23 +9,40 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
   const [isGenerating, setIsGenerating] = useState(false)
   const [scale, setScale] = useState(1)
 
+  const containerRef = React.useRef(null)
+
   useEffect(() => {
-    const handleResize = () => {
-      const screenWidth = window.innerWidth
-      if (screenWidth < 820) {
-        setScale(screenWidth / 820)
-      } else {
-        setScale(1)
+    if (!containerRef.current) return;
+    
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        // A4 pixel dimensions at 96dpi are roughly 794x1123
+        const A4_WIDTH = 794;
+        const A4_HEIGHT = 1123;
+        
+        if (previewMode) {
+          // Fit Page: Scale so the entire A4 page is visible within the container
+          const scaleW = width / A4_WIDTH;
+          const scaleH = height / A4_HEIGHT;
+          setScale(Math.min(scaleW, scaleH) * 0.95); // 5% padding
+        } else {
+          // Full screen view: just fit width if screen is small
+          setScale(Math.min(1, (width - 40) / A4_WIDTH));
+        }
       }
-    }
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    });
+    
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [previewMode]);
 
   useEffect(() => {
     if (supabase) {
-      supabase.from('einstellungen').select('*').eq('id', 1).single()
+      supabase.from('einstellungen').select('*').limit(1).single()
         .then(({ data }) => {
           if (data) setSettings(data)
         })
@@ -66,8 +83,20 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
   const isPauschal = pauschalpreis > 0
   const finalTotal = isPauschal ? pauschalpreis : calculatedTotal
 
-  const gold = '#c5a057'
-  const darkGold = '#a07d3a'
+  const gold = settings?.primary_color || '#c5a057'
+  
+  const hexToRgb = (hex) => {
+    let r = 197, g = 160, b = 87; // default gold
+    if (hex && hex.startsWith('#')) {
+      const h = hex.replace('#', '');
+      if (h.length === 6) {
+        r = parseInt(h.substring(0, 2), 16);
+        g = parseInt(h.substring(2, 4), 16);
+        b = parseInt(h.substring(4, 6), 16);
+      }
+    }
+    return [r, g, b];
+  };
 
   const handleDownloadPDF = () => {
     setIsGenerating(true)
@@ -100,7 +129,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
     const opt = {
       // html2pdf margin format: [top, left, bottom, right]
       margin:       [20, 25, 25, 25],
-      filename:     `Offerte_${offerte.offerte_nr || offerte.id}_Atelier77.pdf`,
+      filename:     `Offerte_${offerte.offerte_nr || offerte.id}_${settings?.firmenname || 'CRM'}.pdf`.replace(/\s+/g, '_'),
       image:        { type: 'jpeg', quality: 1.0 },
       html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -113,8 +142,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
         
-        // Draw gold line
-        pdf.setDrawColor(197, 160, 87); // #c5a057
+        const [r, g, b] = hexToRgb(settings?.primary_color);
+        pdf.setDrawColor(r, g, b);
         pdf.setLineWidth(0.3);
         pdf.line(25, 275, 185, 275);
         
@@ -123,9 +152,10 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
         pdf.setTextColor(153, 153, 153);
         
         // Text Content
-        const text1 = `${settings?.firmenname || 'Malerei Leandro Lüthi'} • ${settings?.strasse || 'Landoltstrasse 99'} • ${settings?.plz_ort || '3007 Bern'} • ${settings?.telefon || '+41 (0)78 402 12 22'} • ${settings?.email || 'leandro@atelier-77.ch'}`;
+        const text1Parts = [settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean);
+        const text1 = text1Parts.join(' • ');
         const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
-        const text2 = `UID: CHE-489.750.760${bank}`;
+        const text2 = `${settings?.uid_nummer ? 'UID: ' + settings.uid_nummer : ''}${bank}`;
         
         // Center calculate
         const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
@@ -166,7 +196,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
     element.style.display = 'block'
     element.style.flexDirection = 'unset'
     
-    const filename = `Offerte_${offerte.offerte_nr || offerte.id}_Atelier77.pdf`
+    const filename = `Offerte_${offerte.offerte_nr || offerte.id}_${settings?.firmenname || 'CRM'}.pdf`.replace(/\s+/g, '_')
     const opt = {
       margin:       [20, 25, 25, 25],
       filename:     filename,
@@ -180,15 +210,17 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        pdf.setDrawColor(197, 160, 87);
+        const [r, g, b] = hexToRgb(settings?.primary_color);
+        pdf.setDrawColor(r, g, b);
         pdf.setLineWidth(0.3);
         pdf.line(25, 275, 185, 275);
         pdf.setFontSize(7.5);
         pdf.setTextColor(153, 153, 153);
         
-        const text1 = `${settings?.firmenname || 'Malerei Leandro Lüthi'} • ${settings?.strasse || 'Landoltstrasse 99'} • ${settings?.plz_ort || '3007 Bern'} • ${settings?.telefon || '+41 (0)78 402 12 22'} • ${settings?.email || 'leandro@atelier-77.ch'}`;
+        const text1Parts = [settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean);
+        const text1 = text1Parts.join(' • ');
         const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
-        const text2 = `UID: CHE-489.750.760${bank}`;
+        const text2 = `${settings?.uid_nummer ? 'UID: ' + settings.uid_nummer : ''}${bank}`;
         
         const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
         const text2Width = pdf.getStringUnitWidth(text2) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
@@ -217,10 +249,10 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
         }])
         if (dbError) throw dbError
         
-        alert('PDF wurde erfolgreich im Archiv (Dateien) gespeichert!')
+        alert('PDF wurde erfolgreich in den Kunden-Dateien gespeichert!')
       } catch(err) {
         console.error('Error saving PDF to archive:', err)
-        alert('Fehler beim Speichern ins Archiv.')
+        alert('Fehler beim Speichern in den Kunden-Dateien.')
       } finally {
         element.className = originalClassName
         Object.assign(element.style, originalStyles)
@@ -238,50 +270,52 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
   }
 
   return (
-    <div className={previewMode ? "relative w-full h-full bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0" : "fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0"}>
+    <div ref={containerRef} className={previewMode ? "relative w-full h-full bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0" : "fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0"}>
       {/* ===== ACTION BAR (hidden when printing) ===== */}
       {!previewMode && (
-      <div className="print:hidden sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3 z-10 shadow-sm">
+      <div className="print:hidden sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 z-10 shadow-sm">
         <button 
           onClick={onClose} 
-          className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors cursor-pointer"
+          className="w-full sm:w-auto min-h-[48px] px-4 py-3 sm:py-2 text-base sm:text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
         >
           ← Zurück
         </button>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => {
-              const subject = encodeURIComponent(`Offerte ${offerte?.id || ''} - Atelier 77`)
-              const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Offerte für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Leandro Lüthi'}\n${settings?.website || 'Malerei Leandro Lüthi – Atelier 77'}`)
-              window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
-            }}
-            className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
-          >
-            ✉️ E-Mail
-          </button>
-          <button 
-            onClick={() => generateOfferteWord(offerte, kunde, projekt, settings)} 
-            className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
-          >
-            📝 Word
-          </button>
-          <button 
-            onClick={() => window.print()} 
-            className="px-3 sm:px-4 py-2 text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 cursor-pointer" 
-          >
-            🖨️ Drucken
-          </button>
+        <div className="flex flex-col sm:flex-row flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                const subject = encodeURIComponent(`Offerte ${offerte?.id || ''} - ${settings?.firmenname || 'CRM'}`)
+                const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Offerte für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Ihre Firma'}\n${settings?.website || ''}`)
+                window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
+              }}
+              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+            >
+              ✉️ E-Mail
+            </button>
+            <button 
+              onClick={() => generateOfferteWord(offerte, kunde, projekt, settings)} 
+              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+            >
+              📝 Word
+            </button>
+            <button 
+              onClick={() => window.print()} 
+              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+            >
+              🖨️ Drucken
+            </button>
+          </div>
           <button 
             onClick={handleSaveToArchive} 
             disabled={isGenerating}
-            className={`px-3 sm:px-4 py-2 text-gray-700 text-sm font-bold rounded-xl border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-all flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
+            className={`w-full sm:w-auto min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-gray-700 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
           >
-            {isGenerating ? '⏳...' : '💾 Ins Archiv'}
+            {isGenerating ? '⏳...' : '💾 In Dateien ablegen'}
           </button>
           <button 
             onClick={handleDownloadPDF} 
             disabled={isGenerating}
-            className={`px-4 sm:px-5 py-2 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
+            className={`w-full sm:w-auto min-h-[48px] px-4 sm:px-5 py-3 sm:py-2 text-white text-base sm:text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
             style={{ backgroundColor: gold }}
           >
             {isGenerating ? '⏳ Generiert...' : '📄 Download'}
@@ -291,7 +325,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
       )}
 
       {/* ===== A4 PAGE ===== */} 
-      <div className="w-full flex justify-center pb-20 print:pb-0" style={{ transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: scale < 1 ? `-${297 * (1 - scale)}mm` : '0' }}>
+      <div className="w-full flex flex-col items-center gap-8 pb-20 pt-8 print:gap-0 print:pb-0 print:pt-0" style={{ zoom: scale }}>
       <div 
         id="pdf-content"
         className="bg-white mx-auto my-8 print:my-0 print:shadow-none shadow-2xl"
@@ -309,17 +343,30 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
         }}
       >
         
+        {/* ===== PAGE BREAK INDICATORS (ONLY IN PREVIEW) ===== */}
+        {previewMode && (
+          <div className="absolute inset-0 pointer-events-none z-50 print:hidden" style={{
+            backgroundImage: 'repeating-linear-gradient(to bottom, transparent, transparent calc(297mm - 2px), #3b82f6 calc(297mm - 2px), #3b82f6 297mm)',
+            opacity: 0.4
+          }} />
+        )}
+        
         {/* ===== HEADER: Logo left + Company info right ===== */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12mm' }} className="avoid-break">
           <div>
-            <img src={logo} alt="Atelier 77" style={{ height: '52px', objectFit: 'contain' }} />
+            {settings?.logo_url ? (
+              <img src={settings.logo_url} alt={settings?.firmenname} style={{ height: '52px', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: gold }}>{settings?.firmenname || 'Firma'}</div>
+            )}
           </div>
           <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#666', lineHeight: '1.6' }}>
-            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || 'Malerei Leandro Lüthi'}</div>
-            <div>Landoltstrasse 99</div>
-            <div>3007 Bern</div>
-            <div style={{ marginTop: '2mm' }}>+41 (0)78 402 12 22</div>
-            <div>leandro@atelier-77.ch</div>
+            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || ''}</div>
+            <div>{settings?.strasse || ''}</div>
+            <div>{settings?.plz_ort || ''}</div>
+            <div style={{ marginTop: '2mm' }}>{settings?.telefon || ''}</div>
+            <div>{settings?.email || ''}</div>
+            {settings?.website && <div>{settings.website}</div>}
           </div>
         </div>
 
@@ -327,7 +374,7 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
         <div style={{ marginBottom: '14mm' }} className="avoid-break">
           {/* Absenderzeile (klein, über Adresse) */}
           <div style={{ fontSize: '7pt', color: '#999', marginBottom: '2mm', borderBottom: '0.5px solid #ccc', paddingBottom: '1mm', display: 'inline-block' }}>
-            {settings?.firmenname || 'Malerei Leandro Lüthi'} · {settings?.strasse || 'Landoltstrasse 99'} · {settings?.plz_ort || '3007 Bern'}
+            {[settings?.firmenname, settings?.strasse, settings?.plz_ort].filter(Boolean).join(' · ')}
           </div>
           
           {/* Empfänger-Adresse */}
@@ -534,8 +581,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
                   <div style={{ height: '15mm', borderBottom: '0.5px solid #ccc', width: '50mm' }}></div>
                 )}
               </div>
-              <div style={{ fontSize: '9.5pt', fontWeight: 600 }}>{settings?.firmenname || 'Leandro Lüthi'}</div>
-              <div style={{ fontSize: '8.5pt', color: '#888' }}>{settings?.website || 'www.atelier-77.ch'}</div>
+              <div style={{ fontSize: '9.5pt', fontWeight: 600 }}>{settings?.firmenname || ''}</div>
+              <div style={{ fontSize: '8.5pt', color: '#888' }}>{settings?.website || ''}</div>
             </div>
           </div>
         </div>
@@ -547,8 +594,8 @@ export default function OffertePrintView({ offerte, kunde, projekt, onClose, pre
         }}>
           <div style={{ height: '1px', backgroundColor: gold, marginBottom: '3mm' }}></div>
           <div style={{ textAlign: 'center', fontSize: '7.5pt', color: '#999', lineHeight: '1.7' }}>
-            <div>{settings?.firmenname || 'Malerei Leandro Lüthi'} • {settings?.strasse || 'Landoltstrasse 99'} • {settings?.plz_ort || '3007 Bern'} • {settings?.telefon || '+41 (0)78 402 12 22'} • {settings?.email || 'leandro@atelier-77.ch'}</div>
-            <div>UID: CHE-489.750.760{settings?.bankverbindung ? ` • ${settings.bankverbindung}` : ''}</div>
+            <div>{[settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean).join(' • ')}</div>
+            <div>{settings?.uid_nummer ? `UID: ${settings.uid_nummer}` : ''}{settings?.bankverbindung ? ` • ${settings.bankverbindung}` : ''}</div>
           </div>
         </div>
 

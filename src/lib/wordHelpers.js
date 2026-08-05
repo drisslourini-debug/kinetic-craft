@@ -8,8 +8,7 @@ import {
 } from 'docx';
 import { formatMoney } from './formatters';
 
-/** Brand color used across document styling */
-export const COLOR_GOLD = 'C5A057';
+/** Brand color used across document styling - removed hardcoded gold */
 
 /** No-border config for total summary rows */
 const EMPTY_BORDER = {
@@ -20,7 +19,7 @@ const EMPTY_BORDER = {
 };
 
 /**
- * Standard paragraph styles shared by all Atelier 77 Word documents.
+ * Standard paragraph styles shared by all Word documents.
  */
 export const WORD_PARAGRAPH_STYLES = [
   { id: 'Normal', name: 'Normal', run: { font: 'Helvetica Neue', size: 22, color: '1A1A1A' }, paragraph: { spacing: { line: 360 } } },
@@ -43,7 +42,7 @@ export function generateAddressParagraphs(kunde, settings) {
   return [
     new Paragraph({
       children: [
-        new TextRun({ text: `${settings?.firmenname || 'Malerei Leandro Lüthi'} · ${settings?.strasse || 'Landoltstrasse 99'} · ${settings?.plz_ort || '3007 Bern'}`, size: 14, color: '999999' })
+        new TextRun({ text: `${settings?.firmenname || ''} · ${settings?.strasse || ''} · ${settings?.plz_ort || ''}`, size: 14, color: '999999' })
       ],
       spacing: { after: 200 }
     }),
@@ -79,9 +78,9 @@ export function generateAddressParagraphs(kunde, settings) {
  * @param {number} mwst - VAT percentage
  * @returns {Table} The complete leistungen table including totals
  */
-export function generateLeistungenTable(leistungen, totals, rabatt, mwst) {
+export function generateLeistungenTable(leistungen, totals, rabatt, mwst, settings) {
   const { rawTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal, isPauschal } = totals;
-  const gold = COLOR_GOLD;
+  const gold = (settings?.primary_color || '#c5a057').replace('#', '').toUpperCase();
   const tableRows = [];
 
   // Table Header
@@ -175,7 +174,7 @@ export function generateLeistungenTable(leistungen, totals, rabatt, mwst) {
 export function generateFooter(settings) {
   return [
     new Paragraph({ text: 'Freundliche Grüsse' }),
-    new Paragraph({ spacing: { before: 600 }, children: [new TextRun({ text: settings?.firmenname || 'Leandro Lüthi', bold: true })] }),
-    new Paragraph({ children: [new TextRun({ text: settings?.website || 'Malerei Leandro Lüthi – Atelier 77', color: '888888', size: 17 })] })
+    new Paragraph({ spacing: { before: 600 }, children: [new TextRun({ text: settings?.firmenname || '', bold: true })] }),
+    new Paragraph({ children: [new TextRun({ text: settings?.website || 'CRM Dokument', color: '888888', size: 17 })] })
   ];
 }

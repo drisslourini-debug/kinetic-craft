@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
-import { ErrorBoundary } from '../components/ErrorBoundary'
-import DocumentCreateModal from '../components/DocumentCreateModal'
 import OfferteDetailView from './OfferteDetailView'
+import DocumentCreateModal from '../components/DocumentCreateModal'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+import StatCard from '../components/StatCard'
 
-export default function OffertenView({ viewParams, onNavigate }) {
+export default function OffertenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
   const [offerten, setOfferten] = useState([])
@@ -151,7 +152,13 @@ export default function OffertenView({ viewParams, onNavigate }) {
   if (selectedOfferte) {
     return (
       <ErrorBoundary>
-        <OfferteDetailView offerte={selectedOfferte} onBack={() => setSelectedOfferte(null)} onNavigate={onNavigate} viewParams={viewParams} />
+        <OfferteDetailView 
+          offerte={selectedOfferte} 
+          onBack={() => setSelectedOfferte(null)} 
+          onNavigate={onNavigate}
+          userRole={userRole}
+          viewParams={viewParams} 
+        />
       </ErrorBoundary>
     )
   }
@@ -238,80 +245,52 @@ export default function OffertenView({ viewParams, onNavigate }) {
         </div>
 
         {/* ★ THE TRIGGER BUTTON ★ */}
-        <button
-          id="btn-neue-offerte"
-          onClick={() => setShowCreateDrawer(true)}
-          className="inline-flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] transition-all shadow-lg shadow-primary-600/25 cursor-pointer group"
-        >
-          <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-base group-hover:bg-white/30 transition-colors">+</span>
-          Neue Offerte erstellen
-        </button>
+        {userRole !== 'treuhand' && (
+          <button
+            id="btn-neue-offerte"
+            onClick={() => setShowCreateDrawer(true)}
+            className="w-full sm:w-auto inline-flex justify-center items-center gap-2.5 px-6 py-3 min-h-[48px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-base sm:text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] transition-all shadow-lg shadow-primary-600/25 cursor-pointer group"
+          >
+            <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-base group-hover:bg-white/30 transition-colors">+</span>
+            Neue Offerte erstellen
+          </button>
+        )}
       </div>
 
       {/* Stats Cards (Desktop) */}
       <div className="hidden sm:grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div 
+        <StatCard 
+          title="Versendet"
+          value={tileStats.versendet.anz}
+          secondaryValue={`${formatCurrency(tileStats.versendet.total)} ausstehend`}
+          subtitle="Warten auf Kundenentscheid"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />'
+          color="amber"
           onClick={() => handleTileClick(['Versendet'])}
-          className={`bg-surface rounded-2xl p-6 border-2 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-1 ${activeFilter === 'Versendet' ? 'border-amber-400 ring-4 ring-amber-400/20' : 'border-border hover:border-amber-300'}`}
-        >
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
-              <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Versendet</h3>
-              {activeFilter === 'Versendet' && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold">Aktiv</span>}
-            </div>
-            <div className="text-3xl font-black text-text-primary mb-1">{tileStats.versendet.anz}</div>
-            <div className="text-sm font-bold text-amber-600">
-              CHF {formatCurrency(tileStats.versendet.total)} ausstehend
-            </div>
-            <div className="text-xs text-text-secondary mt-1">Warten auf Kundenentscheid</div>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-        </div>
+          isActive={activeFilter === 'Versendet'}
+        />
 
-        <div 
+        <StatCard 
+          title={`Akzeptiert ${new Date().getFullYear()}`}
+          value={tileStats.akzeptiert.anz}
+          secondaryValue={`${formatCurrency(tileStats.akzeptiert.total)} gewonnen`}
+          subtitle={`Gewonnene Aufträge ${new Date().getFullYear()}`}
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />'
+          color="emerald"
           onClick={() => handleTileClick(['Akzeptiert', 'Verrechnet'])}
-          className={`bg-surface rounded-2xl p-6 border-2 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-1 ${activeFilter === 'Akzeptiert,Verrechnet' ? 'border-emerald-400 ring-4 ring-emerald-400/20' : 'border-border hover:border-emerald-300'}`}
-        >
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
-              <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Akzeptiert {new Date().getFullYear()}</h3>
-              {activeFilter === 'Akzeptiert,Verrechnet' && <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase font-bold">Aktiv</span>}
-            </div>
-            <div className="text-3xl font-black text-emerald-600 mb-1">{tileStats.akzeptiert.anz}</div>
-            <div className="text-sm font-bold text-emerald-600">
-              CHF {formatCurrency(tileStats.akzeptiert.total)} gewonnen
-            </div>
-            <div className="text-xs text-text-secondary mt-1">Gewonnene Aufträge {new Date().getFullYear()}</div>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-          </div>
-        </div>
+          isActive={activeFilter === 'Akzeptiert,Verrechnet'}
+        />
 
-        <div 
+        <StatCard 
+          title={`Abgelehnt ${new Date().getFullYear()}`}
+          value={tileStats.abgelehnt.anz}
+          secondaryValue={`${formatCurrency(tileStats.abgelehnt.total)} verloren`}
+          subtitle={`Verlorene Aufträge ${new Date().getFullYear()}`}
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />'
+          color="red"
           onClick={() => handleTileClick(['Abgelehnt'])}
-          className={`bg-surface rounded-2xl p-6 border-2 shadow-sm flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-1 ${activeFilter === 'Abgelehnt' ? 'border-red-400 ring-4 ring-red-400/20' : 'border-border hover:border-red-300'}`}
-        >
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-              <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider">Abgelehnt {new Date().getFullYear()}</h3>
-              {activeFilter === 'Abgelehnt' && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase font-bold">Aktiv</span>}
-            </div>
-            <div className="text-3xl font-black text-red-600 mb-1">{tileStats.abgelehnt.anz}</div>
-            <div className="text-sm font-bold text-red-600">
-              CHF {formatCurrency(tileStats.abgelehnt.total)} verloren
-            </div>
-            <div className="text-xs text-text-secondary mt-1">Verlorene Aufträge {new Date().getFullYear()}</div>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 shrink-0">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </div>
-        </div>
+          isActive={activeFilter === 'Abgelehnt'}
+        />
       </div>
 
       {/* Stats Pills (Mobile) */}
@@ -397,7 +376,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Offerten suchen..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
         </div>
 
@@ -442,7 +421,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
         {/* Mobile Filter Button */}
         <button 
           onClick={() => setShowFilterSheet(true)}
-          className="sm:hidden w-11 h-11 flex items-center justify-center bg-surface-card border border-border rounded-xl text-text-secondary hover:text-text-primary hover:bg-neutral-50 active:scale-95 transition-all relative shrink-0"
+          className="sm:hidden w-12 h-12 flex items-center justify-center bg-surface-card border border-border rounded-xl text-text-secondary hover:text-text-primary hover:bg-neutral-50 active:scale-95 transition-all relative shrink-0"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
           {(filterStatus || filterMonth || showArchived) && (
@@ -476,7 +455,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
             <div
               key={o.id}
               onClick={() => setSelectedOfferte(o)}
-              className={`flex flex-col lg:grid lg:grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${getBorderColor(o.status)} hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group`}
+              className={`flex flex-col lg:grid lg:grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${getBorderColor(o.status)} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group`}
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
                 <span className="text-sm font-mono font-bold text-primary-600">
@@ -545,7 +524,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
                 <select 
                   value={filterStatus}
                   onChange={e => setFilterStatus(e.target.value)}
-                  className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-3 min-h-[48px] bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="">Alle Status</option>
                   <option value="Entwurf">Entwurf</option>
@@ -561,7 +540,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
                 <select 
                   value={filterMonth}
                   onChange={e => setFilterMonth(e.target.value)}
-                  className="w-full px-4 py-3 bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-3 min-h-[48px] bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="">Alle Monate</option>
                   {availableMonths.map(m => (
@@ -582,7 +561,7 @@ export default function OffertenView({ viewParams, onNavigate }) {
             <div className="px-6 pt-2">
               <button 
                 onClick={() => setShowFilterSheet(false)}
-                className="w-full py-3.5 bg-primary-600 text-white rounded-xl font-bold text-center active:scale-[0.98] transition-transform shadow-md"
+                className="w-full py-3 min-h-[48px] bg-primary-600 text-white rounded-xl font-bold text-center active:scale-[0.98] transition-transform shadow-md text-base"
               >
                 Filter anwenden
               </button>

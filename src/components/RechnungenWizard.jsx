@@ -4,7 +4,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
-import { DEFAULT_CATALOG, EINHEITEN } from '../lib/constants'
+import { EINHEITEN } from '../lib/constants'
 import { generateNextRechnungNr, parseZahlungsfrist } from '../lib/documentService'
 import AddressAutocomplete from './AddressAutocomplete'
 import RechnungPrintView from '../views/RechnungPrintView'
@@ -20,7 +20,7 @@ const STEPS = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeEmptyPosition(kategorie, catalog = DEFAULT_CATALOG) {
+function makeEmptyPosition(kategorie, catalog = {}) {
   return {
     id: crypto.randomUUID(),
     beschreibung: '',
@@ -31,7 +31,7 @@ function makeEmptyPosition(kategorie, catalog = DEFAULT_CATALOG) {
   }
 }
 
-function makeEmptyBlock(kategorie, catalog = DEFAULT_CATALOG) {
+function makeEmptyBlock(kategorie, catalog = {}) {
   return {
     id: crypto.randomUUID(),
     kategorie,
@@ -97,7 +97,7 @@ function getCategoryStyle(kategorie) {
   return CATEGORY_STYLES[Math.abs(hash) % CATEGORY_STYLES.length];
 }
 
-const INITIAL_BLOECKE = [makeEmptyBlock('Malerarbeiten')]
+const INITIAL_BLOECKE = [makeEmptyBlock('Malerarbeiten', {})]
 
 const INITIAL_FORM_DATA = {
   kunde: { id: null, name: '' },
@@ -512,10 +512,10 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
           {totalCount > 1 && (
             <button
               onClick={() => onRemove(index)}
-              className="w-7 h-7 ml-1 rounded-lg hover:bg-red-50 flex items-center justify-center text-text-secondary hover:text-red-500 transition-colors cursor-pointer"
+              className="p-3 min-w-[44px] min-h-[44px] ml-1 rounded-lg hover:bg-red-50 flex items-center justify-center text-text-secondary hover:text-red-500 transition-colors cursor-pointer"
               aria-label="Position entfernen"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
@@ -536,12 +536,12 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
       {/* Beschreibung */}
       <div className="mb-3">
         <label className="block text-xs font-medium text-text-secondary mb-1">Beschreibung</label>
-        <input
-          type="text"
+        <textarea
+          rows={2}
           value={pos.beschreibung}
           onChange={(e) => updateField('beschreibung', e.target.value)}
           placeholder="z.B. Wände und Decke streichen, 2x Anstrich"
-          className="w-full px-4 py-3 bg-surface-card border border-border rounded-lg text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+          className="w-full px-4 py-3 bg-surface-card border border-border rounded-lg text-base text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all resize-y min-h-[48px]"
         />
       </div>
 
@@ -718,10 +718,10 @@ function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemov
 
           <button
             onClick={() => onRemoveBlock(blockIndex)}
-            className="w-8 h-8 ml-1 rounded-lg hover:bg-red-50 flex items-center justify-center text-text-secondary hover:text-red-500 transition-colors cursor-pointer"
+            className="p-3 min-w-[44px] min-h-[44px] ml-1 rounded-lg hover:bg-red-50 flex items-center justify-center text-text-secondary hover:text-red-500 transition-colors cursor-pointer"
             aria-label="Block entfernen"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
@@ -750,7 +750,7 @@ function KategorieBlock({ block, blockIndex, totalBlocks, onUpdateBlock, onRemov
         {/* Add position inside block */}
         <button
           onClick={addPosition}
-          className="w-full py-2.5 border-2 border-dashed border-border rounded-xl text-xs font-medium text-text-secondary hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 transition-all cursor-pointer"
+          className="block w-full py-3 min-h-[48px] border-2 border-dashed border-border rounded-xl text-base sm:text-xs font-medium text-text-secondary hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50/50 transition-all cursor-pointer"
         >
           + Leistung hinzufügen
         </button>
@@ -845,9 +845,9 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
             <button
               key={cat.id}
               onClick={() => addBlock(cat.id)}
-              className={`flex items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all active:scale-[0.97] cursor-pointer ${cat.color}`}
+              className={`flex items-center justify-center p-3 sm:p-4 min-h-[48px] sm:min-h-[auto] rounded-xl border-2 transition-all active:scale-[0.97] cursor-pointer ${cat.color}`}
             >
-              <span className="text-sm font-bold text-center leading-tight">
+              <span className="text-base sm:text-sm font-bold text-center leading-tight">
                 {cat.id}
               </span>
             </button>
@@ -949,7 +949,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
     async function loadCatalog() {
       // 0. Settings laden
       try {
-        const { data: setts } = await supabase.from('einstellungen').select('*').eq('id', 1).single()
+        const { data: setts } = await supabase.from('einstellungen').select('*').limit(1).single()
         if (setts) {
           setSettings(setts)
           setFormData(prev => ({ 
@@ -960,7 +960,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
       } catch (e) { console.log(e) }
 
       if (!supabase) {
-        setCatalog(DEFAULT_CATALOG)
+        setCatalog({})
         return
       }
       try {
@@ -983,8 +983,8 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         
         setCatalog(newCatalog)
       } catch (err) {
-        console.error('Failed to load catalog from Supabase, falling back to default:', err)
-        setCatalog(DEFAULT_CATALOG)
+        console.error('Failed to load catalog from Supabase', err)
+        setCatalog({})
       }
     }
     
@@ -1020,7 +1020,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         })
         
       // 3. Einstellungen laden
-      supabase.from('einstellungen').select('*').eq('id', 1).single()
+      supabase.from('einstellungen').select('*').limit(1).single()
         .then(({ data, error }) => {
           if (!error && data) {
             setFormData(prev => ({
@@ -1277,16 +1277,16 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
               <p>Fehler beim Speichern: {submitError}</p>
             </div>
           )}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
             {currentStep > 1 ? (
               <button
                 onClick={goBack}
                 disabled={isSubmitting}
-                className={`inline-flex items-center gap-1.5 px-5 py-2.5 bg-surface border border-border font-medium text-sm rounded-xl transition-all ${
+                className={`w-full sm:w-auto min-h-[48px] inline-flex justify-center items-center gap-1.5 px-5 py-3 sm:py-2.5 bg-surface border border-border font-medium text-base sm:text-sm rounded-xl transition-all ${
                   isSubmitting ? 'text-gray-300 cursor-not-allowed' : 'text-text-primary hover:bg-gray-100 active:scale-[0.97] cursor-pointer'
                 }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Zurück
@@ -1298,10 +1298,10 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
             {currentStep < 5 ? (
               <button
                 onClick={goNext}
-                className="inline-flex items-center gap-1.5 px-6 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+                className="w-full sm:w-auto min-h-[48px] inline-flex justify-center items-center gap-1.5 px-6 py-3 sm:py-2.5 bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
               >
                 Weiter
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -1309,7 +1309,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
               <button
                 onClick={handleGenerate}
                 disabled={isSubmitting}
-                className={`inline-flex items-center justify-center min-w-[220px] gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all shadow-lg ${
+                className={`w-full sm:w-auto inline-flex items-center justify-center min-w-[220px] min-h-[48px] gap-2 px-6 py-3 font-bold text-base sm:text-sm rounded-xl transition-all shadow-lg ${
                   isSubmitting 
                     ? 'bg-gray-200 text-gray-500 cursor-wait shadow-none' 
                     : 'bg-gradient-to-r from-primary-600 to-primary-700 text-white hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] shadow-primary-600/25 cursor-pointer'
@@ -1317,7 +1317,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 sm:h-4 sm:w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -1325,7 +1325,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
                   </>
                 ) : (
                   <>
-                    <span className="text-base">👀</span>
+                    <span className="text-lg sm:text-base">👀</span>
                     Vorschau generieren
                   </>
                 )}

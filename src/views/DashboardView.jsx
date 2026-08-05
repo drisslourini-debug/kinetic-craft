@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts'
 import { formatDate, formatCurrency } from '../lib/formatters'
+import { calculateRechnungStatus } from '../lib/statusLogic'
+import StatCard from '../components/StatCard'
 
 export default function DashboardView({ onNavigate }) {
   const [data, setData] = useState({
@@ -23,19 +25,41 @@ export default function DashboardView({ onNavigate }) {
         setIsLoading(true)
         
         // Fetch Firmenname
+        // Because of RLS, this will automatically only return the einstellungen for the current tenant
         const { data: settings } = await supabase
           .from('einstellungen')
           .select('firmenname')
-          .eq('id', 1)
+          .limit(1)
           .single()
           
         const firmenname = settings?.firmenname || ''
 
         // Fetch Rechnungen for Action Center and KPIs
-        const { data: rechnungen } = await supabase
+        const { data: rechnungenData } = await supabase
           .from('rechnungen')
-          .select('id, rechnung_nr, total, faellig_am, bezahlt_am, status, kunden(name)')
+          .select('id, rechnung_nr, total, bezahlt, faellig_am, bezahlt_am, status, daten, kunden(name)')
           .eq('is_archived', false)
+
+        let rechnungen = rechnungenData || []
+        
+        // Auto-update status
+        if (rechnungen.length > 0) {
+          const today = new Date()
+          const updatesByStatus = {}
+          for (const r of rechnungen) {
+            const calculatedStatus = calculateRechnungStatus(r, today)
+            if (calculatedStatus !== r.status) {
+              r.status = calculatedStatus
+              if (!updatesByStatus[calculatedStatus]) updatesByStatus[calculatedStatus] = []
+              updatesByStatus[calculatedStatus].push(r.id)
+            }
+          }
+          if (Object.keys(updatesByStatus).length > 0) {
+            for (const [newStatus, ids] of Object.entries(updatesByStatus)) {
+              await supabase.from('rechnungen').update({ status: newStatus }).in('id', ids)
+            }
+          }
+        }
 
         const ueberfaellig = []
         let offenTotal = 0
@@ -60,25 +84,45 @@ export default function DashboardView({ onNavigate }) {
 
         if (rechnungen) {
           rechnungen.forEach(r => {
-            if (r.status === 'Überfällig') {
+            // Offene Beträge berechnen
+            if (r.status === 'Überfällig' || r.status === 'Gemahnt') {
               ueberfaellig.push(r)
-              offenTotal += r.total || 0
-            } else if (r.status === 'Versendet') {
-              offenTotal += r.total || 0
-            } else if (r.status === 'Bezahlt') {
-              // YTD Umsatz
-              const dateStr = r.bezahlt_am || r.faellig_am || new Date().toISOString()
-              const d = new Date(dateStr)
+              offenTotal += Math.max(0, (r.total || 0) - (r.bezahlt || 0))
+            } else if (r.status === 'Versendet' || r.status === 'Teilbezahlt') {
+              offenTotal += Math.max(0, (r.total || 0) - (r.bezahlt || 0))
+            }
+            
+            // Umsatz & Chart (nur bezahlte Beträge)
+            if (r.bezahlt > 0) {
+              const zahlungen = r.daten?.zahlungen || []
               
-              if (d.getFullYear() === currentYear) {
-                umsatzTotal += r.total || 0
-              }
-              // Chart Umsatz
-              const key = `${d.getFullYear()}-${d.getMonth()}`
-              if (chartDataMap.has(key)) {
-                const monthData = chartDataMap.get(key)
-                monthData.Umsatz += r.total || 0
-                chartDataMap.set(key, monthData)
+              if (zahlungen.length > 0) {
+                // Präzise Berechnung über Einzelzahlungen
+                zahlungen.forEach(z => {
+                  if (z.betrag > 0 && z.typ !== 'Ausbuchung') {
+                    const d = new Date(z.datum)
+                    if (d.getFullYear() === currentYear) {
+                      umsatzTotal += z.betrag
+                    }
+                    const key = `${d.getFullYear()}-${d.getMonth()}`
+                    if (chartDataMap.has(key)) {
+                      const monthData = chartDataMap.get(key)
+                      monthData.Umsatz += z.betrag
+                    }
+                  }
+                })
+              } else if (r.status === 'Bezahlt') {
+                // Fallback für alte Rechnungen ohne Detailhistorie
+                const dateStr = r.bezahlt_am || r.faellig_am || r.created_at
+                const d = new Date(dateStr)
+                if (d.getFullYear() === currentYear) {
+                  umsatzTotal += r.total || 0
+                }
+                const key = `${d.getFullYear()}-${d.getMonth()}`
+                if (chartDataMap.has(key)) {
+                  const monthData = chartDataMap.get(key)
+                  monthData.Umsatz += r.total || 0
+                }
               }
             }
           })
@@ -145,31 +189,31 @@ export default function DashboardView({ onNavigate }) {
       <div className="md:hidden grid grid-cols-2 gap-2">
         <button 
           onClick={() => onNavigate && onNavigate('offerten', { action: 'create' })}
-          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+          className="flex items-center justify-start gap-2.5 px-3 py-3 min-h-[48px] bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer"
         >
           <div className="w-6 h-6 rounded-md bg-primary-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
-          <span className="font-semibold text-text-primary text-xs">Neue Offerte</span>
+          <span className="font-semibold text-text-primary text-sm sm:text-xs">Neue Offerte</span>
         </button>
         <button 
           onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create' })}
-          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+          className="flex items-center justify-start gap-2.5 px-3 py-3 min-h-[48px] bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer"
         >
           <div className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
-          <span className="font-semibold text-text-primary text-xs">Neue Rechnung</span>
+          <span className="font-semibold text-text-primary text-sm sm:text-xs">Neue Rechnung</span>
         </button>
         <button 
           onClick={() => onNavigate && onNavigate('kunden', { action: 'create' })}
-          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+          className="flex items-center justify-start gap-2.5 px-3 py-3 min-h-[48px] bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer"
         >
           <div className="w-6 h-6 rounded-md bg-stone-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
-          <span className="font-semibold text-text-primary text-xs">Neuer Kunde</span>
+          <span className="font-semibold text-text-primary text-sm sm:text-xs">Neuer Kunde</span>
         </button>
         <button 
           onClick={() => onNavigate && onNavigate('projekte', { action: 'create' })}
-          className="flex items-center justify-start gap-2.5 px-3 py-2 bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all"
+          className="flex items-center justify-start gap-2.5 px-3 py-3 min-h-[48px] bg-white border border-gray-200/60 rounded-xl shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer"
         >
           <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-sm shrink-0 shadow-sm">+</div>
-          <span className="font-semibold text-text-primary text-xs">Neues Projekt</span>
+          <span className="font-semibold text-text-primary text-sm sm:text-xs">Neues Projekt</span>
         </button>
       </div>
 
@@ -183,31 +227,32 @@ export default function DashboardView({ onNavigate }) {
           <div className="hidden md:flex flex-col gap-6">
             <div className="grid grid-cols-3 gap-6">
               {/* KPI 1: YTD Revenue */}
-              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                <div>
-                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Bezahlter Umsatz (YTD)</p>
-                  <p className="text-3xl font-bold text-text-primary mt-2">{formatCurrency(data.umsatzTotal)}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center text-xl mt-4">💰</div>
-              </div>
+              <StatCard 
+                title="Bezahlter Umsatz (YTD)"
+                value={formatCurrency(data.umsatzTotal)}
+                subtitle={`Geldeingänge in ${new Date().getFullYear()}`}
+                icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                color="emerald"
+                onClick={() => onNavigate && onNavigate('rechnungen')}
+              />
 
-              {/* KPI 2: Open Invoices Amount */}
-              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                <div>
-                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Ausstehende Zahlungen</p>
-                  <p className="text-3xl font-bold text-red-600 mt-2">{formatCurrency(data.offenTotal)}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-xl mt-4">⏳</div>
-              </div>
+              <StatCard 
+                title="Ausstehende Zahlungen"
+                value={formatCurrency(data.offenTotal)}
+                subtitle="Offen oder Überfällig"
+                icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />'
+                color="red"
+                onClick={() => onNavigate && onNavigate('rechnungen')}
+              />
 
-              {/* KPI 3: Pipeline (Open Offers) */}
-              <div className="bg-white border border-gray-200/60 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                <div>
-                  <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Offene Offerten (Pipeline)</p>
-                  <p className="text-3xl font-bold text-text-primary mt-2">{data.offen.length}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl mt-4">📄</div>
-              </div>
+              <StatCard 
+                title="Offene Offerten"
+                value={data.offen.length}
+                subtitle="Pipeline"
+                icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />'
+                color="amber"
+                onClick={() => onNavigate && onNavigate('offerten')}
+              />
             </div>
 
             {/* Revenue Chart */}
@@ -215,7 +260,7 @@ export default function DashboardView({ onNavigate }) {
               <h3 className="font-bold text-text-primary mb-6">Umsatzentwicklung (Letzte 6 Monate)</h3>
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                  <BarChart data={data.chartData} margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `CHF ${value/1000}k`} />
                     <Tooltip 
@@ -272,7 +317,7 @@ export default function DashboardView({ onNavigate }) {
                             e.stopPropagation();
                             if(onNavigate) onNavigate('rechnungen', { rechnungId: r.id })
                           }}
-                          className="w-full py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                          className="w-full min-h-[48px] py-3 sm:py-2 flex items-center justify-center bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-base sm:text-sm font-semibold transition-colors mt-1 cursor-pointer"
                         >
                           Mahnung senden &rarr;
                         </button>
@@ -282,7 +327,7 @@ export default function DashboardView({ onNavigate }) {
                   {data.ueberfaellig.length > 3 && (
                     <button 
                       onClick={() => onNavigate && onNavigate('rechnungen')}
-                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                      className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-base sm:text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
                     >
                       + {data.ueberfaellig.length - 3} weitere anzeigen
                     </button>
@@ -323,7 +368,7 @@ export default function DashboardView({ onNavigate }) {
                             e.stopPropagation();
                             if(onNavigate) onNavigate('offerten', { offerteId: o.id })
                           }}
-                          className="w-full py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                          className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-base sm:text-sm font-semibold transition-colors mt-1 cursor-pointer"
                         >
                           Bearbeiten &rarr;
                         </button>
@@ -333,7 +378,7 @@ export default function DashboardView({ onNavigate }) {
                   {data.offen.length > 3 && (
                     <button 
                       onClick={() => onNavigate && onNavigate('offerten')}
-                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                      className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-base sm:text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
                     >
                       + {data.offen.length - 3} weitere anzeigen
                     </button>
@@ -374,7 +419,7 @@ export default function DashboardView({ onNavigate }) {
                             e.stopPropagation();
                             if(onNavigate) onNavigate('projekte', { projektId: p.id })
                           }}
-                          className="w-full py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-sm font-semibold transition-colors mt-1"
+                          className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-base sm:text-sm font-semibold transition-colors mt-1 cursor-pointer"
                         >
                           Projekt öffnen &rarr;
                         </button>
@@ -384,7 +429,7 @@ export default function DashboardView({ onNavigate }) {
                   {data.inArbeit.length > 3 && (
                     <button 
                       onClick={() => onNavigate && onNavigate('projekte')}
-                      className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
+                      className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-xl text-base sm:text-sm font-semibold transition-colors mt-1 border border-gray-200/60 cursor-pointer"
                     >
                       + {data.inArbeit.length - 3} weitere anzeigen
                     </button>

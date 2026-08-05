@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/formatters'
 import KundeDetailView from './KundeDetailView'
 import KundeCreateModal from './KundeCreateModal'
+import StatCard from '../components/StatCard'
 
-export default function KundenView({ onNavigate, viewParams }) {
+export default function KundenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
   const [kunden, setKunden] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -64,6 +65,7 @@ export default function KundenView({ onNavigate, viewParams }) {
       <KundeDetailView 
         kunde={selectedKunde} 
         onNavigate={onNavigate}
+        userRole={userRole}
         initialTab={viewParams?.activeTab || 'stammdaten'}
         onBack={() => {
           setSelectedKunde(null)
@@ -155,41 +157,47 @@ export default function KundenView({ onNavigate, viewParams }) {
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Kunden</h2>
           <p className="text-text-secondary mt-1">CRM-Übersicht aller Kunden und Auftraggeber.</p>
         </div>
-        <button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
-        >
-          <span className="text-lg">+</span>
-          Neuer Kunde
-        </button>
+        <div>
+          {userRole !== 'treuhand' && (
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+            >
+              <span className="text-lg">+</span>
+              Neuer Kunde
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards (Desktop) */}
       <div className="hidden sm:grid grid-cols-3 gap-6">
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-gray-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">Alle Kunden</h3>
-            <p className="text-2xl font-bold text-text-primary">{stats.total}</p>
-          </div>
-        </div>
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-emerald-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">Aktive Kunden</h3>
-            <p className="text-2xl font-bold text-text-primary">{stats.active}</p>
-          </div>
-        </div>
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-blue-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">Neu (Dieser Monat)</h3>
-            <p className="text-2xl font-bold text-text-primary flex items-center gap-2">
-              +{stats.newThisMonth}
-              {stats.newThisMonth > 0 && <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center">↑</span>}
-            </p>
-          </div>
-        </div>
+        {/* Tile 1: Alle Kunden */}
+        <StatCard 
+          title="Alle Kunden"
+          value={stats.total}
+          subtitle="Im gesamten System"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />'
+          color="gray"
+        />
+
+        {/* Tile 2: Aktive Kunden */}
+        <StatCard 
+          title="Aktive Kunden"
+          value={stats.active}
+          subtitle="Nicht archiviert"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+          color="emerald"
+        />
+
+        {/* Tile 3: Neue Kunden */}
+        <StatCard 
+          title="Neue Kunden"
+          value={stats.newThisMonth}
+          subtitle="Diesen Monat erstellt"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />'
+          color="blue"
+        />
       </div>
 
       {/* Stats Pills (Mobile) */}
@@ -219,7 +227,7 @@ export default function KundenView({ onNavigate, viewParams }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Kunden suchen nach Name, Firma, Ort..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
@@ -282,11 +290,11 @@ export default function KundenView({ onNavigate, viewParams }) {
             : `${kunde.vorname || ''} ${kunde.nachname || ''}`.trim() || kunde.name;
 
           return (
-            <div
-              key={kunde.id}
-              onClick={() => setSelectedKunde(kunde)}
-              className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
-            >
+              <div
+                key={kunde.id}
+                onClick={() => setSelectedKunde(kunde)}
+                className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+              >
               {/* Primary Info */}
               <div className="flex items-center gap-3 w-full lg:w-auto pr-16 lg:pr-0">
                 <div className={`w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-inner ${kunde.firmenname ? 'rounded-xl' : 'rounded-full'}`}>
@@ -304,20 +312,20 @@ export default function KundenView({ onNavigate, viewParams }) {
                       <a 
                         href={`tel:${kunde.telefon}`} 
                         onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 active:scale-95 transition-all border border-emerald-100"
+                        className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 active:scale-95 transition-all border border-emerald-100"
                         title="Anrufen"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                       </a>
                     )}
                     {kunde.email && (
                       <a 
                         href={`mailto:${kunde.email}`} 
                         onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 active:scale-95 transition-all border border-blue-100"
+                        className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 active:scale-95 transition-all border border-blue-100"
                         title="E-Mail senden"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                       </a>
                     )}
                   </div>
@@ -364,7 +372,7 @@ export default function KundenView({ onNavigate, viewParams }) {
                 <div className="relative">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === kunde.id ? null : kunde.id); }}
-                    className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+                    className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                   </button>
@@ -372,13 +380,13 @@ export default function KundenView({ onNavigate, viewParams }) {
                   {activeMenuId === kunde.id && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
-                      <div className="absolute right-0 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                      <div className="absolute right-0 mt-1 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
                         <div className="p-1">
                           <button 
                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedKunde(kunde); }} 
-                            className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                           >
-                            <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            <svg className="w-5 h-5 sm:w-4 sm:h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             Details anzeigen
                           </button>
                           
@@ -386,9 +394,9 @@ export default function KundenView({ onNavigate, viewParams }) {
                             <a 
                               href={`tel:${kunde.telefon}`}
                               onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
-                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                               Anrufen
                             </a>
                           )}
@@ -397,9 +405,9 @@ export default function KundenView({ onNavigate, viewParams }) {
                             <a 
                               href={`mailto:${kunde.email}`}
                               onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
-                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                               E-Mail senden
                             </a>
                           )}
@@ -408,9 +416,9 @@ export default function KundenView({ onNavigate, viewParams }) {
                           
                           <button 
                             onClick={(e) => handleDeleteKunde(kunde.id, e)} 
-                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             Archivieren
                           </button>
                         </div>

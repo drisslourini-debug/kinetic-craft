@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import logoImg from '../assets/logo.png'
-
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'kunden', label: 'Kunden', icon: '👥' },
@@ -14,8 +12,15 @@ const navItems = [
   { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
 ]
 
-export default function Sidebar({ activeView, onNavigate }) {
+export default function Sidebar({ activeView, onNavigate, userRole, globalSettings, userName }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const filteredNavItems = navItems.filter(item => {
+    if (userRole === 'treuhand') {
+      return !['dashboard', 'projekte', 'offerten', 'katalog', 'einstellungen'].includes(item.id)
+    }
+    return true
+  })
 
   const handleLogout = async () => {
     if (window.confirm('Möchtest du dich wirklich abmelden?')) {
@@ -36,12 +41,28 @@ export default function Sidebar({ activeView, onNavigate }) {
       >
         {/* Brand */}
         <div className="flex flex-col items-center justify-center px-6 py-8 border-b border-white/10">
-          <img src={logoImg} alt="Atelier 77 Logo" className="w-32 h-auto object-contain brightness-0 invert opacity-90 drop-shadow-md" />
+          {globalSettings?.logo_url ? (
+            <img 
+              src={globalSettings.logo_url} 
+              alt={globalSettings.firmenname || "Logo"} 
+              className="w-32 h-auto object-contain brightness-0 invert opacity-90 drop-shadow-md" 
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div 
+            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-2"
+            style={{ display: globalSettings?.logo_url ? 'none' : 'flex' }}
+          >
+            {globalSettings?.firmenname ? globalSettings.firmenname.substring(0,2).toUpperCase() : 'CRM'}
+          </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = activeView === item.id
             return (
               <button
@@ -70,12 +91,12 @@ export default function Sidebar({ activeView, onNavigate }) {
         <div className="px-4 py-4 border-t border-white/10">
           <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white text-xs font-bold">
-                LB
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white text-xs font-bold uppercase">
+                {userRole === 'treuhand' ? 'TH' : (userName ? userName.substring(0,2) : 'AD')}
               </div>
               <div className="min-w-0">
-                <p className="text-white text-sm font-medium truncate">Leandro B.</p>
-                <p className="text-text-sidebar text-xs opacity-50">Admin</p>
+                <p className="text-white text-sm font-medium truncate">{userRole === 'treuhand' ? 'Treuhand' : (userName || 'Admin')}</p>
+                <p className="text-text-sidebar text-xs opacity-50 uppercase">{userRole === 'treuhand' ? 'Zugang' : globalSettings?.firmenname || 'Firma'}</p>
               </div>
             </div>
             <button 

@@ -98,7 +98,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
         onBlur={onBlur}
         onFocus={() => { if (suggestions.length > 0) setIsOpen(true) }}
         placeholder={placeholder || 'Adresse suchen...'}
-        className={className || "w-full px-3 py-2 bg-surface border border-border rounded-lg text-base focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"}
+        className={className || "w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"}
       />
       
       {isLoading && (
@@ -115,7 +115,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
               <li 
                 key={idx}
                 onClick={() => handleSelect(item)}
-                className="px-4 py-2 hover:bg-primary-50 text-sm cursor-pointer border-b border-border last:border-b-0 text-text-primary"
+                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 hover:bg-primary-50 text-base sm:text-sm cursor-pointer border-b border-border last:border-b-0 text-text-primary flex items-center"
               >
                 {cleanLabel}
               </li>

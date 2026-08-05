@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import logo from '../assets/logo.png'
 
-export default function LoginView({ onLoginSuccess }) {
+export default function LoginView({ onLoginSuccess, onGoToRegistration }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
@@ -47,7 +47,9 @@ export default function LoginView({ onLoginSuccess }) {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center mb-8">
-          <img src={logo} alt="Atelier 77 Logo" className="h-24 object-contain drop-shadow-md" />
+          <div className="h-16 w-16 bg-primary-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg font-bold">
+            A
+          </div>
         </div>
       </div>
 
@@ -136,11 +138,11 @@ export default function LoginView({ onLoginSuccess }) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white ${
+                className={`w-full min-h-[48px] flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-md text-base sm:text-sm font-bold text-white ${
                   isLoading 
                     ? 'bg-primary-400 cursor-wait' 
                     : 'bg-primary-600 hover:bg-primary-700 hover:shadow-lg active:scale-[0.98]'
-                } transition-all duration-200`}
+                } transition-all duration-200 cursor-pointer`}
               >
                 {isLoading ? (
                   <>
@@ -157,9 +159,17 @@ export default function LoginView({ onLoginSuccess }) {
         </div>
         
         {/* Footer info */}
-        <p className="mt-8 text-center text-xs text-text-secondary font-medium">
-          &copy; {new Date().getFullYear()} Malerei Leandro Lüthi · Atelier 77 CRM
-        </p>
+        <div className="mt-8 text-center space-y-4">
+          <p className="text-sm text-text-secondary font-medium">
+            Noch keinen Account?{' '}
+            <button onClick={onGoToRegistration} className="text-primary-600 hover:text-primary-800 font-bold transition-colors">
+              Jetzt 14 Tage kostenlos testen
+            </button>
+          </p>
+          <p className="text-xs text-text-secondary/60 font-medium">
+            &copy; {new Date().getFullYear()} CRM · Software as a Service
+          </p>
+        </div>
       </div>
     </div>
   )

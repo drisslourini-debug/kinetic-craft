@@ -1,22 +1,34 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const mainTabs = [
-  { id: 'dashboard', label: 'Home', icon: '📊' },
-  { id: 'kunden', label: 'Kunden', icon: '👥' },
-  { id: 'projekte', label: 'Projekte', icon: '🏗️' },
-  { id: 'offerten', label: 'Offerten', icon: '📄' },
-];
-
-const menuItems = [
-  { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
-  { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
-  { id: 'katalog', label: 'Katalog', icon: '🏷️' },
-  { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
-];
-
-export default function MobileTabBar({ activeView, onNavigate }) {
+export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  let currentMainTabs = [
+    { id: 'dashboard', label: 'Home', icon: '📊' },
+    { id: 'kunden', label: 'Kunden', icon: '👥' },
+    { id: 'projekte', label: 'Projekte', icon: '🏗️' },
+    { id: 'offerten', label: 'Offerten', icon: '📄' },
+  ];
+
+  let currentMenuItems = [
+    { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
+    { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
+    { id: 'dateien', label: 'Archiv', icon: '📁' },
+    { id: 'katalog', label: 'Katalog', icon: '🏷️' },
+    { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
+  ];
+
+  if (userRole === 'treuhand') {
+    currentMainTabs = [
+      { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
+      { id: 'kunden', label: 'Kunden', icon: '👥' },
+      { id: 'rechnungen', label: 'Rechnungen', icon: '🧾' },
+    ];
+    currentMenuItems = [
+      { id: 'dateien', label: 'Archiv', icon: '📁' },
+    ];
+  }
 
   const handleLogout = async () => {
     if (window.confirm('Möchtest du dich wirklich abmelden?')) {
@@ -40,12 +52,12 @@ export default function MobileTabBar({ activeView, onNavigate }) {
           >
             <div className="p-4 bg-surface border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-text-primary">Mehr</h3>
-              <button onClick={() => setIsMenuOpen(false)} className="text-text-secondary p-1">
+              <button onClick={() => setIsMenuOpen(false)} className="text-text-secondary min-h-[48px] w-12 flex items-center justify-center rounded-lg hover:bg-surface-card transition-colors cursor-pointer">
                 ✕
               </button>
             </div>
             <div className="p-2">
-              {menuItems.map(item => (
+              {currentMenuItems.map(item => (
                 <button
                   key={item.id}
                   onClick={() => handleTabClick(item.id)}
@@ -71,9 +83,9 @@ export default function MobileTabBar({ activeView, onNavigate }) {
       )}
 
       {/* Bottom Tab Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card/90 backdrop-blur-md border-t border-border md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around px-2 pt-2 pb-1">
-          {mainTabs.map(tab => {
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-surface-card/90 backdrop-blur-md border-t border-border pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="flex items-center justify-around h-16 px-2">
+          {currentMainTabs.map(tab => {
             const isActive = activeView === tab.id;
             return (
               <button
@@ -106,7 +118,7 @@ export default function MobileTabBar({ activeView, onNavigate }) {
             </span>
           </button>
         </div>
-      </div>
+      </nav>
     </>
   );
 }

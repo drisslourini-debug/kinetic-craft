@@ -60,7 +60,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
     if (!supabase) return
     const [kData, sData] = await Promise.all([
       supabase.from('kunden').select('*').order('name', { ascending: true }),
-      supabase.from('einstellungen').select('*').eq('id', 1).single()
+      supabase.from('einstellungen').select('*').limit(1).single()
     ])
     if (kData.data) setKunden(kData.data)
     if (sData.data) setSettings(sData.data)
@@ -188,7 +188,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
       }
     } catch (err) {
       console.error(`Fehler beim Erstellen der ${docTypeLabel}:`, err)
-      setError(`${docTypeLabel} konnte nicht erstellt werden. Bitte versuche es erneut.`)
+      setError(`${docTypeLabel} konnte nicht erstellt werden. Details: ${err.message || JSON.stringify(err)}`)
       setIsSubmitting(false)
     }
   }
@@ -237,14 +237,14 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
               <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                 {docTypeIcon} Neue {docTypeLabel}
               </h2>
-              <button onClick={onClose} className="p-2 text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-full transition-colors cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-full transition-colors cursor-pointer flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             
             <div className="hidden md:block absolute top-4 right-4 z-20">
-              <button onClick={onClose} className="p-2 text-text-secondary hover:text-text-primary bg-white hover:bg-neutral-100 rounded-full shadow-sm transition-colors cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary bg-white hover:bg-neutral-100 rounded-full shadow-sm transition-colors cursor-pointer border border-gray-100 flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -273,37 +273,39 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                     )}
                   </div>
                   {isCreatingKunde ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
                       <input 
                         autoFocus
                         type="text"
                         value={newKundeName}
                         onChange={(e) => setNewKundeName(e.target.value)}
                         placeholder="Name des neuen Kunden..."
-                        className="flex-1 px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all"
+                        className="w-full sm:flex-1 px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all"
                         onKeyDown={(e) => e.key === 'Enter' && handleCreateKunde()}
                       />
-                      <button 
-                        type="button"
-                        onClick={handleCreateKunde}
-                        disabled={isCreatingKundeLoading || !newKundeName.trim()}
-                        className="px-4 py-3 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm"
-                      >
-                        {isCreatingKundeLoading ? '...' : 'Speichern'}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => { setIsCreatingKunde(false); setNewKundeName(''); }}
-                        className="px-4 py-3 bg-neutral-100 text-text-secondary hover:text-text-primary font-bold text-sm rounded-xl transition-colors"
-                      >
-                        Abbrechen
-                      </button>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button 
+                          type="button"
+                          onClick={() => { setIsCreatingKunde(false); setNewKundeName(''); }}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-neutral-100 text-text-secondary hover:text-text-primary font-bold text-base sm:text-sm rounded-xl transition-colors"
+                        >
+                          Abbrechen
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={handleCreateKunde}
+                          disabled={isCreatingKundeLoading || !newKundeName.trim()}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          {isCreatingKundeLoading ? '...' : 'Speichern'}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <select 
                       value={selectedKundeId}
                       onChange={(e) => setSelectedKundeId(e.target.value)}
-                      className="w-full px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all appearance-none cursor-pointer"
                     >
                       <option value="">-- Kunde auswählen --</option>
                       {kunden.map(k => (
@@ -329,38 +331,40 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                     )}
                   </div>
                   {isCreatingProjekt ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
                       <input 
                         autoFocus
                         type="text"
                         value={newProjektName}
                         onChange={(e) => setNewProjektName(e.target.value)}
                         placeholder="Name des neuen Projekts..."
-                        className="flex-1 px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all"
+                        className="w-full sm:flex-1 px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all"
                         onKeyDown={(e) => e.key === 'Enter' && handleCreateProjekt()}
                       />
-                      <button 
-                        type="button"
-                        onClick={handleCreateProjekt}
-                        disabled={isCreatingProjektLoading || !newProjektName.trim()}
-                        className="px-4 py-3 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm"
-                      >
-                        {isCreatingProjektLoading ? '...' : 'Speichern'}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => { setIsCreatingProjekt(false); setNewProjektName(''); }}
-                        className="px-4 py-3 bg-neutral-100 text-text-secondary hover:text-text-primary font-bold text-sm rounded-xl transition-colors"
-                      >
-                        Abbrechen
-                      </button>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button 
+                          type="button"
+                          onClick={() => { setIsCreatingProjekt(false); setNewProjektName(''); }}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-neutral-100 text-text-secondary hover:text-text-primary font-bold text-base sm:text-sm rounded-xl transition-colors"
+                        >
+                          Abbrechen
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={handleCreateProjekt}
+                          disabled={isCreatingProjektLoading || !newProjektName.trim()}
+                          className="flex-1 sm:flex-none px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm"
+                        >
+                          {isCreatingProjektLoading ? '...' : 'Speichern'}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <select 
                       value={selectedProjektId}
                       onChange={(e) => setSelectedProjektId(e.target.value)}
                       disabled={!selectedKundeId || projekte.length === 0}
-                      className="w-full px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:bg-gray-50"
+                      className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:bg-gray-50"
                     >
                       <option value="">-- Kein Projekt --</option>
                       {projekte.map(p => (
@@ -379,7 +383,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={`z.B. ${docTypeLabel} für Renovation...`}
-                    className="w-full px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all"
+                    className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all"
                   />
                 </div>
 
@@ -391,16 +395,16 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-sm font-medium text-text-primary outline-none transition-all"
+                    className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 rounded-xl text-base sm:text-sm font-medium text-text-primary outline-none transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-border bg-neutral-50 flex justify-end gap-3 sticky bottom-0 z-10">
+            <div className="p-4 sm:p-6 border-t border-border bg-neutral-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10">
               <button 
                 onClick={onClose}
-                className="px-6 py-3 bg-white border border-border text-text-secondary hover:text-text-primary font-bold text-sm rounded-xl hover:bg-neutral-50 transition-colors shadow-sm"
+                className="w-full sm:w-auto min-h-[48px] px-6 py-3 sm:py-2.5 bg-white border border-border text-text-secondary hover:text-text-primary font-bold text-base sm:text-sm rounded-xl hover:bg-neutral-50 transition-colors shadow-sm cursor-pointer"
               >
                 Abbrechen
               </button>
@@ -408,7 +412,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
               <button 
                 onClick={handleCreate}
                 disabled={isSubmitting || !selectedKundeId}
-                className="px-8 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-primary-600/20 flex items-center gap-2"
+                className="w-full sm:w-auto min-h-[48px] px-8 py-3 sm:py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-base sm:text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-primary-600/20 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>

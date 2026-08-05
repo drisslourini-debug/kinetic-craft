@@ -1,0 +1,18 @@
+# Architektur & Clean Code Regeln (Atelier 77 Dashboard)
+
+Für alle zukünftigen Code-Änderungen in diesem Projekt gelten folgende strikte Architektur-Regeln. Diese sind zwingend einzuhalten, um Spaghetti-Code zu vermeiden und die Codebasis wartbar zu halten:
+
+1. **Trennung von UI und Kernlogik**:
+   Mathematische Berechnungen und komplexe Business-Logik dürfen nicht in den React-Komponenten liegen. Sie müssen immer in eigenen, testbaren `lib`-Modulen (z.B. `src/lib/calculations.js`) ausgelagert werden.
+
+2. **DRY-Prinzip (Don't Repeat Yourself)**:
+   Erzeuge keine Code-Duplikate. Verwende stattdessen wiederverwendbare Hilfsfunktionen. Wenn eine Logik an zwei Orten benötigt wird, lagere sie sofort zentral aus.
+
+3. **Container / Presenter Pattern**:
+   Grosse Views (wie `RechnungDetailView` oder `OfferteDetailView`) agieren als reine Orchestratoren. Die detaillierte UI muss in modulare Sub-Komponenten (im Ordner `src/components/...`) ausgelagert werden. Vermeide verwaisten State.
+
+4. **Testing Pflicht**:
+   Code-Änderungen an der mathematischen Kernlogik MÜSSEN durch automatisierte Unit-Tests in `vitest` abgesichert werden. Lass bei tiefgreifenden Änderungen immer `npm run test` laufen.
+
+5. **Risikominimierung**:
+   Arbeite extrem sauber und risikominimierend. Ändere funktionierenden Code nur, wenn es für das Refactoring oder Feature absolut notwendig ist. Keine Quick-and-Dirty Hacks.

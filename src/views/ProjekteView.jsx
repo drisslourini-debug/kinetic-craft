@@ -4,8 +4,9 @@ import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/formatters'
 import ProjektDetailView from './ProjektDetailView'
 import ProjektCreateModal from './ProjektCreateModal'
+import StatCard from '../components/StatCard'
 
-export default function ProjekteView({ onNavigate, viewParams }) {
+export default function ProjekteView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
   const [projekte, setProjekte] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -61,6 +62,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
       <ProjektDetailView 
         projekt={selectedProjekt} 
         onNavigate={onNavigate}
+        userRole={userRole}
         initialTab={viewParams?.activeTab || 'projektdaten'}
         onBack={() => {
           setSelectedProjekt(null)
@@ -141,41 +143,45 @@ export default function ProjekteView({ onNavigate, viewParams }) {
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Projekte & Objekte</h2>
           <p className="text-text-secondary mt-1">Alle Baustellen und Projekte auf einen Blick.</p>
         </div>
-        <button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white font-semibold text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
-        >
-          <span className="text-lg">+</span>
-          Neues Projekt
-        </button>
+        {userRole !== 'treuhand' && (
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+          >
+            <span className="text-lg">+</span>
+            Neues Projekt
+          </button>
+        )}
       </div>
 
       {/* Stats Cards (Desktop) */}
       <div className="hidden sm:grid grid-cols-3 gap-6">
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-gray-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">Alle Projekte</h3>
-            <p className="text-2xl font-bold text-text-primary">{stats.total}</p>
-          </div>
-        </div>
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-emerald-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">In Arbeit</h3>
-            <p className="text-2xl font-bold text-text-primary">{stats.inArbeit}</p>
-            <div className="w-full h-1 bg-gray-100 rounded-full mt-3 overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${stats.total > 0 ? (stats.inArbeit / stats.total) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm relative overflow-hidden group">
-          <svg className="absolute -right-4 -bottom-4 w-24 h-24 text-blue-50 opacity-50 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-          <div className="relative z-10">
-            <h3 className="text-text-secondary text-sm font-medium mb-1">Abgeschlossen</h3>
-            <p className="text-2xl font-bold text-text-primary">{stats.abgeschlossen}</p>
-          </div>
-        </div>
+        {/* Tile 1: Alle Projekte */}
+        <StatCard 
+          title="Alle Projekte"
+          value={stats.total}
+          subtitle="Aktive Projekte"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />'
+          color="gray"
+        />
+
+        {/* Tile 2: In Arbeit */}
+        <StatCard 
+          title="In Arbeit"
+          value={stats.inArbeit}
+          subtitle=""
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />'
+          color="emerald"
+        />
+
+        {/* Tile 3: Abgeschlossen */}
+        <StatCard 
+          title="Abgeschlossen"
+          value={stats.abgeschlossen}
+          subtitle="Erfolgreich beendet"
+          icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+          color="blue"
+        />
       </div>
 
       {/* Stats Pills (Mobile) */}
@@ -205,7 +211,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Projekte suchen nach Name, Adresse oder Kunde..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
@@ -244,7 +250,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
               <div
                 key={p.id}
                 onClick={() => setSelectedProjekt(p)}
-                className={`flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${statusColorClass} hover:-translate-y-1 lg:hover:-translate-y-0 hover:shadow-xl lg:hover:shadow-none lg:hover:bg-neutral-50/80 transition-all duration-200 cursor-pointer items-start lg:items-center relative group`}
+                className={`flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${statusColorClass} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 cursor-pointer items-start lg:items-center relative group`}
               >
                 {/* Primary Info */}
                 <div className="min-w-0 w-full flex flex-col justify-center">
@@ -305,7 +311,7 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                   <div className="relative">
                     <button 
                       onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
-                      className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+                      className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                     </button>
@@ -313,13 +319,13 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                     {activeMenuId === p.id && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
-                        <div className="absolute right-0 mt-1 w-48 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute right-0 mt-1 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
                           <div className="p-1">
                             <button 
                               onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedProjekt(p); }} 
-                              className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               Details anzeigen
                             </button>
                             
@@ -329,9 +335,9 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }}
-                                className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                               >
-                                <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                                <svg className="w-5 h-5 sm:w-4 sm:h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
                                 Auf Karte zeigen
                               </a>
                             )}
@@ -340,9 +346,9 @@ export default function ProjekteView({ onNavigate, viewParams }) {
                             
                             <button 
                               onClick={(e) => handleDeleteProjekt(p.id, e)} 
-                              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                               Archivieren
                             </button>
                           </div>

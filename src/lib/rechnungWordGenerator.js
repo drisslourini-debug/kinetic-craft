@@ -81,7 +81,7 @@ export const generateRechnungWord = async (rechnung, kunde, projekt, settings, a
   });
 
   // 3. Leistungen Table (shared helper)
-  const leistungenTable = generateLeistungenTable(leistungen, totals, rabatt, mwst);
+  const leistungenTable = generateLeistungenTable(leistungen, totals, rabatt, mwst, settings);
 
   // 4. Assemble document children
   const children = [
@@ -136,6 +136,6 @@ export const generateRechnungWord = async (rechnung, kunde, projekt, settings, a
   });
 
   Packer.toBlob(doc).then(blob => {
-    saveAs(blob, `Rechnung_${rechnung.rechnung_nr}_Atelier77.docx`);
+    saveAs(blob, `Rechnung_${rechnung.rechnung_nr}_${settings?.firmenname || 'CRM'}.docx`.replace(/\s+/g, '_'));
   });
 };

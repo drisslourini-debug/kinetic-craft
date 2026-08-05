@@ -128,14 +128,14 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 🏗️ Neues Projekt
               </h2>
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors cursor-pointer flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             
             <div className="hidden md:block absolute top-4 right-4 z-20">
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full shadow-sm transition-colors cursor-pointer border border-gray-100">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full shadow-sm transition-colors cursor-pointer border border-gray-100 flex items-center justify-center">
+                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -166,7 +166,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                         <select
                           value={formData.kunden_id}
                           onChange={e => setFormData({...formData, kunden_id: e.target.value})}
-                          className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm ${!formData.kunden_id && submitted ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
+                          className={`w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm text-base sm:text-sm ${!formData.kunden_id && submitted ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
                         >
                           <option value="">Bitte Kunden auswählen...</option>
                           {kunden.map(kunde => (
@@ -186,7 +186,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                         type="text" 
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
-                        className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm ${!formData.name?.trim() && submitted ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
+                        className={`w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm text-base sm:text-sm ${!formData.name?.trim() && submitted ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
                         placeholder="z.B. Fassadensanierung Meier"
                       />
                     </div>
@@ -196,7 +196,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                       <select 
                         value={formData.kategorie}
                         onChange={e => setFormData({...formData, kategorie: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm"
+                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
                       >
                         <option value="">-- Bitte wählen --</option>
                         {PROJEKT_KATEGORIEN.map(t => <option key={t} value={t}>{t}</option>)}
@@ -209,7 +209,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                         value={formData.adresse}
                         onChange={val => setFormData({...formData, adresse: val})}
                         placeholder="Strasse eingeben (Auto-Fill)..."
-                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm"
+                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
                       />
                     </div>
                   </div>
@@ -217,18 +217,18 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
               </div>
 
               {/* Action Buttons */}
-              <div className="p-6 border-t border-gray-100 bg-white/80 backdrop-blur-md shrink-0 flex justify-end gap-3 rounded-br-3xl">
+              <div className="p-4 sm:p-6 border-t border-gray-100 bg-white/80 backdrop-blur-md shrink-0 flex flex-col sm:flex-row justify-end gap-3 rounded-br-3xl">
                 <button 
                   type="button" 
                   onClick={onClose}
-                  className="px-6 py-2.5 text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="w-full sm:w-auto min-h-[48px] px-6 py-3 sm:py-2.5 text-base sm:text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   Abbrechen
                 </button>
                 <button 
                   type="submit" 
                   disabled={isSaving || !formData.name.trim() || !formData.kunden_id}
-                  className="px-8 py-2.5 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center gap-2"
+                  className="w-full sm:w-auto min-h-[48px] px-8 py-3 sm:py-2.5 text-base sm:text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSaving ? (
                     <>

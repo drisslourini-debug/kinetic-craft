@@ -5,8 +5,9 @@ import { generateRechnungWord } from '../lib/rechnungWordGenerator'
 import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr } from '../lib/documentService'
+import KatalogDrawer from '../components/KatalogDrawer'
 
-export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
+export default function RechnungDetailView({ rechnung, onBack, onNavigate, userRole }) {
   const [kunde, setKunde] = useState(null)
   const [projekt, setProjekt] = useState(null)
   const [settings, setSettings] = useState(null)
@@ -15,6 +16,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const [isLoading, setIsLoading] = useState(true)
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
+  const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
 
   // Stammdaten edit state
   const [isDirty, setIsDirty] = useState(false)
@@ -69,7 +71,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
         const { data: sData } = await supabase
           .from('einstellungen')
           .select('*')
-          .eq('id', 1)
+          .limit(1)
           .single()
         if (sData) setSettings(sData)
 
@@ -196,6 +198,12 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   }
 
   const handleDelete = async () => {
+    if (status !== 'Entwurf') {
+      alert('Achtung: Nur Entwürfe können endgültig gelöscht werden. Bitte storniere oder archiviere diese Rechnung stattdessen.')
+      setShowDeleteWarning(false)
+      return
+    }
+    
     setIsUpdating(true)
     try {
       await supabase.from('rechnungen').delete().eq('id', rechnung.id)
@@ -327,6 +335,22 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
     setEditLeistungen(updated)
   }
 
+  const handleInsertFromKatalog = (items) => {
+    if (!items || items.length === 0) return
+    const newPositions = items.map(item => ({
+      _id: Date.now() + Math.random(),
+      posNr: '',
+      beschreibung: item.titel,
+      menge: '',
+      einheit: item.einheit,
+      einzelpreis: item.preis,
+      kategorie: item.kategorie,
+      optional: false,
+    }))
+    setEditLeistungen(prev => [...prev, ...newPositions])
+    setShowKatalogDrawer(false)
+  }
+
   if (!rechnung) return null
 
 
@@ -334,6 +358,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
   const daten = rechnung.daten || {}
   const leistungen = daten.leistungen || []
   const { rawTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
+  const mwst = parseFloat(daten.konditionen?.mwst || 0)
 
   // Edit-mode live calculation
   const editTotals = calculateDocumentTotals(editLeistungen, editKonditionen, isPauschal ? editPauschalpreis : null)
@@ -389,13 +415,13 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
           <select
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isUpdating}
-            className={`px-4 py-2.5 text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 ${
-              status === 'Bezahlt' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
-              status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
-              status === 'Überfällig' ? 'border-red-200 bg-red-50 text-red-700' :
-              status === 'Storniert' ? 'border-gray-300 bg-gray-100 text-gray-800' :
-              'border-gray-200 bg-gray-50 text-gray-700'
+            disabled={isUpdating || userRole === 'treuhand'}
+            className={`px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 ${
+              status === 'Entwurf' ? 'bg-neutral-100 text-text-primary border-transparent hover:bg-neutral-200' :
+              status === 'Versendet' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
+              status === 'Bezahlt' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
+              status === 'Überfällig' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+              'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
             }`}
           >
             <option value="Entwurf">Entwurf</option>
@@ -409,37 +435,36 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
           {isEditing && (
             <button
               onClick={() => setShowLivePreview(!showLivePreview)}
-              className={`hidden xl:inline-flex items-center gap-2 px-4 py-2.5 font-bold text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
-                showLivePreview 
-                  ? 'bg-primary-50 text-primary-700 border-primary-200' 
-                  : 'bg-surface text-text-secondary border-border hover:bg-surface-card hover:text-text-primary'
+              className={`hidden xl:inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 font-bold text-base sm:text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
+                showLivePreview ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-surface border-border text-text-secondary'
               }`}
               title="Split-Screen Live-Vorschau (nur Desktop)"
             >
               {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
             </button>
           )}
-          {!isEditing && (
+          {!isEditing && userRole !== 'treuhand' && status === 'Entwurf' && (
             <button
               onClick={startEditing}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface border border-primary-200 text-primary-700 font-bold text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-base sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
             >
               ✏️ Rechnung bearbeiten
             </button>
           )}
           <button
             onClick={() => setShowPrintView(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span className="hidden sm:inline">PDF anzeigen</span>
             <span className="sm:hidden">PDF</span>
           </button>
           
+          {userRole !== 'treuhand' && (
           <div className="relative">
             <button 
               onClick={() => setShowActionMenu(!showActionMenu)}
-              className="w-10 h-10 flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors shrink-0 cursor-pointer"
+              className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors shrink-0 cursor-pointer"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
             </button>
@@ -484,6 +509,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
               </>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -509,7 +535,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
           
           {/* TAB: STAMMDATEN */}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'md:grid-cols-2' : ''} gap-6`}>
               <div className="space-y-6">
                 <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
                   <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
@@ -558,12 +584,15 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                   <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
                     <h3 className="text-lg font-bold text-text-primary">Zahlungseingang</h3>
                     {!showPaymentForm ? (
-                      <button 
-                        onClick={() => setShowPaymentForm(true)}
-                        className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center"
-                      >
-                        💰 Zahlung eingegangen
-                      </button>
+                      status !== 'Bezahlt' && userRole !== 'treuhand' && (
+                        <button 
+                          onClick={() => setShowPaymentForm(true)}
+                          disabled={isUpdating}
+                          className="w-full py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center"
+                        >
+                          💰 Zahlung erfassen
+                        </button>
+                      )
                     ) : (
                       <div className="space-y-4 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
                         <div>
@@ -572,7 +601,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                             type="date"
                             value={paymentDate}
                             onChange={e => setPaymentDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+                            className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-emerald-200 rounded-lg text-base sm:text-sm focus:outline-none focus:border-emerald-500"
                           />
                         </div>
                         <div>
@@ -588,13 +617,13 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                         <div className="flex gap-2">
                           <button 
                             onClick={handlePayment}
-                            className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer"
+                            className="flex-1 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer"
                           >
                             Bestätigen
                           </button>
                           <button 
                             onClick={() => setShowPaymentForm(false)}
-                            className="px-4 py-2 bg-white text-emerald-700 border border-emerald-200 font-bold rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
+                            className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white text-emerald-700 border border-emerald-200 font-bold text-base sm:text-sm rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
                           >
                             Abbrechen
                           </button>
@@ -617,6 +646,17 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                     </p>
                   </div>
                 )}
+                
+                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-text-primary mb-4">Interne Notizen</h3>
+                  <textarea 
+                    value={editStammdaten.notizen || ''}
+                    onChange={(e) => handleStammInputChange('notizen', e.target.value)}
+                    disabled={userRole === 'treuhand' || status !== 'Entwurf'}
+                    className="w-full h-32 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none disabled:opacity-50 disabled:bg-gray-50"
+                    placeholder="Absprachen, Zahlungsversprechen, Besonderheiten..."
+                  />
+                </div>
               </div>
 
               <div className="space-y-6">
@@ -629,7 +669,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                       type="date"
                       value={editStammdaten.rechnungsdatum || ''}
                       onChange={(e) => handleStammInputChange('rechnungsdatum', e.target.value)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                      disabled={userRole === 'treuhand' || status !== 'Entwurf'}
+                      className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50 disabled:bg-gray-50"
                     />
                   </div>
                   
@@ -639,7 +680,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                       type="number"
                       value={editStammdaten.zahlungsfrist_tage || 30}
                       onChange={(e) => handleStammInputChange('zahlungsfrist_tage', parseInt(e.target.value) || 30)}
-                      className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                      disabled={userRole === 'treuhand' || status !== 'Entwurf'}
+                      className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50 disabled:bg-gray-50"
                     />
                   </div>
 
@@ -663,32 +705,26 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                   )}
                 </div>
 
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-text-primary mb-4">Interne Notizen</h3>
-                  <textarea 
-                    value={editStammdaten.notizen || ''}
-                    onChange={(e) => handleStammInputChange('notizen', e.target.value)}
-                    className="w-full h-32 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Absprachen, Zahlungsversprechen, Besonderheiten..."
-                  />
-                </div>
+
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 md:col-span-2">
+              <div className={`flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 ${!(showLivePreview && isEditing) ? 'md:col-span-2' : ''}`}>
                 <div>
-                  {isDirty && (
+                  {isDirty && userRole !== 'treuhand' && (
                     <span className="text-sm text-amber-600 font-medium animate-pulse">
                       Es gibt ungespeicherte Änderungen in den Stammdaten
                     </span>
                   )}
                 </div>
-                <button 
-                  onClick={handleSaveStammdaten}
-                  disabled={!isDirty || isUpdating}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary-600/20"
-                >
-                  {isUpdating ? 'Wird gespeichert...' : 'Änderungen speichern'}
-                </button>
+                {userRole !== 'treuhand' && status === 'Entwurf' && (
+                  <button 
+                    onClick={handleSaveStammdaten}
+                    disabled={!isDirty || isUpdating}
+                    className="w-full sm:w-auto px-6 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary-600/20"
+                  >
+                    {isUpdating ? 'Wird gespeichert...' : 'Änderungen speichern'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -707,7 +743,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                       <button
                         key={tpl.label}
                         onClick={() => setEditEinleitung(tpl.text)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                        className={`px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 text-sm sm:text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
                           editEinleitung === tpl.text
                             ? 'bg-primary-100 border-primary-300 text-primary-700'
                             : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
@@ -720,7 +756,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                   <textarea
                     value={editEinleitung}
                     onChange={(e) => setEditEinleitung(e.target.value)}
-                    className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                    className="w-full h-24 sm:h-20 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
                     placeholder="Wir erlauben uns, für unsere Arbeiten wie folgt Rechnung zu stellen:"
                   />
                 </div>
@@ -733,20 +769,28 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-3' : ''} gap-6`}>
 
                 {/* ===== LEISTUNGEN TABLE (READ / EDIT) ===== */}
-                <div className="lg:col-span-2">
+                <div className={!(showLivePreview && isEditing) ? 'lg:col-span-2' : ''}>
                   <div className="bg-surface-card rounded-2xl border border-border overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-border bg-surface flex items-center justify-between">
+                    <div className="p-5 border-b border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <h3 className="text-lg font-bold text-text-primary">Leistungsverzeichnis</h3>
                       {isEditing && (
-                        <button
-                          onClick={addPosition}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                        >
-                          ➕ Position hinzufügen
-                        </button>
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3">
+                          <button
+                            onClick={addPosition}
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                          >
+                            ➕ Position
+                          </button>
+                          <button
+                            onClick={() => setShowKatalogDrawer(true)}
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                          >
+                            📖 Katalog
+                          </button>
+                        </div>
                       )}
                     </div>
                     
@@ -834,14 +878,14 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                         ) : (
                           editLeistungen.map((pos, idx) => (
                             <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
-                              {/* Row: Order controls + Description */}
-                              <div className="flex items-start gap-3">
-                                {/* Move & Delete */}
-                                <div className="flex flex-col gap-0.5 pt-1">
+                              {/* Row 1: Controls + PosNr + Optional + Delete */}
+                              <div className="flex items-center gap-2">
+                                {/* Move */}
+                                <div className="flex flex-col gap-0.5 shrink-0">
                                   <button
                                     onClick={() => movePosition(idx, -1)}
                                     disabled={idx === 0}
-                                    className="p-1 rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
                                     title="Nach oben"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
@@ -849,7 +893,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                                   <button
                                     onClick={() => movePosition(idx, 1)}
                                     disabled={idx === editLeistungen.length - 1}
-                                    className="p-1 rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
                                     title="Nach unten"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -857,47 +901,52 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
                                 </div>
 
                                 {/* Position Number (free text) */}
-                                <div className="shrink-0 w-16">
+                                <div className="shrink-0 w-14">
                                   <input
                                     type="text"
                                     value={pos.posNr || ''}
                                     onChange={(e) => updatePosition(pos._id, 'posNr', e.target.value)}
-                                    className="w-full px-2 py-2 bg-surface border border-border rounded-lg text-xs font-bold text-center focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    className="w-full px-2 py-2 min-h-[40px] bg-surface border border-border rounded-lg text-xs font-bold text-center focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                                     placeholder="1.0"
-                                    title="Positionsnummer (z.B. 1.0, 1.1, 2.0)"
+                                    title="Positionsnummer"
                                   />
                                 </div>
 
-                                {/* Description Field */}
-                                <div className="flex-1">
-                                  <input
-                                    type="text"
-                                    value={pos.beschreibung}
-                                    onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                    placeholder="Beschreibung / Kategorie-Titel..."
-                                  />
-                                </div>
+                                {/* Preview text */}
+                                <div className="flex-1 text-sm font-medium text-text-primary truncate">{pos.beschreibung || <span className="text-text-secondary italic">Beschreibung...</span>}</div>
 
                                 {/* Optional Toggle */}
-                                <label className="flex items-center gap-1.5 cursor-pointer pt-2 shrink-0" title="Als optionale Position markieren">
+                                <label className="flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[44px] px-2" title="Optionale Position">
                                   <input
                                     type="checkbox"
                                     checked={pos.optional || false}
                                     onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
-                                    className="accent-amber-500"
+                                    className="accent-amber-500 w-4 h-4"
                                   />
-                                  <span className="text-xs text-text-secondary font-medium">Optional</span>
+                                  <span className="text-xs text-text-secondary font-medium hidden sm:inline">Optional</span>
                                 </label>
 
                                 {/* Delete */}
                                 <button
                                   onClick={() => deletePosition(pos._id)}
-                                  className="p-1.5 rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0 mt-1"
+                                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0"
                                   title="Position löschen"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
+                              </div>
+
+                              {/* Row 2: Full-width Description Field */}
+                              <div className="pl-2 sm:pl-10">
+                                <textarea
+                                  value={pos.beschreibung}
+                                  onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
+                                  rows={1}
+                                  onFocus={(e) => { e.target.rows = Math.max(2, Math.ceil(e.target.value.length / 40)); }}
+                                  onBlur={(e) => { e.target.rows = 1; }}
+                                  className="w-full px-3 py-2.5 min-h-[44px] bg-surface border border-border rounded-lg text-base sm:text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none transition-all"
+                                  placeholder="Beschreibung / Kategorie-Titel..."
+                                />
                               </div>
 
                               {/* Row: Menge, Einheit, Preis, Total */}
@@ -1103,17 +1152,17 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
 
 
       {isEditing && (
-        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex items-center justify-end gap-3 animate-slide-up">
+        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 animate-slide-up">
           <button
             onClick={cancelEditing}
-            className="px-5 py-2.5 bg-surface-card border border-border text-text-secondary font-bold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
+            className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-surface-card border border-border text-text-secondary font-bold text-base sm:text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
           >
             Abbrechen
           </button>
           <button
             onClick={saveEditing}
-            disabled={isUpdating}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+            disabled={isUpdating || userRole === 'treuhand'}
+            className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
           >
             {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
           </button>
@@ -1180,6 +1229,13 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showKatalogDrawer && (
+        <KatalogDrawer
+          onClose={() => setShowKatalogDrawer(false)}
+          onInsert={handleInsertFromKatalog}
+        />
       )}
     </div>
   )

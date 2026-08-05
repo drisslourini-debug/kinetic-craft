@@ -43,12 +43,17 @@ export function calculateDocumentTotals(leistungen, konditionen, pauschalpreis =
 
   const rabattBetrag = rawTotal * (rabatt / 100)
   const totalNachRabatt = rawTotal - rabattBetrag
-  const mwstBetrag = totalNachRabatt * (mwst / 100)
+  
+  // MWST should ideally be accurate to 2 decimals
+  const mwstBetrag = Math.round(totalNachRabatt * (mwst / 100) * 100) / 100
 
   const parsedPauschal = parseFloat(pauschalpreis || 0)
   const isPauschal = parsedPauschal > 0
 
-  const finalTotal = isPauschal ? parsedPauschal : totalNachRabatt + mwstBetrag
+  let finalTotal = isPauschal ? parsedPauschal : totalNachRabatt + mwstBetrag
+  
+  // Schweizer 5-Rappen-Rundung für den Endbetrag
+  finalTotal = Math.round(finalTotal * 20) / 20
 
   return {
     rawTotal,
@@ -59,4 +64,24 @@ export function calculateDocumentTotals(leistungen, konditionen, pauschalpreis =
     finalTotal,
     isPauschal
   }
+}
+
+/**
+ * Recalculates position numbers (e.g. 1.0, 1.1, 1.2, 2.0, 2.1)
+ * based on the title/position structure of the list.
+ */
+export function recalculatePositions(items) {
+  let titleCounter = 0;
+  let posCounter = 0;
+  return items.map(item => {
+    if (item.type === 'title') {
+      titleCounter++;
+      posCounter = 0;
+      return { ...item, posNr: `${titleCounter}.0` };
+    } else {
+      posCounter++;
+      const prefix = titleCounter > 0 ? titleCounter : 1;
+      return { ...item, posNr: `${prefix}.${posCounter}` };
+    }
+  });
 }

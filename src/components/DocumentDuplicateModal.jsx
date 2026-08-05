@@ -162,7 +162,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
           </h2>
           <button 
             onClick={onClose}
-            className="p-2 text-text-secondary hover:text-text-primary rounded-lg hover:bg-neutral-100 transition-colors"
+            className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary rounded-full hover:bg-neutral-100 transition-colors flex items-center justify-center"
           >
             ✕
           </button>
@@ -191,7 +191,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
               <select
                 value={selectedKundeId}
                 onChange={(e) => setSelectedKundeId(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
               >
                 <option value="">Kunde auswählen...</option>
                 {kundenList.map(k => (
@@ -207,7 +207,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
                 value={selectedProjektId}
                 onChange={(e) => setSelectedProjektId(e.target.value)}
                 disabled={!selectedKundeId}
-                className="w-full px-4 py-3 bg-white border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:opacity-50 disabled:bg-gray-50"
+                className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:opacity-50 disabled:bg-gray-50"
               >
                 <option value="">Kein Projekt zugeordnet</option>
                 {projekteList.map(p => (
@@ -227,7 +227,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
                     name="copyOptions"
                     checked={copyOptions.copyLeistungen === true}
                     onChange={() => setCopyOptions({ ...copyOptions, copyLeistungen: true })}
-                    className="mt-1 shrink-0 w-4 h-4 text-primary-600 focus:ring-primary-500"
+                    className="mt-1 shrink-0 w-5 h-5 sm:w-4 sm:h-4 text-primary-600 focus:ring-primary-500"
                   />
                   <div>
                     <span className="block text-sm font-bold text-text-primary">Stammdaten &amp; Leistungen kopieren</span>
@@ -241,7 +241,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
                     name="copyOptions"
                     checked={copyOptions.copyLeistungen === false}
                     onChange={() => setCopyOptions({ ...copyOptions, copyLeistungen: false })}
-                    className="mt-1 shrink-0 w-4 h-4 text-primary-600 focus:ring-primary-500"
+                    className="mt-1 shrink-0 w-5 h-5 sm:w-4 sm:h-4 text-primary-600 focus:ring-primary-500"
                   />
                   <div>
                     <span className="block text-sm font-bold text-text-primary">Nur Stammdaten kopieren</span>
@@ -254,12 +254,12 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
           </div>
         </div>
 
-        <div className="p-6 border-t border-border flex flex-col sm:flex-row justify-end gap-3 bg-neutral-50 rounded-b-2xl">
+        <div className="p-4 sm:p-6 border-t border-border flex flex-col sm:flex-row justify-end gap-3 bg-neutral-50 rounded-b-2xl">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-6 py-2.5 text-sm font-bold text-text-secondary hover:text-text-primary hover:bg-white rounded-xl border border-transparent hover:border-border transition-all"
+            className="w-full sm:w-auto min-h-[48px] px-6 py-3 sm:py-2.5 text-base sm:text-sm font-bold text-text-secondary hover:text-text-primary hover:bg-white rounded-xl border border-transparent hover:border-border transition-all cursor-pointer"
           >
             Abbrechen
           </button>
@@ -267,7 +267,7 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
             type="button"
             onClick={handleDuplicate}
             disabled={isSubmitting || !selectedKundeId}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 disabled:opacity-50 transition-all shadow-lg shadow-primary-600/20"
+            className="w-full sm:w-auto min-h-[48px] flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-base sm:text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 disabled:opacity-50 transition-all shadow-lg shadow-primary-600/20 cursor-pointer"
           >
             {isSubmitting ? (
               <>

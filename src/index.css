@@ -2,16 +2,16 @@
 
 /* ===== Atelier 77 Design Tokens ===== */
 @theme {
-  --color-primary-50: #fbf9f4;
-  --color-primary-100: #f4eedf;
-  --color-primary-200: #e7d8b5;
-  --color-primary-300: #d6bd84;
-  --color-primary-400: #c5a057;
-  --color-primary-500: #b88a38;
-  --color-primary-600: #a2712d;
-  --color-primary-700: #815526;
-  --color-primary-800: #6c4625;
-  --color-primary-900: #5d3c23;
+  --color-primary-50: var(--brand-primary-50, #fbf9f4);
+  --color-primary-100: var(--brand-primary-100, #f4eedf);
+  --color-primary-200: var(--brand-primary-200, #e7d8b5);
+  --color-primary-300: var(--brand-primary-300, #d6bd84);
+  --color-primary-400: var(--brand-primary-400, #c5a057);
+  --color-primary-500: var(--brand-primary-500, #b88a38);
+  --color-primary-600: var(--brand-primary-600, #a2712d);
+  --color-primary-700: var(--brand-primary-700, #815526);
+  --color-primary-800: var(--brand-primary-800, #6c4625);
+  --color-primary-900: var(--brand-primary-900, #5d3c23);
 
   --color-accent-400: #a3a3a3;
   --color-accent-500: #737373;

@@ -5,7 +5,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
   const [formData, setFormData] = useState({
     titel: '',
     beleg_datum: new Date().toISOString().split('T')[0],
-    kategorie: 'Material',
+    kategorie: '4000 Materialaufwand',
     betrag_brutto: '',
     mwst_satz: '8.1',
     projekt_id: ''
@@ -45,7 +45,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
         setFormData({
           titel: editData.titel || '',
           beleg_datum: editData.beleg_datum ? editData.beleg_datum.split('T')[0] : new Date().toISOString().split('T')[0],
-          kategorie: editData.kategorie || 'Material',
+          kategorie: editData.kategorie || '4000 Materialaufwand',
           betrag_brutto: editData.betrag_brutto || '',
           mwst_satz: editData.mwst_satz || '8.1',
           projekt_id: editData.projekt_id || ''
@@ -56,7 +56,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
         setFormData({
           titel: '',
           beleg_datum: new Date().toISOString().split('T')[0],
-          kategorie: 'Material',
+          kategorie: '4000 Materialaufwand',
           betrag_brutto: '',
           mwst_satz: '8.1',
           projekt_id: ''
@@ -157,8 +157,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
             <h3 className="text-lg font-bold text-gray-900">{editData ? 'Ausgabe bearbeiten' : 'Neue Ausgabe erfassen'}</h3>
             <p className="text-sm text-gray-500 mt-1">{editData ? 'Details der Buchung anpassen' : 'Beleg abtippen und verbuchen'}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+            <svg className="w-5 h-5 sm:w-5 sm:h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
@@ -174,7 +174,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                   placeholder="z.B. Schrauben Jumbo"
                   value={formData.titel}
                   onChange={e => setFormData({...formData, titel: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base sm:text-sm"
                 />
               </div>
               <div>
@@ -184,7 +184,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                   required
                   value={formData.beleg_datum}
                   onChange={e => setFormData({...formData, beleg_datum: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base sm:text-sm"
                 />
               </div>
             </div>
@@ -195,14 +195,14 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <select 
                   value={formData.kategorie}
                   onChange={e => setFormData({...formData, kategorie: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white text-base sm:text-sm"
                 >
-                  <option value="Material">Material & Werkzeug</option>
-                  <option value="Fahrzeug">Fahrzeug & Transport</option>
-                  <option value="Büro">Büro & Verwaltung</option>
-                  <option value="Software">Software & Lizenzen</option>
-                  <option value="Fremdleistung">Fremdleistung (Subunternehmer)</option>
-                  <option value="Sonstiges">Sonstiges</option>
+                  <option value="4000 Materialaufwand">4000 Materialaufwand</option>
+                  <option value="4400 Aufwand für Fremdleistungen">4400 Aufwand für Fremdleistungen (Subunternehmer)</option>
+                  <option value="6200 Fahrzeug- und Transportaufwand">6200 Fahrzeug- & Transportaufwand</option>
+                  <option value="6500 Verwaltungsaufwand">6500 Verwaltungsaufwand (Büro)</option>
+                  <option value="6570 Informatikaufwand">6570 Informatikaufwand (Software)</option>
+                  <option value="6900 Sonstiger Betriebsaufwand">6900 Sonstiger Betriebsaufwand</option>
                 </select>
               </div>
               <div>
@@ -210,7 +210,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <select 
                   value={formData.projekt_id}
                   onChange={e => setFormData({...formData, projekt_id: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white"
+                  className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white text-base sm:text-sm"
                 >
                   <option value="">Kein Projekt (Allgemeine Firmenausgabe)</option>
                   {projekte.map(p => (
@@ -232,7 +232,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                     required
                     value={formData.betrag_brutto}
                     onChange={e => setFormData({ ...formData, betrag_brutto: e.target.value })}
-                    className="w-full pl-12 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow"
+                    className="w-full pl-12 px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow text-base sm:text-sm"
                     placeholder="0.00"
                   />
                 </div>
@@ -243,7 +243,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                   required
                   value={formData.mwst_satz}
                   onChange={e => setFormData({ ...formData, mwst_satz: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-shadow bg-white"
+                  className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-shadow bg-white text-base sm:text-sm"
                 >
                   <option value="8.1">8.1% (Standard)</option>
                   <option value="2.6">2.6% (Reduziert)</option>
@@ -273,7 +273,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                     required={!isPaid}
                     value={faelligAm}
                     onChange={e => setFaelligAm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-shadow"
+                    className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-shadow text-base sm:text-sm"
                   />
                 </div>
               )}
@@ -330,11 +330,11 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
           </form>
         </div>
 
-        <div className="p-4 sm:p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 shrink-0">
+        <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 shrink-0">
           <button 
             type="button" 
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            className="w-full sm:w-auto min-h-[48px] px-4 py-3 sm:py-2 text-base sm:text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
           >
             Abbrechen
           </button>
@@ -342,7 +342,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
             type="submit" 
             form="ausgabeForm"
             disabled={isSubmitting || !formData.titel || !formData.betrag_brutto}
-            className="px-5 py-2 text-sm font-semibold text-white bg-primary-600 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto min-h-[48px] px-5 py-3 sm:py-2 text-base sm:text-sm font-semibold text-white bg-primary-600 rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             {isUploading ? 'Lädt hoch...' : isSubmitting ? 'Speichert...' : (editData ? 'Änderungen speichern' : 'Ausgabe verbuchen')}
           </button>

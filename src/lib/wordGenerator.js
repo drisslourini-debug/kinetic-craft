@@ -63,7 +63,7 @@ export const generateOfferteWord = async (offerte, kunde, projekt, settings) => 
   });
 
   // 3. Leistungen Table (shared helper)
-  const leistungenTable = generateLeistungenTable(leistungen, totals, rabatt, mwst);
+  const leistungenTable = generateLeistungenTable(leistungen, totals, rabatt, mwst, settings);
 
   const doc = new Document({
     styles: { paragraphStyles: WORD_PARAGRAPH_STYLES },
@@ -83,6 +83,6 @@ export const generateOfferteWord = async (offerte, kunde, projekt, settings) => 
   });
 
   Packer.toBlob(doc).then(blob => {
-    saveAs(blob, `Offerte_${offerte.id}_Atelier77.docx`);
+    saveAs(blob, `Offerte_${offerte.id}_${settings?.firmenname || 'CRM'}.docx`.replace(/\s+/g, '_'));
   });
 };

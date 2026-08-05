@@ -15,7 +15,7 @@ const FileIcon = ({ typ, className = "w-10 h-10" }) => {
   return <span className={`text-4xl ${className}`}>📎</span>
 }
 
-export default function DateienView({ onNavigate }) {
+export default function DateienView({ onNavigate, userRole, globalSettings }) {
   const [dateien, setDateien] = useState([])
   const [kunden, setKunden] = useState([])
   const [projekte, setProjekte] = useState([])
@@ -35,6 +35,25 @@ export default function DateienView({ onNavigate }) {
   // Tree State
   const [isKundenExpanded, setIsKundenExpanded] = useState(false)
   const [treeSearch, setTreeSearch] = useState('')
+
+  // Recent files state
+  const [recentFiles, setRecentFiles] = useState(() => {
+    try {
+      const stored = localStorage.getItem('atelier77_recent_files')
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
+
+  const handleOpenFile = (file) => {
+    setRecentFiles(prev => {
+      const filtered = prev.filter(f => f.id !== file.id)
+      const updated = [{ id: file.id, openedAt: Date.now() }, ...filtered].slice(0, 25)
+      localStorage.setItem('atelier77_recent_files', JSON.stringify(updated))
+      return updated
+    })
+  }
 
   useEffect(() => {
     fetchData()
@@ -85,6 +104,7 @@ export default function DateienView({ onNavigate }) {
 
     if (currentFolder.id === 'root') {
       folders = [
+        { type: 'system', id: 'recent_root', name: 'Zuletzt geöffnet' },
         { type: 'system', id: 'kunden_root', name: 'Kunden' },
         { type: 'system', id: 'offerten_root', name: 'Offerten' },
         { type: 'system', id: 'buchhaltung_root', name: 'Buchhaltung & Rechnungen' },
@@ -104,6 +124,14 @@ export default function DateienView({ onNavigate }) {
     }
     else if (currentFolder.id === 'intern_root') {
       files = dateien.filter(d => d.kategorie === 'Firma intern')
+    }
+    else if (currentFolder.id === 'recent_root') {
+      const dateienMap = new Map(dateien.map(d => [d.id, d]))
+      files = recentFiles.map(rf => {
+        const file = dateienMap.get(rf.id)
+        return file ? { ...file, openedAt: rf.openedAt } : null
+      }).filter(Boolean)
+      folders = []
     }
     else if (currentFolder.type === 'kunde') {
       const kProjekte = projekte.filter(p => p.kunden_id === currentFolder.dbId).map(p => ({
@@ -193,8 +221,10 @@ export default function DateienView({ onNavigate }) {
       return 0
     }
 
-    folders.sort(sortFn)
-    files.sort(sortFn)
+    if (currentFolder.id !== 'recent_root') {
+      folders.sort(sortFn)
+      files.sort(sortFn)
+    }
 
     return { folders, files }
   }, [currentFolder, dateien, kunden, projekte, searchTerm, sortField, sortDirection])
@@ -350,8 +380,21 @@ export default function DateienView({ onNavigate }) {
             onClick={() => handleNavigate({ type: 'root', id: 'root', name: 'Archiv' })}
             className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors ${currentFolder.id === 'root' ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-gray-50'}`}
           >
-            <FolderIcon className="w-5 h-5 text-blue-400" />
-            Mein Atelier77
+            <FolderIcon className="w-5 h-5 text-blue-400 shrink-0" />
+            <span className="truncate">{globalSettings?.firmenname || 'Mein Unternehmen'}</span>
+          </button>
+
+          <button 
+            onClick={() => {
+              setCurrentPath([
+                { type: 'root', id: 'root', name: 'Archiv' },
+                { type: 'system', id: 'recent_root', name: 'Zuletzt geöffnet' }
+              ])
+            }}
+            className={`mt-1 w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors ${currentFolder.id === 'recent_root' ? 'bg-primary-50 text-primary-700' : 'text-text-secondary hover:bg-gray-50'}`}
+          >
+            <svg className="w-5 h-5 text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="truncate">Zuletzt geöffnet</span>
           </button>
 
           <div className="mt-4">
@@ -464,29 +507,28 @@ export default function DateienView({ onNavigate }) {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="In diesem Ordner suchen..."
-                className="w-48 xl:w-64 pl-9 pr-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                className="w-48 xl:w-64 pl-9 pr-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-500"
               />
             </div>
 
             <div className="flex bg-gray-100 rounded-lg p-1 border border-border">
-              <button 
+              <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
               </button>
-              <button 
+              <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
               </button>
             </div>
 
-            {(currentFolder.type === 'kategorie' || currentFolder.id === 'buchhaltung_root' || currentFolder.id === 'intern_root' || currentFolder.id === 'offerten_root' || currentFolder.id === 'root') && (
-              <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 cursor-pointer transition-colors shadow-sm">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            {userRole !== 'treuhand' && (currentFolder.type === 'kategorie' || currentFolder.id === 'buchhaltung_root' || currentFolder.id === 'intern_root' || currentFolder.id === 'offerten_root' || currentFolder.id === 'root') && (
+              <label className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 min-h-[48px] bg-primary-600 text-white text-base sm:text-sm font-semibold rounded-lg hover:bg-primary-700 cursor-pointer transition-colors shadow-sm">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 {isUploading ? 'Lädt...' : 'Hochladen'}
                 <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
               </label>
@@ -530,7 +572,11 @@ export default function DateienView({ onNavigate }) {
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                         </button>
                       )}
-                      <FolderIcon className={`w-16 h-16 mb-2 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                      {folder.id === 'recent_root' ? (
+                        <svg className="w-16 h-16 mb-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      ) : (
+                        <FolderIcon className={`w-16 h-16 mb-2 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                      )}
                       <span className="text-sm font-medium text-text-primary text-center line-clamp-2">{folder.name}</span>
                     </div>
                   ))}
@@ -539,20 +585,24 @@ export default function DateienView({ onNavigate }) {
                   {currentContents.files.map(file => (
                     <div key={file.id} className="group relative flex flex-col items-center p-4 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1 bg-white shadow rounded text-gray-500 hover:text-primary-600" title="Ansehen">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-primary-600 cursor-pointer" title="Ansehen">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </a>
                         {(file.kunde_id || file.projekt_id) && (
-                          <button onClick={() => handleJumpToSource(file)} className="p-1 bg-white shadow rounded text-gray-500 hover:text-blue-500" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-blue-500 cursor-pointer" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                           </button>
                         )}
-                        <button onClick={() => handleRename(file.id, file.name)} className="p-1 bg-white shadow rounded text-gray-500 hover:text-amber-500" title="Umbenennen">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                        </button>
-                        <button onClick={() => handleDelete(file.id)} className="p-1 bg-white shadow rounded text-gray-500 hover:text-red-600" title="Löschen">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                        {userRole !== 'treuhand' && (
+                          <>
+                            <button onClick={() => handleRename(file.id, file.name)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button onClick={() => handleDelete(file.id)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                       <FileIcon typ={file.typ} className="w-16 h-16 mb-2" />
                       <span className="text-sm font-medium text-text-primary text-center line-clamp-2 w-full break-words">{file.name}</span>
@@ -585,7 +635,11 @@ export default function DateienView({ onNavigate }) {
                       {currentContents.folders.map(folder => (
                         <tr key={folder.id} onDoubleClick={() => handleNavigate(folder)} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
                           <td className="px-4 py-3 font-medium text-text-primary flex items-center gap-3">
-                            <FolderIcon className={`w-6 h-6 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                            {folder.id === 'recent_root' ? (
+                              <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            ) : (
+                              <FolderIcon className={`w-6 h-6 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                            )}
                             {folder.name}
                           </td>
                           <td className="px-4 py-3 text-text-secondary">--</td>
@@ -615,27 +669,31 @@ export default function DateienView({ onNavigate }) {
                         <tr key={file.id} className="border-b border-gray-100 hover:bg-gray-50 group">
                           <td className="px-4 py-3 font-medium text-text-primary flex items-center gap-3">
                             <FileIcon typ={file.typ} className="w-6 h-6" />
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{file.name}</a>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="hover:underline">{file.name}</a>
                           </td>
                           <td className="px-4 py-3 text-text-secondary">{new Date(file.created_at).toLocaleString()}</td>
                           <td className="px-4 py-3 text-text-secondary">{file.typ?.split('/')[1]?.toUpperCase() || 'DATEI'}</td>
                           <td className="px-4 py-3 text-text-secondary">{formatBytes(file.size_bytes)}</td>
                           <td className="px-4 py-3 text-right">
-                            <div className="opacity-0 group-hover:opacity-100 flex justify-end gap-2 transition-opacity">
-                              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-600" title="Ansehen">
+                            <div className="opacity-0 group-hover:opacity-100 flex justify-end gap-1 transition-opacity">
+                              <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Ansehen">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               </a>
                               {(file.kunde_id || file.projekt_id) && (
-                                <button onClick={() => handleJumpToSource(file)} className="text-gray-500 hover:text-blue-500" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                                <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-lg cursor-pointer" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
                                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                 </button>
                               )}
-                              <button onClick={() => handleRename(file.id, file.name)} className="text-gray-500 hover:text-amber-500" title="Umbenennen">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                              <button onClick={() => handleDelete(file.id)} className="text-gray-500 hover:text-red-600" title="Löschen">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              </button>
+                              {userRole !== 'treuhand' && (
+                                <>
+                                  <button onClick={() => handleRename(file.id, file.name)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                  </button>
+                                  <button onClick={() => handleDelete(file.id)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
