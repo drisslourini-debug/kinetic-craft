@@ -65,14 +65,18 @@ export const SettingsRow = ({ label, value }) => (
   </div>
 )
 
-export const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "", error = null }) => (
+export const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "", error = null, min, max, step }) => (
   <div className={fullWidth ? "md:col-span-2" : ""}>
     <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">
       {label} {error && <span className="text-red-500 font-normal ml-1 lowercase">({error})</span>}
     </label>
     <input
       type={type}
-      value={value || ''}
+      value={value ?? ''}
+      placeholder={placeholder}
+      min={min}
+      max={max}
+      step={step}
       onChange={e => onChange(e.target.value)}
       className={`w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors ${error ? 'border-red-400 bg-red-50/50' : 'border-border'}`}
     />
@@ -100,6 +104,7 @@ export const TextAreaField = ({ label, value, onChange, fullWidth = true, placeh
     <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">{label}</label>
     <textarea
       value={value || ''}
+      placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
       className={`w-full px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors resize-y ${small ? 'h-24 sm:h-20' : 'h-40 sm:h-32'}`}
     />

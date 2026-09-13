@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import CameraCapture from '../components/CameraCapture'
 
 export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData = null }) {
   const [formData, setFormData] = useState({
@@ -17,6 +18,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
   
   const [isPaid, setIsPaid] = useState(true)
   const [faelligAm, setFaelligAm] = useState('')
+  const [submitError, setSubmitError] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
 
   // Automatische Berechnungen
   const bruttoNum = parseFloat(formData.betrag_brutto) || 0
@@ -24,8 +27,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
   
   // Brutto = Netto * (1 + mwstRate/100)
   // Netto = Brutto / (1 + mwstRate/100)
-  const nettoNum = bruttoNum / (1 + (mwstRate / 100))
-  const mwstBetragNum = bruttoNum - nettoNum
+  const nettoNum = Math.round((bruttoNum / (1 + (mwstRate / 100))) * 100) / 100
+  const mwstBetragNum = Math.round((bruttoNum - nettoNum) * 100) / 100
 
   useEffect(() => {
     if (isOpen) {
@@ -138,7 +141,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
       onClose()
     } catch (err) {
       console.error('Error saving ausgabe:', err)
-      alert('Fehler beim Speichern der Ausgabe.')
+      setSubmitError('Fehler beim Speichern der Ausgabe: ' + (err.message || 'Unbekannter Fehler'))
     } finally {
       setIsSubmitting(false)
       setIsUploading(false)
@@ -163,6 +166,12 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
         </div>
 
         <div className="p-5 sm:p-6 overflow-y-auto">
+          {submitError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-start gap-2">
+              <span className="shrink-0 mt-0.5">⚠️</span>
+              <p>{submitError}</p>
+            </div>
+          )}
           <form id="ausgabeForm" onSubmit={handleSubmit} className="space-y-4">
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -282,6 +291,16 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
 
             <div className="pt-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Beleg / Quittung (Optional)</label>
+              
+              {/* Camera capture button - primarily for mobile */}
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="w-full mb-2 min-h-[48px] px-4 py-3 text-base sm:text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-colors cursor-pointer flex items-center justify-center gap-2 md:hidden"
+              >
+                📸 Beleg fotografieren
+              </button>
+              
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:bg-gray-50 transition-colors relative cursor-pointer group">
                 <input
                   type="file"
@@ -315,6 +334,17 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 </div>
               </div>
             </div>
+
+            <CameraCapture 
+              isOpen={showCamera} 
+              onClose={() => setShowCamera(false)} 
+              onCapture={(blob) => {
+                const now = new Date()
+                const timestamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}-${String(now.getMinutes()).padStart(2,'0')}`
+                const capturedFile = new File([blob], `beleg_${timestamp}.jpg`, { type: 'image/jpeg' })
+                setFile(capturedFile)
+              }}
+            />
 
             <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center border border-gray-200 mt-4">
               <div className="text-sm">

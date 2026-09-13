@@ -5,7 +5,9 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
   const [suggestions, setSuggestions] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef(null);
+  const debounceRef = useRef(null);
   
   useEffect(() => {
     setQuery(value || '');
@@ -15,16 +17,21 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setIsOpen(false);
+        setHighlightedIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const fetchSuggestions = async (searchText) => {
     if (!searchText || searchText.length < 3) {
       setSuggestions([]);
       setIsOpen(false);
+      setHighlightedIndex(-1);
       return;
     }
     
@@ -35,6 +42,7 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
       if (data && data.results) {
         setSuggestions(data.results);
         setIsOpen(true);
+        setHighlightedIndex(-1);
       }
     } catch (err) {
       console.error('Geo API error:', err);
@@ -48,8 +56,8 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
     setQuery(val);
     onChange(val); // Bubble up
     
-    if (window.geoTimeout) clearTimeout(window.geoTimeout);
-    window.geoTimeout = setTimeout(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
       fetchSuggestions(val);
     }, 300);
   };
@@ -87,6 +95,27 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
     // Pass both the full string and the structured object
     onChange(cleanAddress, { strasse, plz, ort });
     setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isOpen || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+        e.preventDefault();
+        handleSelect(suggestions[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
   };
 
   return (
@@ -95,8 +124,9 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
         type="text"
         value={query}
         onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
         onBlur={onBlur}
-        onFocus={() => { if (suggestions.length > 0) setIsOpen(true) }}
+        onFocus={() => { if (suggestions.length > 0) setIsOpen(true); }}
         placeholder={placeholder || 'Adresse suchen...'}
         className={className || "w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"}
       />
@@ -111,15 +141,19 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
         <ul className="absolute z-50 w-full mt-1 bg-surface-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
           {suggestions.map((item, idx) => {
             const cleanLabel = item.attrs.label.replace(/<[^>]+>/g, '');
+            const isHighlighted = idx === highlightedIndex;
             return (
               <li 
                 key={idx}
                 onClick={() => handleSelect(item)}
-                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 hover:bg-primary-50 text-base sm:text-sm cursor-pointer border-b border-border last:border-b-0 text-text-primary flex items-center"
+                onMouseEnter={() => setHighlightedIndex(idx)}
+                className={`px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm cursor-pointer border-b border-border last:border-b-0 text-text-primary flex items-center transition-colors ${
+                  isHighlighted ? 'bg-primary-50 text-primary-900 font-medium' : 'hover:bg-primary-50/50'
+                }`}
               >
                 {cleanLabel}
               </li>
-            )
+            );
           })}
         </ul>
       )}

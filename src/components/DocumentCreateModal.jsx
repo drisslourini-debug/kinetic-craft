@@ -50,9 +50,12 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
     // Auto-update title if not manually changed
     if (selectedKundeId) {
       const kundeName = kunden.find(k => k.id === selectedKundeId)?.name || ''
-      if (!title || title.startsWith(`Offerte für`) || title.startsWith(`Rechnung für`)) {
-        setTitle(`${docTypeLabel} für ${kundeName}`)
-      }
+      setTitle(prevTitle => {
+        if (!prevTitle || prevTitle.startsWith('Offerte für') || prevTitle.startsWith('Rechnung für')) {
+          return `${docTypeLabel} für ${kundeName}`
+        }
+        return prevTitle
+      })
     }
   }, [selectedKundeId, kunden, docTypeLabel])
 
@@ -60,7 +63,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
     if (!supabase) return
     const [kData, sData] = await Promise.all([
       supabase.from('kunden').select('*').order('name', { ascending: true }),
-      supabase.from('einstellungen').select('*').limit(1).single()
+      supabase.from('einstellungen').select('*').limit(1).maybeSingle()
     ])
     if (kData.data) setKunden(kData.data)
     if (sData.data) setSettings(sData.data)
@@ -166,10 +169,14 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
       }
       
       if (isOfferte) {
-        draftData.daten.gueltig_bis = new Date(new Date(date).getTime() + (settings?.gueltigkeit_offerten_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        const gueltigBis = new Date(new Date(date).getTime() + (settings?.gueltigkeit_offerten_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        draftData.gueltig_bis = gueltigBis
+        draftData.daten.gueltig_bis = gueltigBis
         draftData.daten.ausfuehrung = { start: '', dauer: '', notizen: '' }
       } else {
-        draftData.daten.faellig_am = new Date(new Date(date).getTime() + (settings?.zahlungsfrist_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        const faelligAm = new Date(new Date(date).getTime() + (settings?.zahlungsfrist_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        draftData.faellig_am = faelligAm
+        draftData.daten.faellig_am = faelligAm
       }
 
       const { data, error: insertErr } = await supabase

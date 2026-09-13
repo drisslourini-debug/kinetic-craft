@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
+import { navigateBack } from '../lib/router'
 import OfferteDetailView from './OfferteDetailView'
 import DocumentCreateModal from '../components/DocumentCreateModal'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -92,40 +93,55 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
   }, [offerten])
 
 
-  useEffect(() => {
-    async function fetchOfferten() {
-      if (!supabase) return
-      
-      try {
-        setIsLoading(true)
-        const { data, error } = await supabase
-          .from('offerten')
-          .select('*, kunden(name), projekte(name, adresse)')
-          .order('created_at', { ascending: false })
-          
-        if (error) throw error
-        if (data) {
-          setOfferten(data)
-          if (viewParams?.offerteId && !selectedOfferte) {
-            const off = data.find(x => x.id === viewParams.offerteId)
-            if (off) setSelectedOfferte(off)
-          }
+  const fetchOfferten = async () => {
+    if (!supabase) return
+    
+    try {
+      setIsLoading(true)
+      const { data, error } = await supabase
+        .from('offerten')
+        .select('*, kunden(name), projekte(name, adresse)')
+        .order('created_at', { ascending: false })
+        
+      if (error) throw error
+      if (data) {
+        setOfferten(data)
+        if (viewParams?.offerteId) {
+          const off = data.find(x => x.id === viewParams.offerteId)
+          if (off) setSelectedOfferte(off)
         }
-      } catch (err) {
-        console.error('Error fetching offerten:', err)
-      } finally {
-        setIsLoading(false)
       }
+    } catch (err) {
+      console.error('Error fetching offerten:', err)
+    } finally {
+      setIsLoading(false)
     }
-    
-    // Listen for changes so list updates when returning from Wizard
+  }
+
+  useEffect(() => {
     fetchOfferten()
-    
-    // Check viewParams
-    if (viewParams?.action === 'create') {
-      setShowCreateDrawer(true)
+  }, [])
+
+  // Sync selectedOfferte with viewParams
+  useEffect(() => {
+    if (!offerten.length) return
+    if (viewParams?.offerteId) {
+      const off = offerten.find(x => x.id === viewParams.offerteId)
+      if (off && (!selectedOfferte || selectedOfferte.id !== off.id)) {
+        setSelectedOfferte(off)
+      }
+    } else if (!viewParams?.offerteId && selectedOfferte) {
+      setSelectedOfferte(null)
     }
-  }, [showCreateDrawer, viewParams])
+  }, [viewParams?.offerteId, offerten, selectedOfferte])
+
+  useEffect(() => {
+    if (viewParams?.action === 'create' && !selectedOfferte) {
+      setShowCreateDrawer(true)
+    } else if (viewParams?.action !== 'create' && showCreateDrawer) {
+      setShowCreateDrawer(false)
+    }
+  }, [viewParams?.action, selectedOfferte, showCreateDrawer])
 
 
   const statusStyles = {
@@ -154,7 +170,10 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
       <ErrorBoundary>
         <OfferteDetailView 
           offerte={selectedOfferte} 
-          onBack={() => setSelectedOfferte(null)} 
+          onBack={() => {
+            navigateBack('offerten')
+            fetchOfferten()
+          }} 
           onNavigate={onNavigate}
           userRole={userRole}
           viewParams={viewParams} 
@@ -221,13 +240,6 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
     return sortConfig.direction === 'asc' ? <span className="text-primary-600 ml-1">↑</span> : <span className="text-primary-600 ml-1">↓</span>
   }
 
-  // Stats calculation
-  const stats = {
-    total: offerten.filter(o => !o.is_archived).length,
-    offen: offerten.filter(o => !o.is_archived && ['Entwurf', 'Versendet'].includes(o.status)).length,
-    akzeptiert: offerten.filter(o => !o.is_archived && o.status === 'Akzeptiert').length,
-  }
-
   // Generate month options from existing offers
   const availableMonths = [...new Set(offerten.map(o => {
     const d = new Date(o.created_at)
@@ -248,7 +260,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         {userRole !== 'treuhand' && (
           <button
             id="btn-neue-offerte"
-            onClick={() => setShowCreateDrawer(true)}
+            onClick={() => onNavigate ? onNavigate('offerten', { action: 'create' }) : setShowCreateDrawer(true)}
             className="w-full sm:w-auto inline-flex justify-center items-center gap-2.5 px-6 py-3 min-h-[48px] bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-base sm:text-sm rounded-xl hover:from-primary-700 hover:to-primary-800 active:scale-[0.97] transition-all shadow-lg shadow-primary-600/25 cursor-pointer group"
           >
             <span className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-base group-hover:bg-white/30 transition-colors">+</span>
@@ -376,8 +388,18 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Offerten suchen..."
-            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-lg leading-none cursor-pointer"
+              title="Suche zurücksetzen"
+            >
+              &times;
+            </button>
+          )}
         </div>
 
         {/* Desktop Filters */}
@@ -454,7 +476,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
             {filteredOfferten.map((o) => (
             <div
               key={o.id}
-              onClick={() => setSelectedOfferte(o)}
+              onClick={() => onNavigate ? onNavigate('offerten', { offerteId: o.id }) : setSelectedOfferte(o)}
               className={`flex flex-col lg:grid lg:grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${getBorderColor(o.status)} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group`}
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
@@ -485,9 +507,15 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
                   {formatCurrency(o.total)}
                 </span>
                 <div className="lg:flex lg:justify-center lg:items-center">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
-                    {o.status || 'Entwurf'}
-                  </span>
+                  {o.is_archived ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
+                      <span>📁</span> Archiviert
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
+                      {o.status || 'Entwurf'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -574,7 +602,13 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         <DocumentCreateModal 
           type="offerte"
           isOpen={showCreateDrawer}
-          onClose={() => setShowCreateDrawer(false)}
+          onClose={() => {
+            if (viewParams?.action === 'create') {
+              navigateBack('offerten')
+            } else {
+              setShowCreateDrawer(false)
+            }
+          }}
           onNavigate={onNavigate}
         />
       )}

@@ -1,4 +1,5 @@
 import { SettingsBlock, SettingsRow, InputField, SelectField } from '../ui/SettingsComponents'
+import { ANREDE_OPTIONS } from '../../lib/customerNaming'
 
 const KUNDENTYPEN = [
   'Privatperson',
@@ -22,7 +23,8 @@ export default function KundeStammdaten({
 }) {
   return (
     <SettingsBlock
-      title="Name, Firma & Typ"
+      title="Stammdaten & Identifikation"
+      description="Kundennummer, Anrede, Firmenbezeichnung und Ansprechpartner."
       isEditing={isEditing}
       onEdit={onEdit}
       onCancel={onCancel}
@@ -31,6 +33,19 @@ export default function KundeStammdaten({
       disabled={disabled}
       readOnlyView={
         <>
+          <SettingsRow 
+            label="Kundennummer" 
+            value={
+              kunde.kundennummer ? (
+                <span className="font-mono font-bold text-primary-700 bg-primary-50 px-2.5 py-0.5 rounded-md border border-primary-200">
+                  {kunde.kundennummer}
+                </span>
+              ) : (
+                <span className="text-text-secondary italic">Keine Kundennummer hinterlegt</span>
+              )
+            } 
+          />
+          <SettingsRow label="Anrede" value={kunde.anrede || '–'} />
           <SettingsRow label="Kundentyp" value={kunde.typ} />
           <SettingsRow label="Firmenname" value={kunde.firmenname} />
           <SettingsRow label="Vorname" value={kunde.vorname} />
@@ -38,11 +53,43 @@ export default function KundeStammdaten({
         </>
       }
     >
-      <SelectField label="Kundentyp" value={draft.typ} onChange={v => onChange('typ', v)} options={KUNDENTYPEN} fullWidth />
-      <InputField label="Firmenname" value={draft.firmenname} onChange={v => onChange('firmenname', v)} error={validationErrors.firmenname} />
-      <div className="hidden md:block"></div>
-      <InputField label="Vorname" value={draft.vorname} onChange={v => onChange('vorname', v)} />
-      <InputField label="Nachname" value={draft.nachname} onChange={v => onChange('nachname', v)} error={validationErrors.nachname} />
+      <InputField 
+        label="Kundennummer" 
+        value={draft.kundennummer || ''} 
+        onChange={v => onChange('kundennummer', v)} 
+        placeholder="z.B. K-1001" 
+      />
+      <SelectField 
+        label="Anrede" 
+        value={draft.anrede || 'Firma'} 
+        onChange={v => onChange('anrede', v)} 
+        options={ANREDE_OPTIONS} 
+      />
+      <SelectField 
+        label="Kundentyp" 
+        value={draft.typ} 
+        onChange={v => onChange('typ', v)} 
+        options={KUNDENTYPEN} 
+        fullWidth 
+      />
+      <InputField 
+        label="Firmenname" 
+        value={draft.firmenname} 
+        onChange={v => onChange('firmenname', v)} 
+        error={validationErrors?.firmenname} 
+        fullWidth
+      />
+      <InputField 
+        label="Vorname" 
+        value={draft.vorname} 
+        onChange={v => onChange('vorname', v)} 
+      />
+      <InputField 
+        label="Nachname" 
+        value={draft.nachname} 
+        onChange={v => onChange('nachname', v)} 
+        error={validationErrors?.nachname} 
+      />
     </SettingsBlock>
   )
 }

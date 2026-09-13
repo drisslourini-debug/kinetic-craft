@@ -239,9 +239,22 @@ export default function RechnungStammdaten({
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-2 block">Fälligkeitsdatum (automatisch)</label>
-            <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50">
-              {rechnung.faellig_am ? formatDate(rechnung.faellig_am) : 'Wird beim Speichern berechnet'}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-primary-600 block">Fälligkeitsdatum (automatisch)</label>
+              {(rechnung.faellig_am || rechnung.daten?.faellig_am) && onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('kalender', { date: rechnung.faellig_am || rechnung.daten?.faellig_am })}
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Im Kalender ansehen"
+                >
+                  <span>📅 Im Kalender ansehen</span>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              )}
+            </div>
+            <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50 flex items-center justify-between">
+              <span>{rechnung.faellig_am || rechnung.daten?.faellig_am ? formatDate(rechnung.faellig_am || rechnung.daten?.faellig_am) : 'Wird beim Speichern berechnet'}</span>
             </div>
           </div>
         </div>

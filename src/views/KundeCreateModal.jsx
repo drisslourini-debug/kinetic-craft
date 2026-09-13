@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AddressAutocomplete from '../components/AddressAutocomplete'
+import ZefixAutocomplete from '../components/ZefixAutocomplete'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
+import { ANREDE_OPTIONS, generateNextCustomerNumber } from '../lib/customerNaming'
 
 const KUNDENTYPEN = [
   'Privatperson',
@@ -13,14 +15,19 @@ const KUNDENTYPEN = [
 
 export default function KundeCreateModal({ onClose, onSuccess }) {
   const [parent] = useAutoAnimate()
+  const [showZefix, setShowZefix] = useState(false)
+  const [zefixSuccess, setZefixSuccess] = useState(false)
   const [formData, setFormData] = useState({
-    typ: '',
+    anrede: 'Firma',
+    kundennummer: '',
+    typ: 'Geschäftskunde (Allgemein)',
     firmenname: '',
     vorname: '',
     nachname: '',
     strasse: '',
     plz: '',
     ort: '',
+    land: 'Schweiz',
     telefon: '',
     email: '',
     website: '',
@@ -29,6 +36,37 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
   const [submitted, setSubmitted] = useState(false)
+
+  // Auto-generate customer number from settings and existing customer list
+  useEffect(() => {
+    async function initCustomerNumber() {
+      if (!supabase) return
+      try {
+        const [settingsRes, kundenRes] = await Promise.all([
+          supabase.from('einstellungen').select('prefix_kunden, startnummer_kunden').limit(1).maybeSingle(),
+          supabase.from('kunden').select('kundennummer')
+        ])
+
+        const prefix = settingsRes.data?.prefix_kunden || 'K-'
+        const startNumber = settingsRes.data?.startnummer_kunden || 1000
+        const existing = kundenRes.data || []
+
+        const nextNr = generateNextCustomerNumber({
+          prefix,
+          startNumber,
+          existingCustomers: existing
+        })
+
+        setFormData(prev => ({
+          ...prev,
+          kundennummer: prev.kundennummer || nextNr
+        }))
+      } catch (err) {
+        console.warn('Could not auto-generate customer number:', err)
+      }
+    }
+    initCustomerNumber()
+  }, [])
 
   const isMissingName = !formData.firmenname?.trim() && !formData.nachname?.trim();
   const isValidEmail = !formData.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
@@ -60,6 +98,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
         .from('kunden')
         .insert([{
           name: displayName,
+          anrede: formData.anrede || 'Firma',
+          kundennummer: formData.kundennummer?.trim() || null,
           typ: formData.typ,
           firmenname: formData.firmenname,
           vorname: formData.vorname,
@@ -67,6 +107,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
           strasse: formData.strasse,
           plz: formData.plz,
           ort: formData.ort,
+          land: formData.land || 'Schweiz',
           telefon: formData.telefon,
           email: formData.email,
           website: formData.website,
@@ -83,7 +124,11 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
       }
     } catch (err) {
       console.error('Failed to create kunde:', err)
-      setError('Fehler beim Erstellen des Kunden.')
+      const isRls = err.message?.includes('row-level security policy')
+      const msg = isRls
+        ? 'Fehler beim Erstellen des Kunden: Fehlende Mandanten-Berechtigung (RLS). Dein Benutzerkonto ist keinem Mandanten zugewiesen. Bitte führe das Skript "supabase_fix_user_roles.sql" in Supabase aus oder lade die Seite neu.'
+        : 'Fehler beim Erstellen des Kunden: ' + (err.message || '')
+      setError(msg)
     } finally {
       setIsSaving(false)
     }
@@ -118,17 +163,21 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
               </h2>
               
               <p className="text-primary-100 text-lg mb-8 leading-relaxed">
-                Erfasse die wichtigsten Kontaktdaten. Weitere Details und Dokumente kannst du später in der Kundenansicht ergänzen.
+                Erfasse die wichtigsten Kontaktdaten. Mit automatischer Schweizer Kundennummer und Adressvervollständigung.
               </p>
               
               <div className="mt-auto flex flex-col gap-4 text-sm text-primary-200">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary-800/50 flex items-center justify-center">✓</div>
-                  <span>Zentrale Kundenverwaltung</span>
+                  <span>Automatische Kundennummer</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-primary-800/50 flex items-center justify-center">✓</div>
-                  <span>Automatische Adressvervollständigung</span>
+                  <span>Schweizer Adress- & Zefix-Suche</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary-800/50 flex items-center justify-center">✓</div>
+                  <span>QR-Rechnungskompatibel</span>
                 </div>
               </div>
             </div>
@@ -142,13 +191,13 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                 👤 Neuer Kunde
               </h2>
               <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors cursor-pointer flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                ✕
               </button>
             </div>
             
             <div className="hidden md:block absolute top-4 right-4 z-20">
               <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-gray-400 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full shadow-sm transition-colors cursor-pointer border border-gray-100 flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                ✕
               </button>
             </div>
 
@@ -161,6 +210,45 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   </div>
                 )}
 
+                {/* Zefix Section */}
+                <div className="space-y-4 bg-primary-50/50 p-5 rounded-xl border border-primary-100">
+                  <div 
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => setShowZefix(!showZefix)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🔍</span>
+                      <h3 className="text-lg font-bold text-gray-900">Firmensuche (Handelsregister Zefix)</h3>
+                    </div>
+                    <svg className={`w-5 h-5 text-gray-500 transition-transform ${showZefix ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  
+                  {showZefix && (
+                    <div className="pt-2">
+                      <ZefixAutocomplete 
+                        onSelect={(company) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            anrede: 'Firma',
+                            firmenname: company.firmenname,
+                            ort: company.ort,
+                            typ: 'Geschäftskunde (Allgemein)'
+                          }));
+                          setZefixSuccess(true);
+                          setTimeout(() => setZefixSuccess(false), 3000);
+                        }}
+                      />
+                      {zefixSuccess && (
+                        <div className="mt-3 text-sm text-green-600 flex items-center gap-2">
+                          ✓ Daten aus dem Handelsregister übernommen
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Stammdaten Section */}
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-4">
@@ -168,20 +256,48 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                     <h3 className="text-lg font-bold text-gray-900">Stammdaten</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="md:col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Kundennummer */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                        Kundennummer
+                      </label>
+                      <input 
+                        type="text" 
+                        value={formData.kundennummer}
+                        onChange={e => setFormData({...formData, kundennummer: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="K-1000"
+                      />
+                    </div>
+
+                    {/* Anrede */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                        Anrede
+                      </label>
+                      <select 
+                        value={formData.anrede}
+                        onChange={e => setFormData({...formData, anrede: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      >
+                        {ANREDE_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </div>
+
+                    {/* Kundentyp */}
+                    <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1.5">Kundentyp</label>
                       <select 
                         value={formData.typ}
                         onChange={e => setFormData({...formData, typ: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                       >
-                        <option value="">-- Bitte wählen --</option>
                         {KUNDENTYPEN.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                     
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                       <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                         Firmenname {hasNameError && <span className="text-red-500 font-normal ml-1">(Pflichtfeld)</span>}
                       </label>
@@ -189,23 +305,23 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="text" 
                         value={formData.firmenname}
                         onChange={e => setFormData({...formData, firmenname: e.target.value})}
-                        className={`w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm text-base sm:text-sm ${hasNameError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
-                        placeholder="z.B. Maler AG"
+                        className={`w-full px-4 py-2.5 bg-white border rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 transition-all shadow-sm ${hasNameError ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
+                        placeholder="z.B. Holzbau Schweiz AG"
                       />
                     </div>
                     
-                    <div>
+                    <div className="md:col-span-1">
                       <label className="block text-sm font-semibold text-gray-700 mb-1.5">Vorname</label>
                       <input 
                         type="text" 
                         value={formData.vorname}
                         onChange={e => setFormData({...formData, vorname: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                         placeholder="Max"
                       />
                     </div>
                     
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                         Nachname {hasNameError && <span className="text-red-500 font-normal ml-1">(Pflichtfeld)</span>}
                       </label>
@@ -213,7 +329,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="text" 
                         value={formData.nachname}
                         onChange={e => setFormData({...formData, nachname: e.target.value})}
-                        className={`w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm text-base sm:text-sm ${hasNameError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
+                        className={`w-full px-4 py-2.5 bg-white border rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 transition-all shadow-sm ${hasNameError ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
                         placeholder="Mustermann"
                       />
                     </div>
@@ -223,7 +339,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
 
                 <div className="h-px bg-gray-200 w-full"></div>
 
-                {/* Kontakt Section */}
+                {/* Kontakt & Adresse Section */}
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-xl">📍</span>
@@ -239,8 +355,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="email" 
                         value={formData.email}
                         onChange={e => setFormData({...formData, email: e.target.value})}
-                        className={`w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border rounded-xl text-gray-900 focus:outline-none focus:ring-2 transition-all shadow-sm text-base sm:text-sm ${hasEmailError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
-                        placeholder="info@beispiel.ch"
+                        className={`w-full px-4 py-2.5 bg-white border rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 transition-all shadow-sm ${hasEmailError ? 'border-red-300 focus:border-red-500 bg-red-50/30' : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/20'}`}
+                        placeholder="kontakt@firma.ch"
                       />
                     </div>
                     
@@ -250,7 +366,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="text" 
                         value={formData.telefon}
                         onChange={e => setFormData({...formData, telefon: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                         placeholder="z.B. 079 123 45 67"
                       />
                     </div>
@@ -261,24 +377,30 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="url" 
                         value={formData.website}
                         onChange={e => setFormData({...formData, website: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                         placeholder="https://"
                       />
                     </div>
                     
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Strasse (Auto-Fill)</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Strasse & Hausnummer (Auto-Fill)</label>
                       <AddressAutocomplete 
                         value={formData.strasse}
                         onChange={(val, details) => {
                           if (details) {
-                            setFormData(prev => ({...prev, strasse: details.strasse, plz: details.plz, ort: details.ort}))
+                            setFormData(prev => ({
+                              ...prev, 
+                              strasse: details.strasse, 
+                              plz: details.plz, 
+                              ort: details.ort,
+                              land: 'Schweiz'
+                            }))
                           } else {
                             setFormData(prev => ({...prev, strasse: val}))
                           }
                         }}
                         placeholder="Adresse suchen..."
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                       />
                     </div>
                     
@@ -288,8 +410,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="text" 
                         value={formData.plz}
                         onChange={e => setFormData({...formData, plz: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
-                        placeholder="8000"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="3000"
                       />
                     </div>
                     
@@ -299,9 +421,17 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         type="text" 
                         value={formData.ort}
                         onChange={e => setFormData({...formData, ort: e.target.value})}
-                        className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
-                        placeholder="Zürich"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="Bern"
                       />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Land</label>
+                      <div className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-900 text-sm flex items-center gap-2">
+                        <span>🇨🇭</span>
+                        <span className="font-semibold">Schweiz</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -317,7 +447,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   <textarea 
                     value={formData.notizen}
                     onChange={e => setFormData({...formData, notizen: e.target.value})}
-                    className="w-full h-32 px-4 py-3 sm:py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm resize-none text-base sm:text-sm"
+                    className="w-full h-32 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
                     placeholder="Wichtige Hinweise, Konditionen oder Besonderheiten zum Kunden..."
                   />
                 </div>
@@ -328,21 +458,16 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                 <button 
                   type="button" 
                   onClick={onClose}
-                  className="w-full sm:w-auto min-h-[48px] px-6 py-3 sm:py-2.5 text-base sm:text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors cursor-pointer shadow-sm"
+                  className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   Abbrechen
                 </button>
                 <button 
                   type="submit" 
                   disabled={isSaving}
-                  className="w-full sm:w-auto min-h-[48px] px-8 py-3 sm:py-2.5 text-base sm:text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-8 py-2.5 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {isSaving ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                      Speichert...
-                    </>
-                  ) : 'Kunde erstellen'}
+                  {isSaving ? 'Speichert...' : 'Kunde erstellen'}
                 </button>
               </div>
             </form>

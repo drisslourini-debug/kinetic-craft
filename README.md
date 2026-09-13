@@ -1,16 +1,49 @@
-# React + Vite
+# Kinetic Craft 🇨🇭
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **Das All-in-One CRM & ERP für das Schweizer Handwerk**  
+> Entwickelt von **Kinetic Schweiz** – Präzise, schnell und 100% rechtskonform nach Schweizer Standard.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Highlights
 
-## React Compiler
+- 🧾 **Schweizer QR-Rechnungen**: Offizielle QR-Rechnungen mit QR-IID, QR-IBAN, strukturierter Referenz und ESR-Abgleich nach ISO 20022.
+- ⚡ **Zefix & GeoAdmin Integration**: Automatisches Ausfüllen von Firmenstammdaten und Adressen direkt aus den Registern der Eidgenossenschaft.
+- 📄 **Schweizer PDF-Offerten**: Elegante DIN-A4-Offerten mit MWST-Abrechnung, Falt- und Lochmarken nach DIN 5008.
+- 👥 **Kunden- & Baustellenverwaltung**: Schnelle Übersicht aller Projekte, Kontakte, Ausmasse und Notizen.
+- 📅 **Monteur-Kalender & Einsatzplanung**: Terminverwaltung mit Schweizer Feiertagslogik und iCal-Synchronisation.
+- 📊 **Buchhaltung & Belege**: Ausgaben-Erfassung, Treuhand-Export und Schweizer Mehrwertsteuer-Abrechnung.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## Tech-Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- **Frontend**: React 19, Vite, Tailwind CSS v4
+- **Backend & Auth**: Supabase (PostgreSQL, Row Level Security, Multi-Tenant)
+- **APIs**: Schweizer Bundesamt für Landestopografie (geo.admin.ch), Zefix (Eidg. Amt für das Handelsregister)
+- **Testing**: Vitest, React Testing Library, Playwright
+
+---
+
+## Lokale Entwicklung
+
+```bash
+# Abhängigkeiten installieren
+npm install
+
+# Entwicklungsserver starten
+npm run dev
+
+# Tests ausführen
+npm test
+
+# Production Build
+npm run build
+```
+
+---
+
+## Lizenz & Copyright
+
+&copy; 2026 Kinetic Craft &middot; Kinetic Schweiz. Alle Rechte vorbehalten.
+

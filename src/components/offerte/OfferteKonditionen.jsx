@@ -2,7 +2,9 @@ export default function OfferteKonditionen({
   daten,
   isEditing,
   editKonditionen,
-  onKonditionenChange
+  onKonditionenChange,
+  gueltigBis,
+  onNavigate
 }) {
   return (
     <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
@@ -79,7 +81,19 @@ export default function OfferteKonditionen({
           </div>
           <div>
             <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Gültigkeit</label>
-            <div className="text-sm font-medium text-text-primary">{daten.konditionen?.gueltigkeit || '30 Tage'}</div>
+            <div className="text-sm font-medium text-text-primary flex items-center justify-between">
+              <span>{daten.konditionen?.gueltigkeit || '30 Tage'}</span>
+              {gueltigBis && onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('kalender', { date: gueltigBis })}
+                  className="text-[11px] text-primary-600 hover:text-primary-800 font-semibold cursor-pointer"
+                  title="Gültigkeitsfrist im Kalender ansehen"
+                >
+                  📅 Kalender
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Zahlungsfrist</label>

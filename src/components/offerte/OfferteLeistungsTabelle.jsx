@@ -8,10 +8,9 @@ export default function OfferteLeistungsTabelle({
   leistungen,
   editLeistungen,
   onChangeLeistungen,
-  mwst,
   onShowKatalogDrawer
 }) {
-  const [showKatalogMenu, setShowKatalogMenu] = useState(false)
+  const [posError, setPosError] = useState('')
   const [showNewPositionForm, setShowNewPositionForm] = useState(false)
   const [dbKategorien, setDbKategorien] = useState([])
   const [newPosData, setNewPosData] = useState({
@@ -68,10 +67,11 @@ export default function OfferteLeistungsTabelle({
   // Removed brutto/netto calculation for simplicity
 
   const handleAddNewPosition = async () => {
-    if (!newPosData.beschreibung) {
-      alert('Bitte einen Namen/Beschreibung eingeben.');
+    if (!newPosData.beschreibung?.trim()) {
+      setPosError('Bitte einen Namen/Beschreibung eingeben.')
       return;
     }
+    setPosError('')
 
     const pos = {
       _id: Date.now(),
@@ -159,7 +159,14 @@ export default function OfferteLeistungsTabelle({
                   const isInfo = isKategorie || ((pos.menge === '' || pos.menge === undefined || pos.menge === null) && (pos.einzelpreis === '' || pos.einzelpreis === undefined || pos.einzelpreis === null))
                   
                   return (
-                    <div key={idx} className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-surface-card border-b-2 border-border/50 shadow-sm mt-2' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
+                    <div key={idx}>
+                      {pos.page_break && (
+                        <div className="flex items-center gap-2 py-1 px-4 bg-blue-50/80 border-y border-blue-200 text-xs font-semibold text-blue-700">
+                          <span>📄 Seitenumbruch vor Position {pos.posNr || (idx + 1)}</span>
+                          <div className="flex-1 border-b border-dashed border-blue-300"></div>
+                        </div>
+                      )}
+                      <div className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-surface-card border-b-2 border-border/50 shadow-sm mt-2' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
                       
                       {/* --- MOBILE COMPACT VIEW --- */}
                       <div className="sm:hidden flex justify-between items-start w-full gap-3">
@@ -202,9 +209,9 @@ export default function OfferteLeistungsTabelle({
                           <div className="col-span-4"></div>
                         )}
                       </div>
-
                     </div>
-                  )
+                  </div>
+                )
                 })}
               </div>
             )}
@@ -221,6 +228,24 @@ export default function OfferteLeistungsTabelle({
             ) : (
               editLeistungen.map((pos, idx) => (
                 <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
+                  {/* Page break banner if active */}
+                  {pos.page_break && (
+                    <div className="flex items-center justify-between gap-2 py-1.5 px-3 bg-blue-50 border border-blue-200 rounded-lg text-xs font-semibold text-blue-700">
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                        Seitenumbruch vor Position {pos.posNr || (idx + 1)} (Beginnt im PDF auf neuer A4-Seite)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updatePosition(pos._id, 'page_break', false)}
+                        className="text-blue-500 hover:text-blue-800 p-0.5 text-xs font-bold"
+                        title="Umbruch aufheben"
+                      >
+                        ✕ Aufheben
+                      </button>
+                    </div>
+                  )}
+
                   {/* Row: Order controls + Description */}
                   <div className="flex items-start gap-3">
                     {/* Move & Delete */}
@@ -270,20 +295,33 @@ export default function OfferteLeistungsTabelle({
                     </div>
                   </div>
 
-                  {/* Options row: Optional toggle (only for positions) */}
-                  {pos.type !== 'title' && (
-                    <div className="pl-[76px] flex items-center gap-2">
+                  {/* Options row: Optional toggle & Page break toggle */}
+                  <div className="pl-[76px] flex flex-wrap items-center gap-4">
+                    {pos.type !== 'title' && (
                       <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                         <input
                           type="checkbox"
-                          checked={pos.optional}
+                          checked={pos.optional || false}
                           onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
                           className="w-3.5 h-3.5 text-amber-600 rounded border-border focus:ring-amber-500 accent-amber-500"
                         />
                         <span className="font-semibold text-text-secondary uppercase tracking-wider">Optionale Position</span>
                       </label>
-                    </div>
-                  )}
+                    )}
+
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs" title="Erzwingt einen Seitenumbruch vor dieser Position im PDF/Druck">
+                      <input
+                        type="checkbox"
+                        checked={pos.page_break || false}
+                        onChange={(e) => updatePosition(pos._id, 'page_break', e.target.checked)}
+                        className="w-3.5 h-3.5 text-blue-600 rounded border-border focus:ring-blue-500 accent-blue-600"
+                      />
+                      <span className={`font-semibold uppercase tracking-wider flex items-center gap-1 ${pos.page_break ? 'text-blue-700 font-bold' : 'text-text-secondary'}`}>
+                        <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                        Seitenumbruch davor
+                      </span>
+                    </label>
+                  </div>
 
                   {/* Quantity & Price Row (Not for Titles) */}
                   {pos.type !== 'title' && (
@@ -356,6 +394,11 @@ export default function OfferteLeistungsTabelle({
                 </div>
                 
                 <div className="space-y-4">
+                  {posError && (
+                    <div className="p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100 flex items-center gap-2">
+                      <span>⚠️</span> {posError}
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs text-text-secondary font-semibold block mb-1">Beschreibung / Titel</label>
                     <input

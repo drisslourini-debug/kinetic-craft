@@ -2,26 +2,40 @@ import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatDate, formatCurrency } from '../lib/formatters'
-import AddressAutocomplete from '../components/AddressAutocomplete'
 
 import { ProjektStammdatenBlock, ProjektTermineBlock, ProjektNotizenBlock } from '../components/projekt/ProjektStammdaten'
+import { getTerminTypConfig, getTerminStatusConfig } from '../lib/kalenderConstants'
+import TerminModal from '../components/kalender/TerminModal'
+import TerminDetailModal from '../components/kalender/TerminDetailModal'
 
 // ----------------------
 // MAIN COMPONENT
 // ----------------------
 
-export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate, userRole }) {
+export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate, userRole, initialTab }) {
   const [parent] = useAutoAnimate()
   const [projekt, setProjekt] = useState(initialProjekt)
   const [offerten, setOfferten] = useState([])
   const [rechnungen, setRechnungen] = useState([])
   const [ausgaben, setAusgaben] = useState([])
   const [dateien, setDateien] = useState([])
+  const [termine, setTermine] = useState([])
   const [kunde, setKunde] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('projektdaten') // projektdaten, offerten, rechnungen
+  const [activeTab, setActiveTab] = useState(initialTab || 'projektdaten')
+  const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
+  const [terminModalInitial, setTerminModalInitial] = useState(null)
+  const [selectedTerminForDetail, setSelectedTerminForDetail] = useState(null)
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false)
+  const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
+  const [feedbackToast, setFeedbackToast] = useState(null)
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
 
   const [editState, setEditState] = useState(null) // null, 'stammdaten', 'termine', 'notizen'
   const [draft, setDraft] = useState({})
@@ -29,7 +43,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
 
   useEffect(() => {
     async function loadDetails() {
-      if (!supabase || !projekt) return
+      if (!supabase || !projekt?.id) return
       
       try {
         setIsLoading(true)
@@ -80,6 +94,19 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
           .order('created_at', { ascending: false })
           
         if (dData) setDateien(dData)
+
+        // Load appointments (termine)
+        try {
+          const { data: tData } = await supabase
+            .from('termine')
+            .select('*, kunden(name)')
+            .eq('projekt_id', projekt.id)
+            .order('datum', { ascending: true })
+
+          if (tData) setTermine(tData)
+        } catch (tErr) {
+          console.warn('Error loading project termine:', tErr)
+        }
       } catch (err) {
         console.error('Error loading projekt details:', err)
       } finally {
@@ -88,7 +115,80 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     }
     
     loadDetails()
-  }, [projekt.id])
+  }, [projekt?.id, projekt?.kunden_id])
+
+  const refreshProjektTermine = async () => {
+    if (!supabase || !projekt?.id) return
+    try {
+      const { data: tData } = await supabase
+        .from('termine')
+        .select('*, kunden(name)')
+        .eq('projekt_id', projekt.id)
+        .order('datum', { ascending: true })
+      if (tData) setTermine(tData)
+    } catch (e) {
+      console.error('Failed to reload termine:', e)
+    }
+  }
+
+  const handleSaveTermin = async (formData, terminId) => {
+    if (!supabase || !projekt?.id) return
+    try {
+      if (terminId) {
+        const { error } = await supabase
+          .from('termine')
+          .update(formData)
+          .eq('id', terminId)
+        if (error) throw error
+        showToast('success', 'Termin aktualisiert.')
+      } else {
+        const { error } = await supabase
+          .from('termine')
+          .insert([{ ...formData, projekt_id: projekt.id }])
+        if (error) throw error
+        showToast('success', 'Termin hinzugefügt.')
+      }
+      await refreshProjektTermine()
+    } catch (err) {
+      console.error('Error saving project termin:', err)
+      showToast('error', err.message || 'Fehler beim Speichern des Termins.')
+    }
+  }
+
+  const handleDeleteTermin = async (terminId) => {
+    if (!supabase || !terminId) return
+    try {
+      const { error } = await supabase
+        .from('termine')
+        .delete()
+        .eq('id', terminId)
+      if (error) throw error
+      showToast('info', 'Termin gelöscht.')
+      setSelectedTerminForDetail(null)
+      await refreshProjektTermine()
+    } catch (err) {
+      console.error('Error deleting termin:', err)
+      showToast('error', 'Fehler beim Löschen.')
+    }
+  }
+
+  const handleStatusChangeTermin = async (terminId, newStatus) => {
+    if (!supabase || !terminId) return
+    try {
+      const { error } = await supabase
+        .from('termine')
+        .update({ status: newStatus })
+        .eq('id', terminId)
+      if (error) throw error
+      showToast('success', `Status auf "${newStatus}" gesetzt.`)
+      setTermine(prev => prev.map(t => t.id === terminId ? { ...t, status: newStatus } : t))
+      if (selectedTerminForDetail?.id === terminId) {
+        setSelectedTerminForDetail(prev => ({ ...prev, status: newStatus }))
+      }
+    } catch (err) {
+      console.error('Error updating status:', err)
+    }
+  }
 
   const startEdit = (blockName) => {
     setDraft({ ...projekt })
@@ -120,42 +220,48 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     }
     
     try {
-      await supabase
+      const { error } = await supabase
         .from('projekte')
         .update(dataToSave)
         .eq('id', projekt.id)
         
+      if (error) throw error
       setProjekt(draft)
       setEditState(null)
+      showToast('success', 'Projektdaten erfolgreich gespeichert.')
     } catch (err) {
       console.error('Failed to update projekt:', err)
-      alert('Fehler beim Speichern.')
+      showToast('error', 'Fehler beim Speichern der Projektdaten.')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleRenameFile = async (id, oldName) => {
-    const fileExt = oldName.split('.').pop()
-    const baseName = oldName.substring(0, oldName.lastIndexOf('.')) || oldName
-    const userPrompt = window.prompt('Neuer Dateiname (ohne Endung):', baseName)
-    
-    if (!userPrompt || userPrompt.trim() === baseName) return
+  const openRenameModal = (id, currentName) => {
+    const baseName = currentName.substring(0, currentName.lastIndexOf('.')) || currentName
+    setRenameModal({ isOpen: true, fileId: id, currentFullName: currentName, fileName: baseName })
+  }
 
-    const newName = `${userPrompt.trim()}.${fileExt}`
+  const handleRenameSubmit = async (e) => {
+    e.preventDefault()
+    if (!renameModal.fileName.trim()) return
+
+    const fileExt = renameModal.currentFullName.split('.').pop()
+    const newName = `${renameModal.fileName.trim()}.${fileExt}`
 
     try {
-      const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', id)
+      const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', renameModal.fileId)
       if (error) throw error
-      setDateien(prev => prev.map(d => d.id === id ? { ...d, name: newName } : d))
+      setDateien(prev => prev.map(d => d.id === renameModal.fileId ? { ...d, name: newName } : d))
+      setRenameModal({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
+      showToast('success', 'Datei erfolgreich umbenannt.')
     } catch (err) {
       console.error(err)
-      alert('Umbenennen fehlgeschlagen')
+      showToast('error', 'Umbenennen fehlgeschlagen.')
     }
   }
 
   const handleArchive = async () => {
-    if (!window.confirm('Projekt ins Archiv verschieben? Er taucht in keinen Suchen mehr auf.')) return;
     try {
       setIsSaving(true)
       const { error } = await supabase
@@ -164,19 +270,39 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         .eq('id', projekt.id)
         
       if (error) throw error
-      onBack()
+      setProjekt(prev => ({ ...prev, is_archived: true }))
+      setShowArchiveWarning(false)
+      showToast('success', 'Projekt ins Archiv verschoben.')
     } catch (err) {
       console.error('Failed to archive projekt:', err)
-      alert('Fehler beim Archivieren des Projekts.')
+      showToast('error', 'Fehler beim Archivieren des Projekts.')
     } finally {
       setIsSaving(false)
-      setShowDeleteWarning(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    try {
+      setIsSaving(true)
+      const { error } = await supabase
+        .from('projekte')
+        .update({ is_archived: false })
+        .eq('id', projekt.id)
+        
+      if (error) throw error
+      setProjekt(prev => ({ ...prev, is_archived: false }))
+      showToast('success', 'Projekt aus dem Archiv wiederhergestellt.')
+    } catch (err) {
+      console.error('Failed to restore projekt:', err)
+      showToast('error', 'Fehler beim Wiederherstellen des Projekts.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleHardDelete = async () => {
-    if (offerten.length > 0 || rechnungen.length > 0 || dateien.length > 0) {
-      alert('Das Projekt kann nicht gelöscht werden, da noch Offerten, Rechnungen oder Dateien verknüpft sind. Bitte archiviere es stattdessen.')
+    if (offerten.length > 0 || rechnungen.length > 0 || ausgaben.length > 0 || dateien.length > 0) {
+      showToast('error', 'Das Projekt kann nicht gelöscht werden, da noch Verknüpfungen (Offerten, Rechnungen, Ausgaben oder Dateien) bestehen. Bitte archiviere es stattdessen.')
       setShowDeleteWarning(false)
       return
     }
@@ -189,10 +315,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         .eq('id', projekt.id)
         
       if (error) throw error
-      onBack() // go back to list
+      onBack()
     } catch (err) {
       console.error('Failed to delete projekt:', err)
-      alert('Fehler beim Löschen. Eventuell gibt es noch verknüpfte Daten.')
+      showToast('error', 'Fehler beim Löschen des Projekts.')
     } finally {
       setIsSaving(false)
       setShowDeleteWarning(false)
@@ -260,28 +386,61 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                   <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
                   <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
                     <div className="p-1">
+                    {projekt.is_archived ? (
                       <button 
-                        onClick={() => { setIsHeaderMenuOpen(false); handleArchive(); }}
+                        onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
+                      >
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Aus Archiv wiederherstellen
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
                         className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
                       >
                         <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                         Projekt archivieren
                       </button>
-                      <button 
-                        onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
-                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Unwiderruflich löschen
-                      </button>
-                    </div>
+                    )}
+                    <button 
+                      onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Unwiderruflich löschen
+                    </button>
                   </div>
-                </>
-              )}
+                </div>
+              </>
+            )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Archived Banner */}
+      {projekt.is_archived && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
+              📁
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">Dieses Projekt ist archiviert.</p>
+              <p className="text-xs text-amber-700 mt-0.5">Das Projekt wird in der regulären Übersicht ausgeblendet.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRestore}
+            disabled={isSaving}
+            className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Aus Archiv wiederherstellen
+          </button>
+        </div>
+      )}
 
       {/* Projektrendite Summary */}
       {(rechnungen.length > 0 || ausgaben.length > 0) && (
@@ -308,17 +467,24 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
 
       {/* Tabs - Pill Design */}
       <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-        {['projektdaten', 'offerten', 'rechnungen', 'ausgaben', 'dateien'].map(tab => (
+        {[
+          { id: 'projektdaten', label: 'Projektdaten' },
+          { id: 'termine', label: `📅 Termine (${termine.length})` },
+          { id: 'offerten', label: `Offerten (${offerten.length})` },
+          { id: 'rechnungen', label: `Rechnungen (${rechnungen.length})` },
+          { id: 'ausgaben', label: `Ausgaben (${ausgaben.length})` },
+          { id: 'dateien', label: `Dateien (${dateien.length})` },
+        ].map(tab => (
           <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setEditState(null); }}
-            className={`flex items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
-              activeTab === tab 
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id); setEditState(null); }}
+            className={`flex items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === tab.id 
                 ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
                 : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-gray-300 hover:bg-gray-50'
             }`}
           >
-            {tab}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -355,6 +521,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                 onSave={handleSaveBlock}
                 onChange={handleDraftChange}
                 disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
+                termineCount={termine.length}
+                onOpenTermineTab={() => setActiveTab('termine')}
               />
               
               <ProjektNotizenBlock
@@ -368,6 +536,160 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                 onChange={handleDraftChange}
                 disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
               />
+            </div>
+          )}
+
+          {/* TAB: TERMINE & MONTAGE */}
+          {activeTab === 'termine' && (
+            <div className="animate-fade-in-up space-y-6">
+              {/* Header card with Project Dates & Action buttons */}
+              <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📅</span>
+                    <h3 className="text-lg font-bold text-text-primary">Einsätze & Termine</h3>
+                  </div>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Projektlaufzeit: <strong>{formatDate(projekt.startdatum)}</strong> bis <strong>{formatDate(projekt.enddatum)}</strong>
+                    {projekt.adresse && <span className="ml-2">📍 {projekt.adresse}</span>}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate && onNavigate('kalender', { projektId: projekt.id })}
+                    className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>📆</span> Im Hauptkalender öffnen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTerminModalInitial({
+                        datum: new Date().toISOString().split('T')[0],
+                        projekt_id: projekt.id,
+                        kunden_id: projekt.kunden_id,
+                        ort: projekt.adresse || ''
+                      });
+                      setIsTerminModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+                    style={{ display: userRole === 'treuhand' ? 'none' : 'flex' }}
+                  >
+                    <span>+</span> Termin hinzufügen
+                  </button>
+                </div>
+              </div>
+
+              {/* Termine List */}
+              {termine.length === 0 ? (
+                <div className="bg-surface-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-2xl text-primary-600 mb-1">
+                    🔨
+                  </div>
+                  <h3 className="text-base font-bold text-text-primary">Keine Termine für dieses Projekt erfasst</h3>
+                  <p className="text-xs text-text-secondary max-w-sm">
+                    Erfasse Montagen, Besichtigungen vor Ort, Materialanlieferungen oder Kundentermine für dieses Projekt.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTerminModalInitial({
+                        datum: new Date().toISOString().split('T')[0],
+                        projekt_id: projekt.id,
+                        kunden_id: projekt.kunden_id,
+                        ort: projekt.adresse || ''
+                      });
+                      setIsTerminModalOpen(true);
+                    }}
+                    className="mt-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                    style={{ display: userRole === 'treuhand' ? 'none' : 'block' }}
+                  >
+                    + Ersten Termin erfassen
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {termine.map(t => {
+                    const typConf = getTerminTypConfig(t.typ);
+                    const statusConf = getTerminStatusConfig(t.status);
+
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setSelectedTerminForDetail(t)}
+                        className="p-4 bg-surface-card hover:bg-gray-50/80 border border-border hover:border-primary-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-xs cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3.5">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${typConf.badgeClass}`}>
+                            {typConf.icon}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-text-primary">
+                                {t.titel}
+                              </h4>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${statusConf.badgeClass}`}>
+                                {t.status || 'Geplant'}
+                              </span>
+                              <span className="text-[11px] font-medium text-text-secondary bg-gray-100 px-2 py-0.5 rounded">
+                                {typConf.label}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary mt-1.5">
+                              <span>
+                                📅 {formatDate(t.datum)}
+                                {t.end_datum && t.end_datum !== t.datum && ` bis ${formatDate(t.end_datum)}`}
+                              </span>
+                              <span>
+                                ⏰ {t.ganztaegig ? 'Ganztägig' : `${t.startzeit || '08:00'} – ${t.endzeit || '12:00'} Uhr`}
+                              </span>
+                              {t.ort && (
+                                <span>📍 {t.ort}</span>
+                              )}
+                            </div>
+
+                            {t.beschreibung && (
+                              <p className="text-xs text-text-secondary mt-1 line-clamp-1">
+                                📝 {t.beschreibung}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quick Actions */}
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                          {t.status !== 'Erledigt' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChangeTermin(t.id, 'Erledigt');
+                              }}
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              ✓ Erledigt
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTerminModalInitial(t);
+                              setIsTerminModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            ✏️ Bearbeiten
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -563,15 +885,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                       if (!file) return
 
                       const fileExt = file.name.split('.').pop()
-                      const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
-                      const userPrompt = window.prompt('Bitte Dateiname eingeben (ohne Endung):', baseName)
-                      
-                      if (userPrompt === null) {
-                        e.target.value = null
-                        return
-                      }
-                      
-                      const finalName = userPrompt.trim() ? `${userPrompt.trim()}.${fileExt}` : file.name
+                      const finalName = file.name
 
                       try {
                         setIsLoading(true)
@@ -590,9 +904,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                         
                         if (dbError) throw dbError
                         if (data) setDateien([data[0], ...dateien])
+                        showToast('success', 'Datei erfolgreich hochgeladen.')
                       } catch(err) {
                         console.error(err)
-                        alert('Fehler beim Upload')
+                        showToast('error', 'Fehler beim Upload der Datei.')
                       } finally {
                         setIsLoading(false)
                         e.target.value = null
@@ -621,7 +936,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                           <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </a>
                         {userRole !== 'treuhand' && (
-                          <button onClick={() => handleRenameFile(datei.id, datei.name)} className="p-3 sm:p-2.5 min-w-[48px] min-h-[48px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors cursor-pointer" title="Umbenennen">
+                          <button onClick={() => openRenameModal(datei.id, datei.name)} className="p-3 sm:p-2.5 min-w-[48px] min-h-[48px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors cursor-pointer" title="Umbenennen">
                             <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                         )}
@@ -644,10 +959,75 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         </div>
       )}
 
+      {/* Archive Confirmation Modal */}
+      {showArchiveWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowArchiveWarning(false)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              📁
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Projekt archivieren?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Das Projekt wird aus der regulären Übersicht ausgeblendet. Verknüpfte Offerten, Rechnungen und Dokumente bleiben sicher erhalten und das Projekt kann jederzeit wiederhergestellt werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowArchiveWarning(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={isSaving}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isSaving ? 'Archiviert...' : 'Ja, archivieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Rename Modal */}
+      {renameModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-card rounded-2xl p-6 max-w-md w-full shadow-2xl border border-border animate-scale-up">
+            <h3 className="text-xl font-bold text-text-primary mb-2">Datei umbenennen</h3>
+            <p className="text-text-secondary text-xs mb-4">Gib einen neuen Namen ohne Dateiendung ein.</p>
+            <form onSubmit={handleRenameSubmit} className="space-y-4">
+              <input
+                type="text"
+                value={renameModal.fileName}
+                onChange={e => setRenameModal(prev => ({ ...prev, fileName: e.target.value }))}
+                className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                placeholder="Neuer Name..."
+                autoFocus
+              />
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameModal({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })}
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition-colors cursor-pointer shadow-sm"
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Delete Warning Modal */}
       {showDeleteWarning && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-red-200">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-red-200 animate-scale-up">
             <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </div>
@@ -673,6 +1053,45 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
           </div>
         </div>
       )}
+
+      {/* Toast Feedback */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
+      )}
+
+      {/* Termin Create/Edit Modal */}
+      <TerminModal
+        isOpen={isTerminModalOpen}
+        onClose={() => {
+          setIsTerminModalOpen(false);
+          setTerminModalInitial(null);
+        }}
+        onSave={handleSaveTermin}
+        onDelete={handleDeleteTermin}
+        initialData={terminModalInitial}
+        projekte={[projekt]}
+        kunden={kunde ? [kunde] : []}
+      />
+
+      {/* Termin Detail Preview Modal */}
+      <TerminDetailModal
+        isOpen={Boolean(selectedTerminForDetail)}
+        termin={selectedTerminForDetail}
+        onClose={() => setSelectedTerminForDetail(null)}
+        onEdit={(terminToEdit) => {
+          setSelectedTerminForDetail(null);
+          setTerminModalInitial(terminToEdit);
+          setIsTerminModalOpen(true);
+        }}
+        onDelete={handleDeleteTermin}
+        onStatusChange={handleStatusChangeTermin}
+        onNavigate={onNavigate}
+      />
     </div>
   )
 }

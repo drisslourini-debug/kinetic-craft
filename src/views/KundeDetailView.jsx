@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 
 import { calculateRechnungStatus } from '../lib/statusLogic'
 import { formatDate, formatCurrency } from '../lib/formatters'
-import AddressAutocomplete from '../components/AddressAutocomplete'
 
 import KundeStammdaten from '../components/kunde/KundeStammdaten'
 import KundeKontakt from '../components/kunde/KundeKontakt'
@@ -25,7 +24,15 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
   
   const [activeTab, setActiveTab] = useState(initialTab === 'rechnungen' ? 'finanzen' : initialTab) // stammdaten, projekte, offerten, finanzen
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false)
+  const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
+  const [feedbackToast, setFeedbackToast] = useState(null)
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
 
   // Edit State
   const [editState, setEditState] = useState(null) // null, 'stammdaten', 'kontakt', 'konditionen'
@@ -35,7 +42,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
 
   useEffect(() => {
     async function loadDetails() {
-      if (!supabase || !kunde) return
+      if (!supabase || !kunde?.id) return
       
       try {
         setIsLoading(true)
@@ -94,7 +101,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     }
     
     loadDetails()
-  }, [kunde.id])
+  }, [kunde?.id])
 
   if (!kunde) return null
 
@@ -128,7 +135,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         errors.nachname = 'Pflichtfeld'
       }
     } else if (editState === 'kontakt') {
-      const isValidEmail = !draft.email || /^[^s@]+@[^s@]+.[^s@]+$/.test(draft.email);
+      const isValidEmail = !draft.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email);
       if (!isValidEmail) errors.email = 'Ungültig'
     }
 
@@ -151,7 +158,10 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     }
 
     try {
-      const { id, created_at, updated_at, ...dataToSave } = updatePayload
+      const dataToSave = { ...updatePayload }
+      delete dataToSave.id
+      delete dataToSave.created_at
+      delete dataToSave.updated_at
       
       const { error } = await supabase
         .from('kunden')
@@ -162,35 +172,40 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
       
       setKunde(updatePayload) // Update local state
       setEditState(null)
+      showToast('success', 'Kundendaten erfolgreich gespeichert.')
     } catch (err) {
       console.error('Failed to save kunde:', err)
-      alert('Fehler beim Speichern der Kundendaten.')
+      showToast('error', 'Fehler beim Speichern der Kundendaten.')
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleRenameFile = async (id, oldName) => {
-    const fileExt = oldName.split('.').pop()
-    const baseName = oldName.substring(0, oldName.lastIndexOf('.')) || oldName
-    const userPrompt = window.prompt('Neuer Dateiname (ohne Endung):', baseName)
-    
-    if (!userPrompt || userPrompt.trim() === baseName) return
+  const openRenameModal = (id, currentName) => {
+    const baseName = currentName.substring(0, currentName.lastIndexOf('.')) || currentName
+    setRenameModal({ isOpen: true, fileId: id, currentFullName: currentName, fileName: baseName })
+  }
 
-    const newName = `${userPrompt.trim()}.${fileExt}`
+  const handleRenameSubmit = async (e) => {
+    e.preventDefault()
+    if (!renameModal.fileName.trim()) return
+
+    const fileExt = renameModal.currentFullName.split('.').pop()
+    const newName = `${renameModal.fileName.trim()}.${fileExt}`
 
     try {
-      const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', id)
+      const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', renameModal.fileId)
       if (error) throw error
-      setDateien(prev => prev.map(d => d.id === id ? { ...d, name: newName } : d))
+      setDateien(prev => prev.map(d => d.id === renameModal.fileId ? { ...d, name: newName } : d))
+      setRenameModal({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
+      showToast('success', 'Datei erfolgreich umbenannt.')
     } catch (err) {
       console.error(err)
-      alert('Umbenennen fehlgeschlagen')
+      showToast('error', 'Umbenennen fehlgeschlagen.')
     }
   }
 
   const handleArchive = async () => {
-    if (!window.confirm('Kunde ins Archiv verschieben? Er taucht in keinen Suchen mehr auf.')) return;
     try {
       setIsSaving(true)
       const { error } = await supabase
@@ -199,19 +214,39 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         .eq('id', kunde.id)
         
       if (error) throw error
-      onBack()
+      setKunde(prev => ({ ...prev, is_archived: true }))
+      setShowArchiveWarning(false)
+      showToast('success', 'Kunde ins Archiv verschoben.')
     } catch (err) {
       console.error('Failed to archive kunde:', err)
-      alert('Fehler beim Archivieren des Kunden.')
+      showToast('error', 'Fehler beim Archivieren des Kunden.')
     } finally {
       setIsSaving(false)
-      setShowDeleteWarning(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    try {
+      setIsSaving(true)
+      const { error } = await supabase
+        .from('kunden')
+        .update({ is_archived: false })
+        .eq('id', kunde.id)
+        
+      if (error) throw error
+      setKunde(prev => ({ ...prev, is_archived: false }))
+      showToast('success', 'Kunde aus dem Archiv wiederhergestellt.')
+    } catch (err) {
+      console.error('Failed to restore kunde:', err)
+      showToast('error', 'Fehler beim Wiederherstellen des Kunden.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleHardDelete = async () => {
-    if (projekte.length > 0 || offerten.length > 0 || rechnungen.length > 0) {
-      alert('Der Kunde kann nicht gelöscht werden, da noch Projekte, Offerten oder Rechnungen verknüpft sind. Bitte archiviere ihn stattdessen.')
+    if (projekte.length > 0 || offerten.length > 0 || rechnungen.length > 0 || dateien.length > 0) {
+      showToast('error', 'Der Kunde kann nicht gelöscht werden, da noch Verknüpfungen (Projekte, Offerten, Rechnungen oder Dateien) bestehen. Bitte archiviere ihn stattdessen.')
       setShowDeleteWarning(false)
       return
     }
@@ -227,7 +262,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
       onBack()
     } catch (err) {
       console.error('Failed to delete kunde:', err)
-      alert('Fehler beim Löschen des Kunden.')
+      showToast('error', 'Fehler beim Löschen des Kunden.')
     } finally {
       setIsSaving(false)
       setShowDeleteWarning(false)
@@ -301,7 +336,10 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{displayName}</h2>
             </div>
             <p className="text-text-secondary mt-1 flex items-center gap-2">
-              <span>Kunden-Nr: {kunde.id}</span>
+              <span className="font-mono font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded border border-primary-200 text-xs">
+                {kunde.kundennummer || `K-${kunde.id}`}
+              </span>
+              {kunde.anrede && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-medium">{kunde.anrede}</span>}
               {kunde.ort && <span>• 📍 {kunde.ort}</span>}
             </p>
           </div>
@@ -352,13 +390,23 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
                 <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
                   <div className="p-1">
-                    <button 
-                      onClick={() => { setIsHeaderMenuOpen(false); handleArchive(); }}
-                      className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
-                    >
-                      <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                      Kunde archivieren
-                    </button>
+                    {kunde.is_archived ? (
+                      <button 
+                        onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
+                      >
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Aus Archiv wiederherstellen
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
+                      >
+                        <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        Kunde archivieren
+                      </button>
+                    )}
                     <button 
                       onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
@@ -373,6 +421,29 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           </div>
         </div>
       </div>
+
+      {/* Archived Banner */}
+      {kunde.is_archived && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
+              📁
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">Dieser Kunde ist archiviert.</p>
+              <p className="text-xs text-amber-700 mt-0.5">Der Kunde wird in der Standard-Kundenliste ausgeblendet.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRestore}
+            disabled={isSaving}
+            className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Aus Archiv wiederherstellen
+          </button>
+        </div>
+      )}
 
       {/* Tabs - Pill Design to match Einstellungen */}
       <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
@@ -433,7 +504,6 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 draft={draft}
                 isEditing={editState === 'konditionen'}
                 isSaving={isSaving}
-                validationErrors={validationErrors}
                 onEdit={() => startEdit('konditionen')}
                 onCancel={cancelEdit}
                 onSave={handleSaveBlock}
@@ -746,15 +816,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                       if (!file) return
 
                       const fileExt = file.name.split('.').pop()
-                      const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
-                      const userPrompt = window.prompt('Bitte Dateiname eingeben (ohne Endung):', baseName)
-                      
-                      if (userPrompt === null) {
-                        e.target.value = null
-                        return
-                      }
-                      
-                      const finalName = userPrompt.trim() ? `${userPrompt.trim()}.${fileExt}` : file.name
+                      const finalName = file.name
 
                       try {
                         setIsLoading(true)
@@ -772,9 +834,10 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                         
                         if (dbError) throw dbError
                         if (data) setDateien([data[0], ...dateien])
+                        showToast('success', 'Datei erfolgreich hochgeladen.')
                       } catch(err) {
                         console.error(err)
-                        alert('Fehler beim Upload')
+                        showToast('error', 'Fehler beim Upload der Datei.')
                       } finally {
                         setIsLoading(false)
                         e.target.value = null
@@ -803,7 +866,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                           <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </a>
                         {userRole !== 'treuhand' && (
-                          <button onClick={() => handleRenameFile(datei.id, datei.name)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors flex items-center justify-center" title="Umbenennen">
+                          <button onClick={() => openRenameModal(datei.id, datei.name)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors flex items-center justify-center" title="Umbenennen">
                             <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                           </button>
                         )}
@@ -826,10 +889,75 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         </div>
       )}
 
+      {/* Archive Confirmation Modal */}
+      {showArchiveWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              📁
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Kunde archivieren?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Der Kunde wird aus der regulären Übersicht ausgeblendet. Verknüpfte Rechnungen und Projekte bleiben sicher erhalten und der Kunde kann jederzeit wiederhergestellt werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowArchiveWarning(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={isSaving}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isSaving ? 'Archiviert...' : 'Ja, archivieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Rename Modal */}
+      {renameModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-card rounded-2xl p-6 max-w-md w-full shadow-2xl border border-border animate-scale-up">
+            <h3 className="text-xl font-bold text-text-primary mb-2">Datei umbenennen</h3>
+            <p className="text-text-secondary text-xs mb-4">Gib einen neuen Namen ohne Dateiendung ein.</p>
+            <form onSubmit={handleRenameSubmit} className="space-y-4">
+              <input
+                type="text"
+                value={renameModal.fileName}
+                onChange={e => setRenameModal(prev => ({ ...prev, fileName: e.target.value }))}
+                className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                placeholder="Neuer Name..."
+                autoFocus
+              />
+              <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRenameModal({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })}
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition-colors cursor-pointer shadow-sm"
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteWarning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up">
             <h3 className="text-xl font-bold text-text-primary mb-2">Kunde löschen?</h3>
             <p className="text-text-secondary text-sm mb-6">
               Bist du sicher, dass du diesen Kunden endgültig löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.
@@ -850,6 +978,16 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Feedback */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
         </div>
       )}
     </div>

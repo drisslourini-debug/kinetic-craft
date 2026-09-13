@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
+import { formatCurrency, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
+import { useModalHistory } from '../hooks/useModalHistory'
 import OffertePrintView from './OffertePrintView'
 import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
+import TerminModal from '../components/kalender/TerminModal'
 
 export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams, userRole }) {
   const [kunde, setKunde] = useState(null)
@@ -13,13 +16,13 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const [status, setStatus] = useState(offerte.status || 'Entwurf')
   const [isUpdating, setIsUpdating] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('stammdaten')
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
   const [editLeistungen, setEditLeistungen] = useState([])
+
   const [editKonditionen, setEditKonditionen] = useState({ rabatt: 0, mwst: 0 })
   const [editEinleitung, setEditEinleitung] = useState('')
   const [editSchluss, setEditSchluss] = useState('')
@@ -32,17 +35,86 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const [editKundeId, setEditKundeId] = useState('')
   const [editProjektId, setEditProjektId] = useState('')
   const [kundenList, setKundenList] = useState([])
-  const [textVorlagen, setTextVorlagen] = useState([])
   const [projekteList, setProjekteList] = useState([])
 
   const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
-  const [showKatalogMenu, setShowKatalogMenu] = useState(false)
   const [showLivePreview, setShowLivePreview] = useState(false)
   const [showNewPositionForm, setShowNewPositionForm] = useState(false)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [showArchiveModal, setShowArchiveModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [showDiscardModal, setShowDiscardModal] = useState(false)
+  const [deleteAttachmentTarget, setDeleteAttachmentTarget] = useState(null)
+  const [feedbackToast, setFeedbackToast] = useState(null)
+  const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
+  const [terminModalInitial, setTerminModalInitial] = useState(null)
+
+  useUnsavedChanges(isEditing)
+  useModalHistory(showPrintView, () => setShowPrintView(false), 'print_offerte')
+  useModalHistory(showKatalogDrawer, () => setShowKatalogDrawer(false), 'katalog_drawer')
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
+
   const [newPosData, setNewPosData] = useState({
     beschreibung: '', menge: '', einheit: 'Stück (Stk)', einzelpreis: '', bruttopreis: '', kategorie: 'Waren', saveToKatalog: false
   })
+
+  const recalculatePositions = (items) => {
+    let titleCounter = 0;
+    let posCounter = 0;
+    return items.map(item => {
+      if (item.type === 'title') {
+        titleCounter++;
+        posCounter = 0;
+        return { ...item, posNr: `${titleCounter}.0` };
+      } else {
+        posCounter++;
+        const prefix = titleCounter > 0 ? titleCounter : 1;
+        return { ...item, posNr: `${prefix}.${posCounter}` };
+      }
+    });
+  }
+
+  const startEditing = useCallback(() => {
+    const daten = offerte.daten || {}
+    let currentLeistungen = (daten.leistungen || []).map((pos, i) => {
+      let isTitle = pos.type === 'title'
+      if (!isTitle && pos.posNr && String(pos.posNr).endsWith('.0') && !pos.einzelpreis && !pos.menge) {
+        isTitle = true;
+      }
+      return {
+        ...pos,
+        type: isTitle ? 'title' : (pos.type || 'position'),
+        _id: Date.now() + i,
+        optional: pos.optional || false,
+      }
+    })
+    currentLeistungen = recalculatePositions(currentLeistungen)
+    setEditLeistungen(currentLeistungen)
+    setEditKundeId(offerte.kunden_id || '')
+    setEditProjektId(offerte.projekt_id || '')
+    setEditKonditionen({
+      rabatt: parseFloat(daten.konditionen?.rabatt || 0),
+      mwst: parseFloat(daten.konditionen?.mwst || 0),
+      gueltigkeit: daten.konditionen?.gueltigkeit || '30 Tage',
+      zahlungsfrist: daten.konditionen?.zahlungsfrist || '30 Tage Netto'
+    })
+    setEditEinleitung(daten.einleitungstext || '')
+    setEditSchluss(daten.schlusstext || '')
+    setEditPauschalpreis(daten.pauschalpreis || null)
+    setIsPauschal(!!daten.pauschalpreis && parseFloat(daten.pauschalpreis) > 0)
+    setEditAusfuehrung({
+      start: daten.ausfuehrung?.start || '',
+      dauer: daten.ausfuehrung?.dauer || '',
+      notizen: daten.ausfuehrung?.notizen || ''
+    })
+    setEditAnhange(daten.anhange || [])
+    setIsEditing(true)
+  }, [offerte])
 
   useEffect(() => {
     if (viewParams?.edit && !isEditing && !isLoading) {
@@ -50,7 +122,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         startEditing()
       }
     }
-  }, [viewParams, isLoading, isEditing])
+  }, [viewParams, isLoading, isEditing, status, startEditing])
 
   // Lade Kunden und Projekte wenn im Bearbeitungsmodus
   useEffect(() => {
@@ -76,7 +148,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       }
     }
     loadEditProjects()
-  }, [isEditing, editKundeId])
+  }, [isEditing, editKundeId, editProjektId])
 
   useEffect(() => {
     async function loadDetails() {
@@ -148,20 +220,96 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   }
 
   const handleArchive = async () => {
-    if (!window.confirm('Offerte wirklich archivieren?')) return
     setIsUpdating(true)
     try {
-      await supabase.from('offerten').update({ is_archived: true }).eq('id', offerte.id)
+      const { error } = await supabase.from('offerten').update({ is_archived: true }).eq('id', offerte.id)
+      if (error) throw error
+      offerte.is_archived = true
+      showToast('success', 'Offerte archiviert.')
+      setShowArchiveModal(false)
       onBack()
     } catch (err) {
       console.error('Fehler beim Archivieren:', err)
+      showToast('error', 'Fehler beim Archivieren der Offerte.')
     } finally {
       setIsUpdating(false)
     }
   }
 
-  const handleConvertToRechnung = async () => {
-    if (!window.confirm('Diese Offerte in eine Rechnung umwandeln?')) return
+  const handleRestore = async () => {
+    setIsUpdating(true)
+    try {
+      const { error } = await supabase.from('offerten').update({ is_archived: false }).eq('id', offerte.id)
+      if (error) throw error
+      offerte.is_archived = false
+      showToast('success', 'Offerte aus dem Archiv wiederhergestellt.')
+    } catch (err) {
+      console.error('Fehler beim Wiederherstellen:', err)
+      showToast('error', 'Fehler beim Wiederherstellen der Offerte.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleDeleteOfferte = async () => {
+    setIsUpdating(true)
+    try {
+      const { error } = await supabase.from('offerten').delete().eq('id', offerte.id)
+      if (error) throw error
+      showToast('success', 'Offerte unwiderruflich gelöscht.')
+      setShowDeleteModal(false)
+      onBack()
+    } catch (err) {
+      console.error('Fehler beim Löschen:', err)
+      showToast('error', 'Fehler beim Löschen der Offerte.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const openPlanTermin = async (type = 'Besprechung') => {
+    if (kundenList.length === 0) {
+      const { data: kData } = await supabase.from('kunden').select('id, name, ort').order('name')
+      if (kData) setKundenList(kData)
+    }
+    if (projekteList.length === 0) {
+      const { data: pData } = await supabase.from('projekte').select('id, name, adresse').order('name')
+      if (pData) setProjekteList(pData)
+    }
+
+    setTerminModalInitial({
+      titel: `${type}: Offerte #${offerte.id} - ${kunde?.name || offerte.kunden_name || ''}`.trim(),
+      typ: type.includes('Montage') ? 'Montage' : (type.includes('Aufmass') ? 'Aufmass' : 'Besprechung'),
+      datum: new Date().toISOString().split('T')[0],
+      kunden_id: offerte.kunden_id ? String(offerte.kunden_id) : '',
+      projekt_id: offerte.projekt_id ? String(offerte.projekt_id) : '',
+      ort: projekt?.adresse || kunde?.adresse || (kunde ? `${kunde.strasse || ''}, ${kunde.plz || ''} ${kunde.ort || ''}`.trim() : ''),
+      beschreibung: `Termin bezüglich Offerte #${offerte.id}`
+    })
+    setIsTerminModalOpen(true)
+  }
+
+  const handleSaveTermin = async (formData, terminId) => {
+    try {
+      if (terminId) {
+        const { error } = await supabase.from('termine').update(formData).eq('id', terminId)
+        if (error) throw error
+        showToast('success', 'Termin aktualisiert.')
+      } else {
+        const { error } = await supabase.from('termine').insert([formData])
+        if (error) throw error
+        showToast('success', 'Termin im Kalender erfasst.')
+      }
+      setIsTerminModalOpen(false)
+      setTerminModalInitial(null)
+    } catch (err) {
+      console.error('Fehler beim Speichern des Termins:', err)
+      showToast('error', err.message || 'Fehler beim Speichern des Termins.')
+    }
+  }
+
+  const confirmConvertToRechnung = async () => {
+    setShowConvertModal(false)
     setIsUpdating(true)
     try {
       const rechnungNr = await generateNextRechnungNr(supabase)
@@ -197,73 +345,18 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           .update({ status: 'Verrechnet', rechnung_id: newRechnung[0].id })
           .eq('id', offerte.id)
         
-        alert(`Rechnung ${rechnungNr} wurde erstellt! Navigiere zur Rechnung...`)
+        showToast('success', `Rechnung ${rechnungNr} wurde erfolgreich erstellt!`)
         // Navigate to the new Rechnung
         if (onNavigate) {
           onNavigate('rechnungen', { rechnungId: newRechnung[0].id })
-        } else {
-          window.location.reload()
         }
       }
     } catch (err) {
       console.error('Fehler beim Umwandeln:', err)
-      alert('Fehler beim Umwandeln in Rechnung: ' + err.message)
+      showToast('error', 'Fehler beim Umwandeln in Rechnung: ' + (err.message || 'Unbekannter Fehler'))
     } finally {
       setIsUpdating(false)
     }
-  }
-
-  const recalculatePositions = (items) => {
-    let titleCounter = 0;
-    let posCounter = 0;
-    return items.map(item => {
-      if (item.type === 'title') {
-        titleCounter++;
-        posCounter = 0;
-        return { ...item, posNr: `${titleCounter}.0` };
-      } else {
-        posCounter++;
-        const prefix = titleCounter > 0 ? titleCounter : 1;
-        return { ...item, posNr: `${prefix}.${posCounter}` };
-      }
-    });
-  }
-
-  const startEditing = () => {
-    const daten = offerte.daten || {}
-    let currentLeistungen = (daten.leistungen || []).map((pos, i) => {
-      let isTitle = pos.type === 'title'
-      if (!isTitle && pos.posNr && String(pos.posNr).endsWith('.0') && !pos.einzelpreis && !pos.menge) {
-        isTitle = true;
-      }
-      return {
-        ...pos,
-        type: isTitle ? 'title' : (pos.type || 'position'),
-        _id: Date.now() + i,
-        optional: pos.optional || false,
-      }
-    })
-    currentLeistungen = recalculatePositions(currentLeistungen)
-    setEditLeistungen(currentLeistungen)
-    setEditKundeId(offerte.kunden_id || '')
-    setEditProjektId(offerte.projekt_id || '')
-    setEditKonditionen({
-      rabatt: parseFloat(daten.konditionen?.rabatt || 0),
-      mwst: parseFloat(daten.konditionen?.mwst || 0),
-      gueltigkeit: daten.konditionen?.gueltigkeit || '30 Tage',
-      zahlungsfrist: daten.konditionen?.zahlungsfrist || '30 Tage Netto'
-    })
-    setEditEinleitung(daten.einleitungstext || '')
-    setEditSchluss(daten.schlusstext || '')
-    setEditPauschalpreis(daten.pauschalpreis || null)
-    setIsPauschal(!!daten.pauschalpreis && parseFloat(daten.pauschalpreis) > 0)
-    setEditAusfuehrung({
-      start: daten.ausfuehrung?.start || '',
-      dauer: daten.ausfuehrung?.dauer || '',
-      notizen: daten.ausfuehrung?.notizen || ''
-    })
-    setEditAnhange(daten.anhange || [])
-    setIsEditing(true)
   }
 
   const handleInsertFromKatalog = (items) => {
@@ -315,7 +408,11 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   }
 
   const cancelEditing = () => {
-    if (!window.confirm('Änderungen verwerfen?')) return
+    setShowDiscardModal(true)
+  }
+
+  const confirmDiscardChanges = () => {
+    setShowDiscardModal(false)
     setIsEditing(false)
   }
 
@@ -348,9 +445,10 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       }
 
       setEditAnhange(prev => [...prev, newAttachment])
+      showToast('success', 'Datei erfolgreich hochgeladen.')
     } catch (err) {
       console.error('Fehler beim Upload:', err)
-      alert('Upload fehlgeschlagen: ' + err.message)
+      showToast('error', 'Upload fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler'))
     } finally {
       setIsUploading(false)
       // reset file input
@@ -358,17 +456,22 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
     }
   }
 
-  const deleteAttachment = async (path) => {
-    if (!window.confirm('Anhang wirklich löschen?')) return
-    
-    // We remove it from the list. The actual file can be deleted from storage if needed.
-    // Let's also delete it from storage to keep it clean.
+  const deleteAttachment = (path) => {
+    setDeleteAttachmentTarget(path)
+  }
+
+  const confirmDeleteAttachment = async () => {
+    if (!deleteAttachmentTarget) return
+    const path = deleteAttachmentTarget
     try {
       await supabase.storage.from('anhange').remove([path])
       setEditAnhange(prev => prev.filter(a => a.path !== path))
+      showToast('success', 'Anhang erfolgreich gelöscht.')
     } catch (err) {
       console.error('Fehler beim Löschen:', err)
-      alert('Fehler beim Löschen: ' + err.message)
+      showToast('error', 'Fehler beim Löschen: ' + (err.message || 'Unbekannter Fehler'))
+    } finally {
+      setDeleteAttachmentTarget(null)
     }
   }
 
@@ -379,6 +482,14 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       
       const { finalTotal } = calculateDocumentTotals(cleanLeistungen, editKonditionen, isPauschal ? editPauschalpreis : null)
 
+      let calculatedGueltigBis = offerte.gueltig_bis || offerte.daten?.gueltig_bis || null
+      if (editKonditionen.gueltigkeit) {
+        const match = String(editKonditionen.gueltigkeit).match(/\d+/)
+        const days = match ? parseInt(match[0], 10) : 30
+        const baseDate = offerte.daten?.datum || offerte.created_at || new Date().toISOString()
+        calculatedGueltigBis = new Date(new Date(baseDate).getTime() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+
       const updatedDaten = {
         ...offerte.daten,
         leistungen: cleanLeistungen,
@@ -388,6 +499,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           gueltigkeit: editKonditionen.gueltigkeit,
           zahlungsfrist: editKonditionen.zahlungsfrist
         },
+        gueltig_bis: calculatedGueltigBis,
         einleitungstext: editEinleitung || null,
         schlusstext: editSchluss || null,
         pauschalpreis: isPauschal ? parseFloat(editPauschalpreis) || null : null,
@@ -397,13 +509,20 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
       await supabase
         .from('offerten')
-        .update({ daten: updatedDaten, total: finalTotal, kunden_id: editKundeId, projekt_id: editProjektId || null })
+        .update({
+          daten: updatedDaten,
+          total: finalTotal,
+          kunden_id: editKundeId,
+          projekt_id: editProjektId || null,
+          gueltig_bis: calculatedGueltigBis
+        })
         .eq('id', offerte.id)
       
       offerte.daten = updatedDaten
       offerte.total = finalTotal
       offerte.kunden_id = editKundeId
       offerte.projekt_id = editProjektId || null
+      offerte.gueltig_bis = calculatedGueltigBis
 
       if (editKundeId) {
         const { data: kData } = await supabase.from('kunden').select('*').eq('id', editKundeId).single()
@@ -417,10 +536,10 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       }
 
       setIsEditing(false)
-      alert('Offerte gespeichert!')
+      showToast('success', 'Offerte erfolgreich gespeichert!')
     } catch (err) {
       console.error('Fehler beim Speichern:', err)
-      alert('Fehler beim Speichern der Offerte.')
+      showToast('error', 'Fehler beim Speichern der Offerte.')
     } finally {
       setIsUpdating(false)
     }
@@ -434,20 +553,6 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
     setEditLeistungen(prev => recalculatePositions(prev.filter(p => p._id !== id)))
   }
 
-  const addPosition = () => {
-    setEditLeistungen(prev => recalculatePositions([...prev, {
-      _id: Date.now(),
-      type: 'position',
-      posNr: '',
-      beschreibung: '',
-      menge: '',
-      einheit: '',
-      einzelpreis: '',
-      kategorie: '',
-      optional: false,
-    }]))
-  }
-  
   const addTitle = () => {
     setEditLeistungen(prev => recalculatePositions([...prev, {
       _id: Date.now(),
@@ -494,8 +599,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   }
 
   const handleAddNewPosition = async () => {
-    if (!newPosData.beschreibung) {
-      alert('Bitte einen Namen/Beschreibung eingeben.');
+    if (!newPosData.beschreibung?.trim()) {
+      showToast('error', 'Bitte einen Namen/Beschreibung eingeben.')
       return;
     }
 
@@ -548,7 +653,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   // Parse daten safely
   const daten = offerte.daten || {}
   const leistungen = daten.leistungen || []
-  const { rawTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
   const mwst = parseFloat(daten.konditionen?.mwst || 0)
 
@@ -559,7 +664,6 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const editMwstBetrag = editTotals.mwstBetrag
   const editFinalTotal = editTotals.finalTotal
   const editOptionalTotal = editTotals.optionenTotal
-  const editNachRabatt = editTotals.totalNachRabatt
 
   const previewOfferte = isEditing ? {
     ...offerte,
@@ -621,14 +725,37 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
             <option value="Abgelehnt">Abgelehnt</option>
             <option value="Verrechnet">Verrechnet</option>
           </select>
-          
-          <button onClick={() => setShowPrintView(true)} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-surface-card hover:bg-neutral-50 rounded-xl sm:rounded-lg border border-border shadow-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center" title="Druckansicht (PDF)">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+          {/* Main Action: PDF View or Edit */}
+          {isEditing && (
+            <button
+              onClick={() => setShowLivePreview(!showLivePreview)}
+              className={`hidden xl:inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 font-bold text-base sm:text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
+                showLivePreview ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-surface border-border text-text-secondary'
+              }`}
+              title="Split-Screen Live-Vorschau (nur Desktop)"
+            >
+              {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+            </button>
+          )}
+          {!isEditing && userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-base sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+            >
+              ✏️ Offerte bearbeiten
+            </button>
+          )}
+          <button
+            onClick={() => setShowPrintView(true)}
+            className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">PDF anzeigen</span>
+            <span className="sm:hidden">PDF</span>
           </button>
-
           {userRole !== 'treuhand' && (
             <div className="relative">
-              <button onClick={() => setShowActionMenu(!showActionMenu)} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-surface-card hover:bg-neutral-50 rounded-xl sm:rounded-lg border border-border shadow-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center">
+              <button aria-label="Aktionsmenü" onClick={() => setShowActionMenu(!showActionMenu)} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-surface-card hover:bg-neutral-50 rounded-xl sm:rounded-lg border border-border shadow-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
               </button>
               {showActionMenu && (
@@ -642,18 +769,49 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                           Bearbeiten
                         </button>
                       )}
-                      <button onClick={() => { setShowActionMenu(false); setShowDuplicateModal(true); }} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
+                      <button onClick={() => { setShowActionMenu(false); handleDuplicate(); }} className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
                         <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
                         Duplizieren
                       </button>
                       {status === 'Akzeptiert' && (
-                        <button onClick={() => { setShowActionMenu(false); handleConvertToRechnung(); }} className="w-full text-left px-3 py-2 text-sm text-primary-600 font-semibold hover:bg-primary-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2">
+                        <button onClick={() => { setShowActionMenu(false); setShowConvertModal(true); }} className="w-full text-left px-3 py-2 text-sm text-primary-600 font-semibold hover:bg-primary-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                           Rechnung erstellen
                         </button>
                       )}
+                      <button 
+                        onClick={() => { setShowActionMenu(false); openPlanTermin('Aufmass / Besichtigung'); }} 
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2"
+                      >
+                        <span className="text-sm">📏</span>
+                        Aufmass / Besichtigung planen
+                      </button>
+                      <button 
+                        onClick={() => { setShowActionMenu(false); openPlanTermin('Kundentermin'); }} 
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <span className="text-sm">📅</span>
+                        Kundentermin im Kalender
+                      </button>
+                      {offerte.is_archived ? (
+                        <button 
+                          onClick={() => { setShowActionMenu(false); handleRestore(); }} 
+                          className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2"
+                        >
+                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          Aus Archiv wiederherstellen
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => { setShowActionMenu(false); setShowArchiveModal(true); }} 
+                          className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2"
+                        >
+                          <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                          Archivieren
+                        </button>
+                      )}
                       {(status === 'Entwurf' || status === 'In Überarbeitung') && (
-                        <button onClick={() => { setShowActionMenu(false); handleDeleteOfferte(); }} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2">
+                        <button onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           Löschen
                         </button>
@@ -667,15 +825,77 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         </div>
       </div>
 
+      {/* Acceptance / Conversion Action Banner */}
+      {status === 'Akzeptiert' && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
+              🎉
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Auftrag erteilt / Offerte akzeptiert!</p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Plane jetzt die Montage im Kalender oder erstelle direkt das Projekt und die Rechnung.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => openPlanTermin('Montage')}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <span>📅 Montagetermin planen</span>
+            </button>
+            {!offerte.projekt_id && (
+              <button
+                onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: offerte.kunden_id, name: offerte.daten?.titel || `Projekt zu Offerte #${offerte.id}` })}
+                className="px-3.5 py-2 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span>🏗️ Projekt anlegen</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowConvertModal(true)}
+              className="px-3.5 py-2 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <span>📄 Rechnung erstellen</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Archived Banner */}
+      {offerte.is_archived && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
+              📁
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">Diese Offerte ist archiviert.</p>
+              <p className="text-xs text-amber-700 mt-0.5">Die Offerte wird in der regulären Übersicht ausgeblendet.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRestore}
+            disabled={isUpdating}
+            className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Aus Archiv wiederherstellen
+          </button>
+        </div>
+      )}
+
       {/* End Header Actions */}
       {isLoading ? (
         <div className="p-8 text-center text-text-secondary">Lade Daten...</div>
       ) : (
-        <div className={showLivePreview ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+        <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
         <div className="space-y-8 animate-fade-in">
           
           {/* STAMMDATEN & INFO */}
-          <div className={`grid grid-cols-1 ${!showLivePreview ? 'md:grid-cols-2' : ''} gap-6`}>
+          <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'md:grid-cols-2' : ''} gap-6`}>
               <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
                 <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
                 
@@ -811,8 +1031,28 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   ) : (
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Gültigkeit</label>
-                        <div className="text-sm font-medium text-text-primary">{daten.konditionen?.gueltigkeit || '30 Tage'}</div>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Gültigkeit</label>
+                          {(offerte.gueltig_bis || daten.gueltig_bis) && onNavigate && (
+                            <button
+                              type="button"
+                              onClick={() => onNavigate('kalender', { date: offerte.gueltig_bis || daten.gueltig_bis })}
+                              className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Im Kalender ansehen"
+                            >
+                              <span>📅 Im Kalender ansehen</span>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-sm font-medium text-text-primary flex items-center gap-2">
+                          <span>{daten.konditionen?.gueltigkeit || '30 Tage'}</span>
+                          {(offerte.gueltig_bis || daten.gueltig_bis) && (
+                            <span className="text-xs text-text-secondary">
+                              (bis {formatDate(offerte.gueltig_bis || daten.gueltig_bis)})
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Zahlungsfrist</label>
@@ -1536,6 +1776,179 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
             onNavigate('offerten', { offerteId: newId, edit: true })
           }}
         />
+      )}
+
+      {/* Archive Modal */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowArchiveModal(false)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              📁
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Offerte archivieren?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du die Offerte <strong>#{offerte.offerte_nr || offerte.id}</strong> wirklich archivieren? Sie wird in der Hauptliste ausgeblendet und kann jederzeit wiederhergestellt werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleArchive}
+                disabled={isUpdating}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isUpdating ? 'Wird archiviert...' : 'Ja, archivieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-2xl mb-4">
+              🗑️
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Offerte löschen?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du diese Offerte wirklich unwiderruflich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDeleteOfferte}
+                disabled={isUpdating}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isUpdating ? 'Löscht...' : 'Unwiderruflich löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Convert to Rechnung Modal */}
+      {showConvertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowConvertModal(false)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
+              🧾
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">In Rechnung umwandeln?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du aus dieser Offerte eine neue Rechnung erstellen? Der Status der Offerte wechselt automatisch auf &quot;Verrechnet&quot;.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmConvertToRechnung}
+                disabled={isUpdating}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                {isUpdating ? 'Erstellt...' : 'Rechnung erstellen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard Changes Modal */}
+      {showDiscardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDiscardModal(false)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              ⚠️
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Änderungen verwerfen?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du den Bearbeitungsmodus wirklich verlassen? Alle nicht gespeicherten Änderungen an dieser Offerte gehen verloren.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setShowDiscardModal(false)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Weiter bearbeiten
+              </button>
+              <button
+                onClick={confirmDiscardChanges}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                Änderungen verwerfen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Attachment Modal */}
+      {deleteAttachmentTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setDeleteAttachmentTarget(null)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-2xl mb-4">
+              📎
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Anhang löschen?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du diese Datei wirklich aus den Anhängen entfernen?
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setDeleteAttachmentTarget(null)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmDeleteAttachment}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                Anhang löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Termin Modal for scheduling appointments */}
+      {isTerminModalOpen && (
+        <TerminModal
+          isOpen={isTerminModalOpen}
+          onClose={() => {
+            setIsTerminModalOpen(false)
+            setTerminModalInitial(null)
+          }}
+          onSave={handleSaveTermin}
+          initialData={terminModalInitial}
+          projekte={projekteList.length > 0 ? projekteList : (projekt ? [projekt] : [])}
+          kunden={kundenList.length > 0 ? kundenList : (kunde ? [kunde] : [])}
+        />
+      )}
+
+      {/* Feedback Toast */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
       )}
     </div>
   )

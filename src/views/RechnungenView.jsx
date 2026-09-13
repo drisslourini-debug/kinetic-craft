@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
+import { navigateBack } from '../lib/router'
 import RechnungDetailView from './RechnungDetailView'
 import DocumentCreateModal from '../components/DocumentCreateModal'
 import { calculateRechnungStatus } from '../lib/statusLogic'
@@ -20,61 +21,77 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
   const [showArchived, setShowArchived] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
 
-  useEffect(() => {
-    async function fetchRechnungen() {
-      if (!supabase) return
-      
-      try {
-        setIsLoading(true)
-        const { data, error } = await supabase
-          .from('rechnungen')
-          .select('*, kunden(name), projekte(name, adresse)')
-          .order('created_at', { ascending: false })
-          
-        if (error) throw error
+  const fetchRechnungen = useCallback(async () => {
+    if (!supabase) return
+    
+    try {
+      setIsLoading(true)
+      const { data, error } = await supabase
+        .from('rechnungen')
+        .select('*, kunden(name), projekte(name, adresse)')
+        .order('created_at', { ascending: false })
         
-        if (data) {
-          // Auto-overdue logic
-          const today = new Date()
-          const updatesByStatus = {}
-          
-          for (const r of data) {
-            const calculatedStatus = calculateRechnungStatus(r, today)
-            if (calculatedStatus !== r.status) {
-              r.status = calculatedStatus
-              if (!updatesByStatus[calculatedStatus]) updatesByStatus[calculatedStatus] = []
-              updatesByStatus[calculatedStatus].push(r.id)
-            }
-          }
-          
-          if (Object.keys(updatesByStatus).length > 0) {
-            for (const [newStatus, ids] of Object.entries(updatesByStatus)) {
-              await supabase.from('rechnungen').update({ status: newStatus }).in('id', ids)
-            }
-          }
-          
-          setRechnungen(data)
-          if (viewParams?.rechnungId && !selectedRechnung) {
-            const rech = data.find(x => x.id === viewParams.rechnungId)
-            if (rech) setSelectedRechnung(rech)
+      if (error) throw error
+      
+      if (data) {
+        // Auto-overdue logic
+        const today = new Date()
+        const updatesByStatus = {}
+        
+        for (const r of data) {
+          const calculatedStatus = calculateRechnungStatus(r, today)
+          if (calculatedStatus !== r.status) {
+            r.status = calculatedStatus
+            if (!updatesByStatus[calculatedStatus]) updatesByStatus[calculatedStatus] = []
+            updatesByStatus[calculatedStatus].push(r.id)
           }
         }
-      } catch (err) {
-        console.error('Error fetching rechnungen:', err)
-      } finally {
-        setIsLoading(false)
+        
+        if (Object.keys(updatesByStatus).length > 0) {
+          for (const [newStatus, ids] of Object.entries(updatesByStatus)) {
+            await supabase.from('rechnungen').update({ status: newStatus }).in('id', ids)
+          }
+        }
+        
+        setRechnungen(data)
+        if (viewParams?.rechnungId) {
+          const rech = data.find(x => x.id === viewParams.rechnungId)
+          if (rech) setSelectedRechnung(rech)
+        }
       }
+    } catch (err) {
+      console.error('Error fetching rechnungen:', err)
+    } finally {
+      setIsLoading(false)
     }
-    
-    fetchRechnungen()
+  }, [viewParams?.rechnungId])
 
-    if (viewParams?.action === 'create') {
-      setShowWizard(true)
+  useEffect(() => {
+    fetchRechnungen()
+  }, [fetchRechnungen])
+
+  // Sync selectedRechnung with viewParams
+  useEffect(() => {
+    if (!rechnungen.length) return
+    if (viewParams?.rechnungId) {
+      const rech = rechnungen.find(x => x.id === viewParams.rechnungId)
+      if (rech && (!selectedRechnung || selectedRechnung.id !== rech.id)) {
+        setSelectedRechnung(rech)
+      }
+    } else if (!viewParams?.rechnungId && selectedRechnung) {
+      setSelectedRechnung(null)
     }
-  }, [viewParams, showWizard])
+  }, [viewParams?.rechnungId, rechnungen, selectedRechnung])
+
+  useEffect(() => {
+    if (viewParams?.action === 'create' && !selectedRechnung) {
+      setShowWizard(true)
+    } else if (viewParams?.action !== 'create' && showWizard) {
+      setShowWizard(false)
+    }
+  }, [viewParams?.action, selectedRechnung, showWizard])
 
   const stats = useMemo(() => {
-    const todayStr = new Date().toISOString().split('T')[0]
     const currentYear = new Date().getFullYear().toString()
     
     let offeneCount = 0
@@ -166,7 +183,17 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
   }
 
   if (selectedRechnung) {
-    return <RechnungDetailView rechnung={selectedRechnung} onBack={() => setSelectedRechnung(null)} onNavigate={onNavigate} userRole={userRole} />
+    return (
+      <RechnungDetailView 
+        rechnung={selectedRechnung} 
+        onBack={() => {
+          navigateBack('rechnungen')
+          fetchRechnungen()
+        }} 
+        onNavigate={onNavigate} 
+        userRole={userRole} 
+      />
+    )
   }
 
   let filteredRechnungen = rechnungen.filter(r => {
@@ -238,7 +265,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
         <div>
           {userRole !== 'treuhand' && (
             <button
-              onClick={() => setShowWizard(true)}
+              onClick={() => onNavigate ? onNavigate('rechnungen', { action: 'create' }) : setShowWizard(true)}
               className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,8 +346,17 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Rechnungen suchen nach Nummer, Kunde oder Projekt..."
-            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-base leading-none transition-colors cursor-pointer"
+              aria-label="Suche zurücksetzen"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-start sm:items-center">
@@ -383,14 +419,19 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
             {filteredRechnungen.map((r) => (
             <div
               key={r.id}
-              onClick={() => setSelectedRechnung(r)}
+              onClick={() => onNavigate ? onNavigate('rechnungen', { rechnungId: r.id }) : setSelectedRechnung(r)}
               className="flex flex-col lg:grid lg:grid-cols-[140px_1.5fr_1.5fr_100px_120px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] border-l-emerald-500 hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
             >
-              <div className="flex items-center justify-between w-full lg:w-auto">
+              <div className="flex items-center justify-between w-full lg:w-auto gap-2">
                 <span className="text-sm font-mono font-bold text-primary-600">
                   {r.rechnung_nr || `#${r.id}`}
                 </span>
-                <span className="lg:hidden text-xs text-text-secondary">{formatDate(r.faellig_am)}</span>
+                {r.is_archived && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                    📁 Archiviert
+                  </span>
+                )}
+                <span className="lg:hidden text-xs text-text-secondary ml-auto">{formatDate(r.faellig_am)}</span>
               </div>
 
               <div className="flex flex-col">
@@ -429,7 +470,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
               {/* Mobile Action Bar */}
               <div className="flex lg:hidden w-full gap-2 mt-3 pt-3 border-t border-gray-100">
                 <button 
-                  onClick={() => setSelectedRechnung(r)}
+                  onClick={() => onNavigate ? onNavigate('rechnungen', { rechnungId: r.id }) : setSelectedRechnung(r)}
                   className="flex-1 flex justify-center items-center gap-1.5 py-3 min-h-[48px] bg-primary-50 text-primary-700 rounded-lg text-base font-medium border border-primary-100 active:scale-[0.98] transition-transform"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -446,7 +487,13 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
         <DocumentCreateModal 
           type="rechnung"
           isOpen={showWizard}
-          onClose={() => setShowWizard(false)}
+          onClose={() => {
+            if (viewParams?.action === 'create') {
+              navigateBack('rechnungen')
+            } else {
+              setShowWizard(false)
+            }
+          }}
           onNavigate={onNavigate}
         />
       )}

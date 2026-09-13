@@ -9,6 +9,8 @@ vi.mock('../../lib/supabase', () => ({
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: {}, error: null }),
       single: vi.fn().mockResolvedValue({ data: {}, error: null })
     }))
   }
@@ -69,5 +71,55 @@ describe('RechnungDetailView', () => {
 
     const bearbeitenBtn = screen.getByRole('button', { name: /Bearbeiten/i })
     expect(bearbeitenBtn).toBeInTheDocument()
+  })
+
+  it('navigates to calendar when "Im Kalender ansehen" is clicked', async () => {
+    const onNavigateMock = vi.fn()
+    const rechnungWithDueDate = {
+      ...mockRechnung,
+      faellig_am: '2026-10-31'
+    }
+
+    render(<RechnungDetailView rechnung={rechnungWithDueDate} onBack={vi.fn()} onNavigate={onNavigateMock} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lädt.../i)).not.toBeInTheDocument()
+    })
+
+    const calBtn = screen.getByRole('button', { name: /Im Kalender ansehen/i })
+    expect(calBtn).toBeInTheDocument()
+    calBtn.click()
+
+    expect(onNavigateMock).toHaveBeenCalledWith('kalender', { date: '2026-10-31' })
+  })
+
+  it('opens appointment modal when clicking "Zahlungserinnerung / Termin" from action menu', async () => {
+    render(<RechnungDetailView rechnung={mockRechnung} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lädt.../i)).not.toBeInTheDocument()
+    })
+
+    // Open action menu (3 dots)
+    const actionMenuBtns = screen.getAllByRole('button')
+    const threeDotBtn = actionMenuBtns.find(b => b.querySelector('svg circle') || b.innerHTML.includes('circle'))
+    if (threeDotBtn) {
+      threeDotBtn.click()
+    } else {
+      // Fallback find button containing SVG with dots
+      const svgBtns = actionMenuBtns.filter(b => b.querySelector('svg'))
+      svgBtns[svgBtns.length - 1].click()
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText(/Zahlungserinnerung \/ Termin/i)).toBeInTheDocument()
+    })
+
+    const terminBtn = screen.getByText(/Zahlungserinnerung \/ Termin/i)
+    terminBtn.click()
+
+    await waitFor(() => {
+      expect(screen.getByText(/Neuer Termin erfassen/i)).toBeInTheDocument()
+    })
   })
 })

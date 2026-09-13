@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import CameraCapture from '../components/CameraCapture'
 
 const FolderIcon = ({ className = "w-10 h-10 text-amber-400" }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -27,6 +28,20 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   const [sortDirection, setSortDirection] = useState('asc')
   
   const [isUploading, setIsUploading] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Modals & Toast
+  const [uploadModal, setUploadModal] = useState(null)
+  const [renameModal, setRenameModal] = useState(null)
+  const [deleteModal, setDeleteModal] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
+
+  const showToast = (type, text) => {
+    setToast({ type, text })
+    setTimeout(() => setToast(null), 4000)
+  }
 
   // Navigation State (Breadcrumbs)
   const [currentPath, setCurrentPath] = useState([{ type: 'root', id: 'root', name: 'Archiv' }])
@@ -60,6 +75,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   }, [])
 
   const fetchData = async () => {
+    if (!supabase) return
     try {
       setIsLoading(true)
       const [dateienRes, kundenRes, projekteRes] = await Promise.all([
@@ -77,7 +93,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
       setProjekte(projekteRes.data || [])
     } catch (err) {
       console.error('Error fetching data:', err)
-      alert('Fehler beim Laden der Daten.')
+      showToast('error', 'Fehler beim Laden der Dateien.')
     } finally {
       setIsLoading(false)
     }
@@ -227,23 +243,47 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     }
 
     return { folders, files }
-  }, [currentFolder, dateien, kunden, projekte, searchTerm, sortField, sortDirection])
+  }, [currentFolder, dateien, kunden, projekte, recentFiles, searchTerm, sortField, sortDirection])
 
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0]
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
     if (!file) return
 
     const fileExt = file.name.split('.').pop()
     const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
-    const userPrompt = window.prompt('Bitte Dateiname eingeben (ohne Endung):', baseName)
+
+    setUploadModal({
+      file,
+      baseName,
+      fileExt,
+      name: baseName
+    })
+
+    e.target.value = null
+  }
+
+  const handleCameraCapture = (blob) => {
+    const now = new Date()
+    const d = now.toISOString().split('T')[0]
+    const t = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+    const fileName = `foto_${d}_${t}.jpg`
+    const file = new File([blob], fileName, { type: 'image/jpeg' })
     
-    if (userPrompt === null) {
-      e.target.value = null
-      return
-    }
-    
-    const finalName = userPrompt.trim() ? `${userPrompt.trim()}.${fileExt}` : file.name
+    setUploadModal({
+      file,
+      baseName: `foto_${d}_${t}`,
+      fileExt: 'jpg',
+      name: `foto_${d}_${t}`
+    })
+  }
+
+  const handleConfirmUpload = async () => {
+    if (!uploadModal || !uploadModal.file) return
+    const { file, fileExt, name } = uploadModal
+
+    const trimmedName = name?.trim() || uploadModal.baseName
+    const finalName = `${trimmedName}.${fileExt}`
 
     // Determine upload context
     let kunde_id = null
@@ -293,44 +333,73 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
       const { error: dbError } = await supabase.from('dateien').insert([payload])
       if (dbError) throw dbError
 
+      showToast('success', `Datei "${finalName}" erfolgreich hochgeladen.`)
+      setUploadModal(null)
       fetchData()
     } catch (err) {
-      console.error(err)
-      alert('Upload fehlgeschlagen')
+      console.error('Upload error:', err)
+      showToast('error', 'Upload fehlgeschlagen.')
     } finally {
       setIsUploading(false)
-      e.target.value = null
     }
   }
 
-  const handleRename = async (id, oldName) => {
-    const fileExt = oldName.split('.').pop()
-    const baseName = oldName.substring(0, oldName.lastIndexOf('.')) || oldName
-    const userPrompt = window.prompt('Neuer Dateiname (ohne Endung):', baseName)
-    
-    if (!userPrompt || userPrompt.trim() === baseName) return
+  const handleOpenRename = (file) => {
+    const fileExt = file.name.split('.').pop()
+    const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+    setRenameModal({
+      id: file.id,
+      oldName: file.name,
+      baseName,
+      fileExt,
+      name: baseName
+    })
+  }
 
-    const newName = `${userPrompt.trim()}.${fileExt}`
+  const handleConfirmRename = async () => {
+    if (!renameModal) return
+    const { id, fileExt, name, baseName } = renameModal
+    const trimmed = name?.trim() || baseName
+    const newName = `${trimmed}.${fileExt}`
+
+    if (newName === renameModal.oldName) {
+      setRenameModal(null)
+      return
+    }
 
     try {
+      setIsRenaming(true)
       const { error } = await supabase.from('dateien').update({ name: newName }).eq('id', id)
       if (error) throw error
       setDateien(prev => prev.map(d => d.id === id ? { ...d, name: newName } : d))
+      showToast('success', `Datei in "${newName}" umbenannt.`)
+      setRenameModal(null)
     } catch (err) {
-      console.error(err)
-      alert('Umbenennen fehlgeschlagen')
+      console.error('Rename error:', err)
+      showToast('error', 'Umbenennen fehlgeschlagen.')
+    } finally {
+      setIsRenaming(false)
     }
   }
 
-  const handleDelete = async (id) => {
-    if(!window.confirm('Datei unwiderruflich löschen?')) return
+  const handleRequestDelete = (file) => {
+    setDeleteModal(file)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal) return
     try {
-      const { error } = await supabase.from('dateien').delete().eq('id', id)
+      setIsDeleting(true)
+      const { error } = await supabase.from('dateien').delete().eq('id', deleteModal.id)
       if (error) throw error
-      setDateien(prev => prev.filter(d => d.id !== id))
+      setDateien(prev => prev.filter(d => d.id !== deleteModal.id))
+      showToast('success', `Datei "${deleteModal.name}" wurde gelöscht.`)
+      setDeleteModal(null)
     } catch (err) {
-      console.error(err)
-      alert('Löschen fehlgeschlagen')
+      console.error('Delete error:', err)
+      showToast('error', 'Löschen fehlgeschlagen.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -409,14 +478,24 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
             {isKundenExpanded && (
               <div className="mt-2 ml-4 border-l border-border pl-2 space-y-1">
                 <div className="px-2 mb-2 relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                   <input 
                     type="text" 
                     placeholder="Suchen..." 
                     value={treeSearch}
                     onChange={e => setTreeSearch(e.target.value)}
-                    className="w-full pl-7 pr-2 py-1 bg-gray-50 border border-border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
+                  {treeSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setTreeSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full text-xs cursor-pointer"
+                      title="Suche zurücksetzen"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 {filteredKundenTree.map(k => (
                   <button
@@ -502,13 +581,24 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
 
           <div className="flex items-center gap-3 shrink-0 ml-4">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               <input
                 type="text"
+                placeholder="Dateien durchsuchen..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-48 xl:w-64 pl-9 pr-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-500"
+                className="w-48 xl:w-64 pl-9 pr-8 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-500"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full cursor-pointer text-xs"
+                  title="Suche zurücksetzen"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <div className="flex bg-gray-100 rounded-lg p-1 border border-border">
@@ -526,11 +616,22 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
               </button>
             </div>
 
+            {userRole !== 'treuhand' && (
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className="md:hidden inline-flex items-center justify-center gap-1.5 px-3 py-3 sm:py-2 min-h-[48px] bg-emerald-600 text-white text-base sm:text-sm font-semibold rounded-lg hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm"
+              >
+                <span>📷</span>
+                <span>Foto aufnehmen</span>
+              </button>
+            )}
+
             {userRole !== 'treuhand' && (currentFolder.type === 'kategorie' || currentFolder.id === 'buchhaltung_root' || currentFolder.id === 'intern_root' || currentFolder.id === 'offerten_root' || currentFolder.id === 'root') && (
               <label className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 min-h-[48px] bg-primary-600 text-white text-base sm:text-sm font-semibold rounded-lg hover:bg-primary-700 cursor-pointer transition-colors shadow-sm">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 {isUploading ? 'Lädt...' : 'Hochladen'}
-                <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                <input type="file" className="hidden" onChange={handleFileSelect} disabled={isUploading} />
               </label>
             )}
           </div>
@@ -541,11 +642,25 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
           {isLoading ? (
             <div className="flex justify-center items-center h-full text-text-secondary">Lädt Inhalt...</div>
           ) : currentContents.folders.length === 0 && currentContents.files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-text-secondary space-y-4 animate-fade-in">
+            <div className="flex flex-col items-center justify-center h-full text-text-secondary space-y-4 animate-fade-in text-center px-4">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center">
                 <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" /></svg>
               </div>
-              <p>Dieser Ordner ist leer.</p>
+              {searchTerm ? (
+                <>
+                  <p className="font-semibold text-text-primary">Keine Dateien oder Ordner gefunden</p>
+                  <p className="text-sm text-gray-500">Es wurden keine Treffer für "{searchTerm}" gefunden.</p>
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="text-sm text-primary-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Suche zurücksetzen
+                  </button>
+                </>
+              ) : (
+                <p>Dieser Ordner ist leer.</p>
+              )}
             </div>
           ) : (
             <>
@@ -595,10 +710,10 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                         )}
                         {userRole !== 'treuhand' && (
                           <>
-                            <button onClick={() => handleRename(file.id, file.name)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
+                            <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
-                            <button onClick={() => handleDelete(file.id)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
+                            <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </>
@@ -686,10 +801,10 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                               )}
                               {userRole !== 'treuhand' && (
                                 <>
-                                  <button onClick={() => handleRename(file.id, file.name)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                  <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                   </button>
-                                  <button onClick={() => handleDelete(file.id)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
+                                  <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
                                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                   </button>
                                 </>
@@ -706,6 +821,210 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
           )}
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {uploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-scale-in">
+            <div className="flex items-center gap-3 text-primary-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Datei hochladen</h3>
+                <p className="text-xs text-gray-500">Zielordner: {currentFolder.name}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                  Dateiname (ohne Endung)
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    value={uploadModal.name}
+                    onChange={e => setUploadModal({ ...uploadModal, name: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') handleConfirmUpload() }}
+                    autoFocus
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                  <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-sm text-gray-500 font-medium">
+                    .{uploadModal.fileExt}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 flex justify-between">
+                <span>Dateigrösse: {formatBytes(uploadModal.file.size)}</span>
+                <span>Typ: {uploadModal.file.type || uploadModal.fileExt}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setUploadModal(null)}
+                disabled={isUploading}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUpload}
+                disabled={isUploading}
+                className="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isUploading && (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isUploading ? 'Lädt hoch...' : 'Hochladen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {renameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-scale-in">
+            <div className="flex items-center gap-3 text-amber-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Datei umbenennen</h3>
+                <p className="text-xs text-gray-500">Bisheriger Name: {renameModal.oldName}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                  Neuer Dateiname (ohne Endung)
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    value={renameModal.name}
+                    onChange={e => setRenameModal({ ...renameModal, name: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') handleConfirmRename() }}
+                    autoFocus
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  />
+                  <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-sm text-gray-500 font-medium">
+                    .{renameModal.fileExt}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRenameModal(null)}
+                disabled={isRenaming}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRename}
+                disabled={isRenaming}
+                className="px-5 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isRenaming ? 'Speichert...' : 'Speichern'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-scale-in">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Datei löschen</h3>
+                <p className="text-xs text-gray-500">Dieser Vorgang kann nicht rückgängig gemacht werden.</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Möchtest du die Datei <strong className="text-gray-900 font-semibold">"{deleteModal.name}"</strong> wirklich unwiderruflich löschen?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting && (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isDeleting ? 'Wird gelöscht...' : 'Endgültig löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+            toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+            toast.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
+            'bg-blue-50 text-blue-800 border-blue-200'
+          }`}>
+            <span>
+              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '⚠️' : 'ℹ️'}
+            </span>
+            <span>{toast.text}</span>
+            <button 
+              type="button" 
+              onClick={() => setToast(null)}
+              className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <CameraCapture 
+        isOpen={showCamera} 
+        onClose={() => setShowCamera(false)} 
+        onCapture={handleCameraCapture} 
+      />
     </div>
   )
 }

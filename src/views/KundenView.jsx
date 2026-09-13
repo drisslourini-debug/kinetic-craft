@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/formatters'
+import { navigateBack } from '../lib/router'
 import KundeDetailView from './KundeDetailView'
 import KundeCreateModal from './KundeCreateModal'
 import StatCard from '../components/StatCard'
@@ -16,10 +17,17 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [archiveConfirmKunde, setArchiveConfirmKunde] = useState(null)
+  const [feedbackToast, setFeedbackToast] = useState(null)
   
   // Sort state
   const [sortField, setSortField] = useState('name')
   const [sortDirection, setSortDirection] = useState('asc')
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
 
   useEffect(() => {
     async function fetchKunden() {
@@ -39,7 +47,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         
         if (data) {
           setKunden(data)
-          if (viewParams?.kundeId && !selectedKunde) {
+          if (viewParams?.kundeId) {
             const kunde = data.find(x => x.id === viewParams.kundeId)
             if (kunde) setSelectedKunde(kunde)
           }
@@ -52,13 +60,28 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       }
     }
     fetchKunden()
-  }, [viewParams, selectedKunde])
+  }, [])
+
+  // Sync selectedKunde with viewParams
+  useEffect(() => {
+    if (!kunden.length) return
+    if (viewParams?.kundeId) {
+      const kunde = kunden.find(x => x.id === viewParams.kundeId)
+      if (kunde && (!selectedKunde || selectedKunde.id !== kunde.id)) {
+        setSelectedKunde(kunde)
+      }
+    } else if (!viewParams?.kundeId && selectedKunde) {
+      setSelectedKunde(null)
+    }
+  }, [viewParams?.kundeId, kunden, selectedKunde])
 
   useEffect(() => {
     if (viewParams?.action === 'create' && !selectedKunde) {
       setIsCreateModalOpen(true)
+    } else if (viewParams?.action !== 'create' && isCreateModalOpen) {
+      setIsCreateModalOpen(false)
     }
-  }, [viewParams, selectedKunde])
+  }, [viewParams?.action, selectedKunde, isCreateModalOpen])
 
   if (selectedKunde) {
     return (
@@ -68,7 +91,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         userRole={userRole}
         initialTab={viewParams?.activeTab || 'stammdaten'}
         onBack={() => {
-          setSelectedKunde(null)
+          navigateBack('kunden')
           // Refresh list to show potentially updated names
           supabase.from('kunden').select('*').order('name', { ascending: true })
             .then(({ data }) => { if (data) setKunden(data) })
@@ -82,6 +105,8 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
     const term = searchTerm.toLowerCase()
     return (
       (k.name || '').toLowerCase().includes(term) ||
+      (k.kundennummer || '').toLowerCase().includes(term) ||
+      (k.anrede || '').toLowerCase().includes(term) ||
       (k.firmenname || '').toLowerCase().includes(term) ||
       (k.vorname || '').toLowerCase().includes(term) ||
       (k.nachname || '').toLowerCase().includes(term) ||
@@ -123,18 +148,37 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
     return sortDirection === 'asc' ? <span className="text-primary-600">↑</span> : <span className="text-primary-600">↓</span>
   }
 
-  const handleDeleteKunde = async (id, e) => {
-    if (e) e.stopPropagation()
-    setActiveMenuId(null)
-    if (!window.confirm('Kunden wirklich ins Archiv verschieben?')) return
-    
+  const handleArchiveKunde = async () => {
+    if (!archiveConfirmKunde) return
+    const id = archiveConfirmKunde.id
     try {
       const { error } = await supabase.from('kunden').update({ is_archived: true }).eq('id', id)
       if (error) throw error
-      setKunden(prev => prev.filter(k => k.id !== id))
+      if (!showArchived) {
+        setKunden(prev => prev.filter(k => k.id !== id))
+      } else {
+        setKunden(prev => prev.map(k => k.id === id ? { ...k, is_archived: true } : k))
+      }
+      showToast('success', 'Kunde ins Archiv verschoben.')
     } catch (err) {
       console.error(err)
-      alert('Fehler beim Archivieren')
+      showToast('error', 'Fehler beim Archivieren.')
+    } finally {
+      setArchiveConfirmKunde(null)
+    }
+  }
+
+  const handleRestoreKunde = async (id, e) => {
+    if (e) e.stopPropagation()
+    setActiveMenuId(null)
+    try {
+      const { error } = await supabase.from('kunden').update({ is_archived: false }).eq('id', id)
+      if (error) throw error
+      setKunden(prev => prev.map(k => k.id === id ? { ...k, is_archived: false } : k))
+      showToast('success', 'Kunde aus dem Archiv wiederhergestellt.')
+    } catch (err) {
+      console.error(err)
+      showToast('error', 'Fehler beim Wiederherstellen.')
     }
   }
 
@@ -160,7 +204,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         <div>
           {userRole !== 'treuhand' && (
             <button 
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => onNavigate ? onNavigate('kunden', { action: 'create' }) : setIsCreateModalOpen(true)}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
             >
               <span className="text-lg">+</span>
@@ -226,9 +270,20 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Kunden suchen nach Name, Firma, Ort..."
-            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            placeholder="Kunden suchen nach Name, Nr (z.B. K-1001), Firma, Ort..."
+            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary rounded-lg transition-colors cursor-pointer"
+              title="Suche zurücksetzen"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
           <input 
@@ -292,7 +347,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
           return (
               <div
                 key={kunde.id}
-                onClick={() => setSelectedKunde(kunde)}
+                onClick={() => onNavigate ? onNavigate('kunden', { kundeId: kunde.id }) : setSelectedKunde(kunde)}
                 className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
               >
               {/* Primary Info */}
@@ -301,7 +356,14 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
                   {displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <div className="font-bold text-base lg:text-sm text-text-primary truncate pr-2">{displayName}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-base lg:text-sm text-text-primary truncate">{displayName}</span>
+                    {kunde.kundennummer && (
+                      <span className="font-mono text-[11px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-200 shrink-0">
+                        {kunde.kundennummer}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs lg:hidden text-text-secondary truncate mt-0.5">
                     📍 {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
                   </span>
@@ -358,13 +420,19 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
               {/* Status */}
               <div className="absolute top-4 right-14 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                  kunde.status === 'Aktiv'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {kunde.status || 'Aktiv'}
-                </span>
+                {kunde.is_archived ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
+                    <span>📁</span> Archiviert
+                  </span>
+                ) : (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                    kunde.status === 'Aktiv'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {kunde.status || 'Aktiv'}
+                  </span>
+                )}
               </div>
 
               {/* Quick Actions (3-dot Menu) */}
@@ -414,13 +482,23 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
                           
                           <div className="my-1 border-t border-border"></div>
                           
-                          <button 
-                            onClick={(e) => handleDeleteKunde(kunde.id, e)} 
-                            className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                          >
-                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Archivieren
-                          </button>
+                          {kunde.is_archived ? (
+                            <button 
+                              onClick={(e) => handleRestoreKunde(kunde.id, e)} 
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-medium"
+                            >
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                              Wiederherstellen
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmKunde(kunde); }} 
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Archivieren
+                            </button>
+                          )}
                         </div>
                       </div>
                     </>
@@ -433,16 +511,66 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         </div>
       </div>
 
+      {/* Archive Confirmation Modal */}
+      {archiveConfirmKunde && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setArchiveConfirmKunde(null)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              📁
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Kunde archivieren?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du <strong>{archiveConfirmKunde.firmenname || archiveConfirmKunde.name}</strong> wirklich archivieren? Der Kunde kann jederzeit über die Filterfunktion wiederhergestellt werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setArchiveConfirmKunde(null)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleArchiveKunde}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                Ja, archivieren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Modal */}
       {isCreateModalOpen && (
         <KundeCreateModal 
-          onClose={() => setIsCreateModalOpen(false)}
+          onClose={() => {
+            if (viewParams?.action === 'create') {
+              navigateBack('kunden')
+            } else {
+              setIsCreateModalOpen(false)
+            }
+          }}
           onSuccess={(newKunde) => {
-            setKunden([...kunden, newKunde])
+            setKunden(prev => [...prev, newKunde])
             setIsCreateModalOpen(false)
-            setSelectedKunde(newKunde)
+            if (onNavigate) {
+              onNavigate('kunden', { kundeId: newKunde.id }, { replace: true })
+            } else {
+              setSelectedKunde(newKunde)
+            }
+            showToast('success', 'Kunde erfolgreich erstellt.')
           }}
         />
+      )}
+
+      {/* Feedback Toast */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
       )}
     </div>
   )

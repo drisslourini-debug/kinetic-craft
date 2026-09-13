@@ -39,10 +39,11 @@ export const WORD_PAGE_MARGINS = { top: 1134, right: 1417, bottom: 1417, left: 1
  * Generates the address header paragraphs (company line + customer address).
  */
 export function generateAddressParagraphs(kunde, settings) {
+  const compPlzOrt = (settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : (settings?.plz_ort || '')
   return [
     new Paragraph({
       children: [
-        new TextRun({ text: `${settings?.firmenname || ''} · ${settings?.strasse || ''} · ${settings?.plz_ort || ''}`, size: 14, color: '999999' })
+        new TextRun({ text: `${settings?.firmenname || ''} · ${settings?.strasse || ''} · ${compPlzOrt}`, size: 14, color: '999999' })
       ],
       spacing: { after: 200 }
     }),

@@ -12,7 +12,6 @@ export default function KundeSettings({
   draft,
   isEditing,
   isSaving,
-  validationErrors,
   onEdit,
   onCancel,
   onSave,

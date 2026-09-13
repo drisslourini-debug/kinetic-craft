@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/formatters'
+import { navigateBack } from '../lib/router'
 import ProjektDetailView from './ProjektDetailView'
 import ProjektCreateModal from './ProjektCreateModal'
 import StatCard from '../components/StatCard'
@@ -15,7 +16,14 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
+  const [archiveConfirmProjekt, setArchiveConfirmProjekt] = useState(null)
+  const [feedbackToast, setFeedbackToast] = useState(null)
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
 
   useEffect(() => {
     async function fetchProjekte() {
@@ -31,7 +39,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         if (error) throw error
         if (data) {
           setProjekte(data)
-          if (viewParams?.projektId && !selectedProjekt) {
+          if (viewParams?.projektId) {
             const p = data.find(x => x.id === viewParams.projektId)
             if (p) setSelectedProjekt(p)
           }
@@ -44,17 +52,33 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
     }
     
     fetchProjekte()
-    
-    // Check viewParams for create action
-    if (viewParams?.action === 'create') {
-      setIsCreateModalOpen(true)
+  }, [])
+
+  // Sync selectedProjekt with viewParams
+  useEffect(() => {
+    if (!projekte.length) return
+    if (viewParams?.projektId) {
+      const p = projekte.find(x => x.id === viewParams.projektId)
+      if (p && (!selectedProjekt || selectedProjekt.id !== p.id)) {
+        setSelectedProjekt(p)
+      }
+    } else if (!viewParams?.projektId && selectedProjekt) {
+      setSelectedProjekt(null)
     }
-  }, [viewParams])
+  }, [viewParams?.projektId, projekte, selectedProjekt])
+
+  useEffect(() => {
+    if (viewParams?.action === 'create' && !selectedProjekt) {
+      setIsCreateModalOpen(true)
+    } else if (viewParams?.action !== 'create' && isCreateModalOpen) {
+      setIsCreateModalOpen(false)
+    }
+  }, [viewParams?.action, selectedProjekt, isCreateModalOpen])
 
   const statusColor = {
     'Aktiv': 'bg-primary-100 text-primary-700',
-    'In Arbeit': 'bg-amber-100 text-amber-700',
-    'Abgeschlossen': 'bg-emerald-100 text-emerald-700',
+    'In Arbeit': 'bg-emerald-100 text-emerald-700',
+    'Abgeschlossen': 'bg-blue-100 text-blue-700',
   }
 
   if (selectedProjekt) {
@@ -65,7 +89,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         userRole={userRole}
         initialTab={viewParams?.activeTab || 'projektdaten'}
         onBack={() => {
-          setSelectedProjekt(null)
+          navigateBack('projekte')
           // Refresh to capture potential name/status changes
           supabase.from('projekte').select('*, kunden(name)').order('created_at', { ascending: false })
             .then(({ data }) => { if (data) setProjekte(data) })
@@ -113,18 +137,37 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
     return sortConfig.direction === 'asc' ? <span className="text-primary-600 ml-1">↑</span> : <span className="text-primary-600 ml-1">↓</span>
   }
 
-  const handleDeleteProjekt = async (id, e) => {
-    if (e) e.stopPropagation()
-    setActiveMenuId(null)
-    if (!window.confirm('Projekt wirklich ins Archiv verschieben?')) return
-    
+  const handleArchiveProjekt = async () => {
+    if (!archiveConfirmProjekt) return
+    const id = archiveConfirmProjekt.id
     try {
       const { error } = await supabase.from('projekte').update({ is_archived: true }).eq('id', id)
       if (error) throw error
-      setProjekte(prev => prev.filter(p => p.id !== id))
+      if (!showArchived) {
+        setProjekte(prev => prev.filter(p => p.id !== id))
+      } else {
+        setProjekte(prev => prev.map(p => p.id === id ? { ...p, is_archived: true } : p))
+      }
+      showToast('success', 'Projekt ins Archiv verschoben.')
     } catch (err) {
       console.error(err)
-      alert('Fehler beim Archivieren')
+      showToast('error', 'Fehler beim Archivieren.')
+    } finally {
+      setArchiveConfirmProjekt(null)
+    }
+  }
+
+  const handleRestoreProjekt = async (id, e) => {
+    if (e) e.stopPropagation()
+    setActiveMenuId(null)
+    try {
+      const { error } = await supabase.from('projekte').update({ is_archived: false }).eq('id', id)
+      if (error) throw error
+      setProjekte(prev => prev.map(p => p.id === id ? { ...p, is_archived: false } : p))
+      showToast('success', 'Projekt aus dem Archiv wiederhergestellt.')
+    } catch (err) {
+      console.error(err)
+      showToast('error', 'Fehler beim Wiederherstellen.')
     }
   }
 
@@ -145,7 +188,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         </div>
         {userRole !== 'treuhand' && (
           <button 
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
           >
             <span className="text-lg">+</span>
@@ -211,8 +254,18 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Projekte suchen nach Name, Adresse oder Kunde..."
-            className="w-full pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-lg leading-none cursor-pointer"
+              title="Suche zurücksetzen"
+            >
+              &times;
+            </button>
+          )}
         </div>
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
           <input 
@@ -249,7 +302,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
               return (
               <div
                 key={p.id}
-                onClick={() => setSelectedProjekt(p)}
+                onClick={() => onNavigate ? onNavigate('projekte', { projektId: p.id }) : setSelectedProjekt(p)}
                 className={`flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${statusColorClass} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 cursor-pointer items-start lg:items-center relative group`}
               >
                 {/* Primary Info */}
@@ -295,15 +348,21 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
 
                 {/* Status */}
                 <div className="absolute bottom-4 right-4 lg:relative lg:bottom-0 lg:right-0 lg:flex lg:items-center lg:justify-center">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
-                    {p.status === 'In Arbeit' && (
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                    )}
-                    {p.status || 'Aktiv'}
-                  </span>
+                  {p.is_archived ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                      <span>📁</span> Archiviert
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
+                      {p.status === 'In Arbeit' && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      )}
+                      {p.status || 'Aktiv'}
+                    </span>
+                  )}
                 </div>
 
                 {/* Quick Actions (3-dot Menu) */}
@@ -328,6 +387,30 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                               <svg className="w-5 h-5 sm:w-4 sm:h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               Details anzeigen
                             </button>
+
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setActiveMenuId(null); 
+                                if (onNavigate) onNavigate('kalender', { date: p.startdatum || undefined, projektId: p.id }); 
+                              }} 
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <span className="text-base sm:text-sm">📅</span>
+                              Im Kalender anzeigen
+                            </button>
+
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setActiveMenuId(null); 
+                                if (onNavigate) onNavigate('kalender', { action: 'create', projektId: p.id, date: p.startdatum || new Date().toISOString().split('T')[0] }); 
+                              }} 
+                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <span className="text-base sm:text-sm">➕</span>
+                              Termin erfassen
+                            </button>
                             
                             {p.adresse && (
                               <a 
@@ -344,13 +427,27 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                             
                             <div className="my-1 border-t border-border"></div>
                             
-                            <button 
-                              onClick={(e) => handleDeleteProjekt(p.id, e)} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                            >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Archivieren
-                            </button>
+                            {p.is_archived ? (
+                              <button 
+                                onClick={(e) => handleRestoreProjekt(p.id, e)} 
+                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                Wiederherstellen
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuId(null);
+                                  setArchiveConfirmProjekt(p);
+                                }} 
+                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Archivieren
+                              </button>
+                            )}
                           </div>
                         </div>
                       </>
@@ -363,17 +460,67 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         </div>
       )}
 
+      {/* Archive Confirmation Modal */}
+      {archiveConfirmProjekt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setArchiveConfirmProjekt(null)}>
+          <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
+              📁
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Projekt archivieren?</h3>
+            <p className="text-text-secondary text-sm mb-6 leading-relaxed">
+              Möchtest du <strong>{archiveConfirmProjekt.name}</strong> wirklich archivieren? Das Projekt kann jederzeit über die Filterfunktion wiederhergestellt werden.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setArchiveConfirmProjekt(null)}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleArchiveProjekt}
+                className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-2.5 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                Ja, archivieren
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Modal */}
       {isCreateModalOpen && (
         <ProjektCreateModal 
-          onClose={() => setIsCreateModalOpen(false)}
+          onClose={() => {
+            if (viewParams?.action === 'create') {
+              navigateBack('projekte')
+            } else {
+              setIsCreateModalOpen(false)
+            }
+          }}
           prefilledKundeId={viewParams?.kundeId}
           onSuccess={(newProjekt) => {
             setProjekte([newProjekt, ...projekte])
             setIsCreateModalOpen(false)
-            setSelectedProjekt(newProjekt)
+            if (onNavigate) {
+              onNavigate('projekte', { projektId: newProjekt.id }, { replace: true })
+            } else {
+              setSelectedProjekt(newProjekt)
+            }
+            showToast('success', 'Projekt erfolgreich erstellt.')
           }}
         />
+      )}
+
+      {/* Feedback Toast */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
       )}
     </div>
   )

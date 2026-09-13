@@ -20,7 +20,6 @@ export default function RechnungHeader({
   userRole
 }) {
   const [showActionMenu, setShowActionMenu] = useState(false)
-  const daten = rechnung?.daten || {}
 
   const handleBackClick = () => {
     onBack() // warning logic is handled in parent
@@ -149,6 +148,7 @@ export default function RechnungHeader({
             )}
           </div>
         </div>
+      </div>
       </div>
 
       {/* Warnung bei ungespeicherten Änderungen, falls man Quick Actions nutzen will */}

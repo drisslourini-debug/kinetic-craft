@@ -859,7 +859,7 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
 }
 
 
-function StepTexte({ data, onChange }) {
+function StepAbschluss({ formData, flatLeistungen, onChangeKonditionen, onChangeTexte }) {
   const EINLEITUNG_TEMPLATES = [
     { label: 'Standard', text: 'Gerne stellen wir Ihnen folgende Arbeiten in Rechnung:' },
     { label: 'Förmlich', text: 'Für die erbrachten Leistungen erlauben wir uns, Ihnen folgende Rechnung zu stellen:' },
@@ -871,52 +871,149 @@ function StepTexte({ data, onChange }) {
     { label: 'Zahlungsziel', text: 'Wir bitten um Überweisung des Rechnungsbetrags innert der angegebenen Zahlungsfrist.' }
   ]
 
-  return (
-    <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6 animate-fade-in">
-      <div>
-        <h3 className="text-lg font-bold text-text-primary mb-2">Begrüssungs- & Abschlusstext</h3>
-        <p className="text-sm text-text-secondary">Wähle eine Vorlage oder schreibe einen eigenen Text für das PDF.</p>
-      </div>
+  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal } = calculateDocumentTotals(
+    flatLeistungen,
+    formData.konditionen,
+    null
+  )
 
-      <div className="space-y-4">
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-semibold text-text-primary">Einleitungstext</label>
-            <div className="flex gap-1">
-              {EINLEITUNG_TEMPLATES.map((t, i) => (
-                <button key={i} onClick={() => onChange({ ...data, einleitungstext: t.text })} className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors">
-                  {t.label}
-                </button>
-              ))}
+  const isAkonto = formData.rechnungsdetails?.typ === 'Akontorechnung' && formData.rechnungsdetails?.akonto
+  const akontoProzent = isAkonto ? parseFloat(formData.rechnungsdetails.akonto) : null
+  const akontoBetrag = isAkonto ? finalTotal * (akontoProzent / 100) : null
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* ── Konditionen & Zusammenfassung ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold text-text-primary">Konditionen</h3>
+          <p className="text-sm text-text-secondary">Rabatt und Mehrwertsteuersatz anpassen.</p>
+          
+          <div className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary block mb-1">Rabatt (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={formData.konditionen?.rabatt ?? '0'}
+                onChange={(e) => onChangeKonditionen({ ...formData.konditionen, rabatt: e.target.value })}
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-secondary block mb-1">MwSt. (%)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={formData.konditionen?.mwst ?? '8.1'}
+                onChange={(e) => onChangeKonditionen({ ...formData.konditionen, mwst: e.target.value })}
+                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                placeholder="8.1"
+              />
             </div>
           </div>
-          <textarea
-            rows={3}
-            value={data.einleitungstext}
-            onChange={(e) => onChange({ ...data, einleitungstext: e.target.value })}
-            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
-            placeholder="Text eingeben..."
-          />
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-semibold text-text-primary">Schlusstext</label>
-            <div className="flex gap-1">
-              {SCHLUSS_TEMPLATES.map((t, i) => (
-                <button key={i} onClick={() => onChange({ ...data, schlusstext: t.text })} className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors">
-                  {t.label}
-                </button>
-              ))}
+        {/* Zusammenfassung */}
+        <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-text-primary mb-1">Zusammenfassung</h3>
+            <p className="text-sm text-text-secondary mb-4">Berechnete Summen vor Generierung.</p>
+            
+            <div className="space-y-2 text-sm border-t border-border pt-3">
+              <div className="flex justify-between text-text-secondary">
+                <span>Zwischensumme:</span>
+                <span className="font-medium font-mono">{formatMoney(rawTotal)} CHF</span>
+              </div>
+              {parseFloat(formData.konditionen?.rabatt || 0) > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Rabatt ({formData.konditionen.rabatt}%):</span>
+                  <span className="font-medium font-mono">-{formatMoney(rabattBetrag)} CHF</span>
+                </div>
+              )}
+              <div className="flex justify-between text-text-secondary">
+                <span>MwSt. ({formData.konditionen?.mwst || 8.1}%):</span>
+                <span className="font-medium font-mono">+{formatMoney(mwstBetrag)} CHF</span>
+              </div>
+              {isAkonto && (
+                <div className="flex justify-between text-primary-600 font-semibold border-t border-dashed border-border pt-2">
+                  <span>Akonto ({akontoProzent}% von Total):</span>
+                  <span className="font-mono">{formatMoney(akontoBetrag)} CHF</span>
+                </div>
+              )}
             </div>
           </div>
-          <textarea
-            rows={3}
-            value={data.schlusstext}
-            onChange={(e) => onChange({ ...data, schlusstext: e.target.value })}
-            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
-            placeholder="Text eingeben..."
-          />
+
+          <div className="mt-6 pt-4 border-t-2 border-border flex justify-between items-baseline">
+            <span className="text-base font-bold text-text-primary">Fälliger Betrag:</span>
+            <span className="text-2xl font-black text-primary-600 font-mono">
+              {formatMoney(isAkonto ? akontoBetrag : finalTotal)} CHF
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Texte ── */}
+      <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-text-primary mb-1">Begrüssungs- & Abschlusstext</h3>
+          <p className="text-sm text-text-secondary">Wähle eine Vorlage oder schreibe einen eigenen Text für das PDF.</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-semibold text-text-primary">Einleitungstext</label>
+              <div className="flex gap-1">
+                {EINLEITUNG_TEMPLATES.map((t, i) => (
+                  <button 
+                    key={i} 
+                    type="button"
+                    onClick={() => onChangeTexte({ ...formData.texte, einleitungstext: t.text })} 
+                    className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors cursor-pointer"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea
+              rows={3}
+              value={formData.texte?.einleitungstext || ''}
+              onChange={(e) => onChangeTexte({ ...formData.texte, einleitungstext: e.target.value })}
+              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+              placeholder="Text eingeben..."
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-semibold text-text-primary">Schlusstext</label>
+              <div className="flex gap-1">
+                {SCHLUSS_TEMPLATES.map((t, i) => (
+                  <button 
+                    key={i} 
+                    type="button"
+                    onClick={() => onChangeTexte({ ...formData.texte, schlusstext: t.text })} 
+                    className="text-xs bg-surface border border-border px-2 py-1 rounded hover:bg-primary-50 hover:text-primary-600 transition-colors cursor-pointer"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea
+              rows={3}
+              value={formData.texte?.schlusstext || ''}
+              onChange={(e) => onChangeTexte({ ...formData.texte, schlusstext: e.target.value })}
+              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+              placeholder="Text eingeben..."
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -932,13 +1029,12 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
   const [errors, setErrors] = useState({})
   const [catalog, setCatalog] = useState(null)
   const [kundenList, setKundenList] = useState([])
+  const [showDiscardModal, setShowDiscardModal] = useState(false)
   
   const handleCloseWithConfirm = () => {
     const hasData = formData.kunde.id || formData.projekt.name || bloecke.some(b => b.positionen.length > 0)
     if (hasData && !submitSuccess) {
-      if (window.confirm('Möchten Sie den Entwurf wirklich verwerfen? Alle ungespeicherten Daten gehen verloren.')) {
-        onClose()
-      }
+      setShowDiscardModal(true)
     } else {
       onClose()
     }
@@ -949,7 +1045,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
     async function loadCatalog() {
       // 0. Settings laden
       try {
-        const { data: setts } = await supabase.from('einstellungen').select('*').limit(1).single()
+        const { data: setts } = await supabase.from('einstellungen').select('*').limit(1).maybeSingle()
         if (setts) {
           setSettings(setts)
           setFormData(prev => ({ 
@@ -1020,7 +1116,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         })
         
       // 3. Einstellungen laden
-      supabase.from('einstellungen').select('*').limit(1).single()
+      supabase.from('einstellungen').select('*').limit(1).maybeSingle()
         .then(({ data, error }) => {
           if (!error && data) {
             setFormData(prev => ({
@@ -1033,7 +1129,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
           }
         })
     }
-  }, [])
+  }, [prefilledKundeId])
 
   // API states
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -1088,7 +1184,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
 
   const goNext = () => {
     if (!validateStep(currentStep)) return
-    setCurrentStep((s) => Math.min(s + 1, 5))
+    setCurrentStep((s) => Math.min(s + 1, 4))
   }
 
   const goBack = () => {
@@ -1219,6 +1315,9 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
             onChangeKonditionen={(konditionen) =>
               setFormData((prev) => ({ ...prev, konditionen }))
             }
+            onChangeTexte={(texte) =>
+              setFormData((prev) => ({ ...prev, texte }))
+            }
           />
         )
       default:
@@ -1259,7 +1358,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
           {/* SUCCESS UI */}
           {submitSuccess && (
             <RechnungPrintView 
-              Rechnung={submitSuccess} 
+              rechnung={submitSuccess} 
               kunde={submitSuccess.kunden} 
               projekt={submitSuccess.projekte} 
               onClose={onClose} 
@@ -1295,7 +1394,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
               <div />
             )}
 
-            {currentStep < 5 ? (
+            {currentStep < 4 ? (
               <button
                 onClick={goNext}
                 className="w-full sm:w-auto min-h-[48px] inline-flex justify-center items-center gap-1.5 px-6 py-3 sm:py-2.5 bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
@@ -1335,6 +1434,38 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         </footer>
       )}
       </div>
+
+      {/* Discard Modal */}
+      {showDiscardModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Entwurf verwerfen?</h3>
+            <p className="text-text-secondary mb-6 text-sm">
+              Möchten Sie den Entwurf wirklich verwerfen? Alle ungespeicherten Daten gehen verloren.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowDiscardModal(false)}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={() => {
+                  setShowDiscardModal(false)
+                  onClose()
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors cursor-pointer"
+              >
+                Verwerfen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

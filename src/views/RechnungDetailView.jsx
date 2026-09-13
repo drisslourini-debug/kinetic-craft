@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import RechnungPrintView from './RechnungPrintView'
-import { generateRechnungWord } from '../lib/rechnungWordGenerator'
-import { formatCurrency, formatMoney, formatDate } from '../lib/formatters'
+import { formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr } from '../lib/documentService'
 import KatalogDrawer from '../components/KatalogDrawer'
+import TerminModal from '../components/kalender/TerminModal'
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
+import { useModalHistory } from '../hooks/useModalHistory'
 
 export default function RechnungDetailView({ rechnung, onBack, onNavigate, userRole }) {
   const [kunde, setKunde] = useState(null)
@@ -17,6 +19,20 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
+
+  // Modals & Feedback
+  const [showArchiveModal, setShowArchiveModal] = useState(false)
+  const [showRestoreModal, setShowRestoreModal] = useState(false)
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [showDiscardModal, setShowDiscardModal] = useState(false)
+  const [feedbackToast, setFeedbackToast] = useState(null)
+  const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
+  const [terminModalInitial, setTerminModalInitial] = useState(null)
+
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
 
   // Stammdaten edit state
   const [isDirty, setIsDirty] = useState(false)
@@ -42,6 +58,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [editPauschalpreis, setEditPauschalpreis] = useState(null)
   const [isPauschal, setIsPauschal] = useState(false)
   const [showLivePreview, setShowLivePreview] = useState(false)
+
+  useUnsavedChanges(isDirty || isEditing)
+  useModalHistory(showPrintView, () => setShowPrintView(false), 'print_rechnung')
+  useModalHistory(showKatalogDrawer, () => setShowKatalogDrawer(false), 'katalog_drawer')
 
   useEffect(() => {
     async function loadDetails() {
@@ -71,8 +91,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         const { data: sData } = await supabase
           .from('einstellungen')
           .select('*')
-          .limit(1)
-          .single()
+          .maybeSingle()
         if (sData) setSettings(sData)
 
       } catch (err) {
@@ -133,9 +152,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       rechnung.notizen = editStammdaten.notizen
       rechnung.faellig_am = faellig_am
       setIsDirty(false)
+      showToast('success', 'Stammdaten erfolgreich gespeichert!')
     } catch (err) {
       console.error('Failed to update stammdaten:', err)
-      alert('Fehler beim Speichern.')
+      showToast('error', 'Fehler beim Speichern der Stammdaten.')
     } finally {
       setIsUpdating(false)
     }
@@ -150,21 +170,21 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   }
 
   const handleArchive = async () => {
-    if (!window.confirm('Rechnung wirklich archivieren?')) return
     setIsUpdating(true)
     try {
       await supabase.from('rechnungen').update({ is_archived: true }).eq('id', rechnung.id)
-      onBack()
+      rechnung.is_archived = true
+      showToast('success', 'Rechnung archiviert.')
+      setTimeout(() => onBack(), 1200)
     } catch (err) {
       console.error('Fehler beim Archivieren:', err)
-      alert('Fehler beim Archivieren.')
+      showToast('error', 'Fehler beim Archivieren.')
     } finally {
       setIsUpdating(false)
     }
   }
 
   const handleDuplicate = async () => {
-    if (!window.confirm('Diese Rechnung wirklich kopieren?')) return
     setIsUpdating(true)
     try {
       const newNr = await generateNextRechnungNr(supabase)
@@ -186,12 +206,14 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         .select()
       if (error) throw error
       if (data && data.length > 0) {
-        alert(`Rechnung ${newNr} dupliziert!`)
-        window.location.reload()
+        showToast('success', `Rechnung ${newNr} dupliziert!`)
+        setTimeout(() => {
+          if (onBack) onBack()
+        }, 1500)
       }
     } catch (err) {
       console.error('Fehler beim Duplizieren:', err)
-      alert('Fehler beim Duplizieren')
+      showToast('error', 'Fehler beim Duplizieren.')
     } finally {
       setIsUpdating(false)
     }
@@ -199,7 +221,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
   const handleDelete = async () => {
     if (status !== 'Entwurf') {
-      alert('Achtung: Nur Entwürfe können endgültig gelöscht werden. Bitte storniere oder archiviere diese Rechnung stattdessen.')
+      showToast('error', 'Achtung: Nur Entwürfe können endgültig gelöscht werden. Bitte storniere oder archiviere diese Rechnung stattdessen.')
       setShowDeleteWarning(false)
       return
     }
@@ -207,10 +229,11 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     setIsUpdating(true)
     try {
       await supabase.from('rechnungen').delete().eq('id', rechnung.id)
-      onBack()
+      showToast('success', 'Rechnung gelöscht.')
+      setTimeout(() => onBack(), 1000)
     } catch (err) {
       console.error('Fehler beim Löschen:', err)
-      alert('Fehler beim Löschen der Rechnung.')
+      showToast('error', 'Fehler beim Löschen der Rechnung.')
     } finally {
       setIsUpdating(false)
       setShowDeleteWarning(false)
@@ -234,12 +257,44 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       rechnung.bezahlt = parseFloat(paymentAmount)
       rechnung.bezahlt_am = paymentDate
       rechnung.status = 'Bezahlt'
-      alert('Zahlung erfolgreich erfasst!')
+      showToast('success', 'Zahlung erfolgreich erfasst!')
     } catch (err) {
       console.error('Fehler beim Erfassen der Zahlung:', err)
-      alert('Fehler beim Speichern der Zahlung.')
+      showToast('error', 'Fehler beim Speichern der Zahlung.')
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  const openPlanTermin = (type = 'Zahlungserinnerung') => {
+    setTerminModalInitial({
+      titel: `${type}: RE #${rechnung.rechnung_nr || rechnung.id} - ${kunde?.name || ''}`.trim(),
+      typ: 'Besprechung',
+      datum: rechnung.faellig_am || new Date().toISOString().split('T')[0],
+      kunden_id: rechnung.kunden_id ? String(rechnung.kunden_id) : '',
+      projekt_id: rechnung.projekt_id ? String(rechnung.projekt_id) : '',
+      ort: projekt?.adresse || kunde?.adresse || (kunde ? `${kunde.strasse || ''}, ${kunde.plz || ''} ${kunde.ort || ''}`.trim() : ''),
+      beschreibung: `Erinnerung bezüglich Rechnung ${rechnung.rechnung_nr || '#' + rechnung.id} (Total: CHF ${formatMoney(rechnung.total || 0)})`
+    })
+    setIsTerminModalOpen(true)
+  }
+
+  const handleSaveTermin = async (formData, terminId) => {
+    try {
+      if (terminId) {
+        const { error } = await supabase.from('termine').update(formData).eq('id', terminId)
+        if (error) throw error
+        showToast('success', 'Termin aktualisiert.')
+      } else {
+        const { error } = await supabase.from('termine').insert([formData])
+        if (error) throw error
+        showToast('success', 'Termin im Kalender erfasst.')
+      }
+      setIsTerminModalOpen(false)
+      setTerminModalInitial(null)
+    } catch (err) {
+      console.error('Fehler beim Speichern des Termins:', err)
+      showToast('error', err.message || 'Fehler beim Speichern des Termins.')
     }
   }
 
@@ -264,8 +319,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   }
 
   const cancelEditing = () => {
-    if (!window.confirm('Änderungen verwerfen?')) return
-    setIsEditing(false)
+    setShowDiscardModal(true)
   }
 
   const saveEditing = async () => {
@@ -295,10 +349,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       rechnung.daten = updatedDaten
       rechnung.total = finalTotal
       setIsEditing(false)
-      alert('Rechnung gespeichert!')
+      showToast('success', 'Rechnung erfolgreich gespeichert!')
     } catch (err) {
       console.error('Fehler beim Speichern:', err)
-      alert('Fehler beim Speichern der Rechnung.')
+      showToast('error', 'Fehler beim Speichern der Rechnung.')
     } finally {
       setIsUpdating(false)
     }
@@ -357,7 +411,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   // Parse daten safely
   const daten = rechnung.daten || {}
   const leistungen = daten.leistungen || []
-  const { rawTotal, rabattBetrag, totalNachRabatt, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
   const mwst = parseFloat(daten.konditionen?.mwst || 0)
 
@@ -368,7 +422,6 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const editMwstBetrag = editTotals.mwstBetrag
   const editFinalTotal = editTotals.finalTotal
   const editOptionalTotal = editTotals.optionenTotal
-  const editNachRabatt = editTotals.totalNachRabatt
 
   const previewRechnung = isEditing ? {
     ...rechnung,
@@ -475,34 +528,46 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 <div className="absolute right-0 top-12 w-56 bg-surface-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-slide-in-right sm:animate-fade-in-up">
                   <div className="p-1">
                     <button 
-                      onClick={() => { setShowActionMenu(false); handleDuplicate(); }}
+                      onClick={() => { setShowActionMenu(false); openPlanTermin('Zahlungserinnerung'); }}
+                      disabled={isDirty || isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <span className="text-lg">📅</span> Zahlungserinnerung / Termin
+                    </button>
+                    <button 
+                      onClick={() => { setShowActionMenu(false); setShowDuplicateModal(true); }}
                       disabled={isDirty || isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span className="text-lg">📋</span> Duplizieren
                     </button>
                     <button 
-                      onClick={async () => {
+                      onClick={() => {
                         setShowActionMenu(false);
                         if (rechnung.is_archived) {
-                          if (!window.confirm('Rechnung wiederherstellen?')) return
-                          setIsUpdating(true)
-                          try {
-                            await supabase.from('rechnungen').update({ is_archived: false }).eq('id', rechnung.id)
-                            window.location.reload()
-                          } catch (err) {
-                            console.error('Fehler beim Wiederherstellen:', err)
-                          } finally {
-                            setIsUpdating(false)
-                          }
+                          setShowRestoreModal(true);
                         } else {
-                          handleArchive();
+                          setShowArchiveModal(true);
                         }
                       }}
                       disabled={isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span className="text-lg">📦</span> {rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowActionMenu(false);
+                        if (status !== 'Entwurf') {
+                          showToast('error', 'Nur Entwürfe können gelöscht werden. Bitte storniere oder archiviere diese Rechnung stattdessen.')
+                        } else {
+                          setShowDeleteWarning(true);
+                        }
+                      }}
+                      disabled={isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer mt-1 border-t border-border pt-2"
+                    >
+                      <span className="text-lg">🗑️</span> Rechnung löschen
                     </button>
                   </div>
                 </div>
@@ -512,6 +577,22 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           )}
         </div>
       </div>
+
+      {/* Archived Banner */}
+      {rechnung.is_archived && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3 mt-4 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📁</span>
+            <span>Diese Rechnung ist <strong>archiviert</strong>.</span>
+          </div>
+          <button
+            onClick={() => setShowRestoreModal(true)}
+            className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+          >
+            Wiederherstellen
+          </button>
+        </div>
+      )}
 
       {/* Warnung bei ungespeicherten Änderungen, falls man Quick Actions nutzen will */}
       {(isDirty || isEditing) && (
@@ -686,9 +767,22 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-2 block">Fälligkeitsdatum (automatisch)</label>
-                    <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50">
-                      {rechnung.faellig_am ? formatDate(rechnung.faellig_am) : 'Wird beim Speichern berechnet'}
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-primary-600 block">Fälligkeitsdatum (automatisch)</label>
+                      {(rechnung.faellig_am || rechnung.daten?.faellig_am) && onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('kalender', { date: rechnung.faellig_am || rechnung.daten?.faellig_am })}
+                          className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Im Kalender ansehen"
+                        >
+                          <span>📅 Im Kalender ansehen</span>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                      )}
+                    </div>
+                    <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50 flex items-center justify-between">
+                      <span>{rechnung.faellig_am || rechnung.daten?.faellig_am ? formatDate(rechnung.faellig_am || rechnung.daten?.faellig_am) : 'Wird beim Speichern berechnet'}</span>
                     </div>
                   </div>
                 </div>
@@ -1236,6 +1330,172 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           onClose={() => setShowKatalogDrawer(false)}
           onInsert={handleInsertFromKatalog}
         />
+      )}
+
+      {/* Archive Modal */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
+              <span className="text-2xl">📦</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung archivieren?</h3>
+            <p className="text-text-secondary mb-6 text-sm">
+              Die Rechnung wird archiviert und aus der Standardübersicht ausgeblendet.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowArchiveModal(false)}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={() => {
+                  setShowArchiveModal(false)
+                  handleArchive()
+                }}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-medium transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isUpdating ? 'Archiviere...' : 'Archivieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Modal */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-emerald-200">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+              <span className="text-2xl">♻️</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung wiederherstellen?</h3>
+            <p className="text-text-secondary mb-6 text-sm">
+              Die Rechnung wird wieder in die aktive Liste aufgenommen.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowRestoreModal(false)}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={async () => {
+                  setShowRestoreModal(false)
+                  setIsUpdating(true)
+                  try {
+                    await supabase.from('rechnungen').update({ is_archived: false }).eq('id', rechnung.id)
+                    rechnung.is_archived = false
+                    showToast('success', 'Rechnung erfolgreich wiederhergestellt!')
+                  } catch (err) {
+                    console.error('Fehler beim Wiederherstellen:', err)
+                    showToast('error', 'Fehler beim Wiederherstellen.')
+                  } finally {
+                    setIsUpdating(false)
+                  }
+                }}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isUpdating ? 'Speichert...' : 'Wiederherstellen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+            <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center mb-4">
+              <span className="text-2xl">📋</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung duplizieren?</h3>
+            <p className="text-text-secondary mb-6 text-sm">
+              Es wird eine neue Rechnung mit neu generierter Nummer als Entwurf angelegt.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowDuplicateModal(false)}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={() => {
+                  setShowDuplicateModal(false)
+                  handleDuplicate()
+                }}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isUpdating ? 'Kopiere...' : 'Duplizieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard Modal */}
+      {showDiscardModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
+              <span className="text-2xl">↩️</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Bearbeitung abbrechen?</h3>
+            <p className="text-text-secondary mb-6 text-sm">
+              Alle ungespeicherten Änderungen an Positionen und Texten gehen verloren.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowDiscardModal(false)}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Weiter bearbeiten
+              </button>
+              <button 
+                onClick={() => {
+                  setShowDiscardModal(false)
+                  setIsEditing(false)
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors cursor-pointer"
+              >
+                Änderungen verwerfen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Termin Modal for scheduling payment reminders / appointments */}
+      {isTerminModalOpen && (
+        <TerminModal
+          isOpen={isTerminModalOpen}
+          onClose={() => {
+            setIsTerminModalOpen(false)
+            setTerminModalInitial(null)
+          }}
+          onSave={handleSaveTermin}
+          initialData={terminModalInitial}
+          projekte={projekt ? [projekt] : []}
+          kunden={kunde ? [kunde] : []}
+        />
+      )}
+
+      {/* Feedback Toast */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-[110] px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
       )}
     </div>
   )

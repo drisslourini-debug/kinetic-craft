@@ -83,11 +83,13 @@ export function ProjektTermineBlock({
   onCancel,
   onSave,
   onChange,
-  disabled
+  disabled,
+  termineCount,
+  onOpenTermineTab
 }) {
   return (
     <SettingsBlock
-      title="Termine"
+      title="Termine & Laufzeit"
       isEditing={isEditing}
       onEdit={onEdit}
       onCancel={onCancel}
@@ -98,6 +100,27 @@ export function ProjektTermineBlock({
         <>
           <SettingsRow label="Startdatum" value={formatDate(projekt.startdatum)} />
           <SettingsRow label="Enddatum" value={formatDate(projekt.enddatum)} />
+          {termineCount !== undefined && (
+            <SettingsRow 
+              label="Einsätze & Termine" 
+              value={
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-semibold text-text-primary">
+                    {termineCount} {termineCount === 1 ? 'Termin erfasst' : 'Termine erfasst'}
+                  </span>
+                  {onOpenTermineTab && (
+                    <button
+                      type="button"
+                      onClick={onOpenTermineTab}
+                      className="text-xs font-bold text-primary-600 hover:text-primary-800 transition-colors cursor-pointer"
+                    >
+                      Zur Terminübersicht →
+                    </button>
+                  )}
+                </div>
+              } 
+            />
+          )}
         </>
       }
     >

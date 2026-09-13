@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatDate, formatCurrency } from '../lib/formatters'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import AusgabeCreateModal from './AusgabeCreateModal'
+import { useModalHistory } from '../hooks/useModalHistory'
 
 export default function BuchhaltungView({ onNavigate, userRole }) {
   const [ausgaben, setAusgaben] = useState([])
@@ -12,6 +13,21 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
   const [isExporting, setIsExporting] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingAusgabe, setEditingAusgabe] = useState(null)
+
+  useModalHistory(isCreateModalOpen || !!editingAusgabe, () => {
+    setIsCreateModalOpen(false)
+    setEditingAusgabe(null)
+  }, 'ausgabe_modal')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [ausgabeToDelete, setAusgabeToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (type, text) => {
+    setToast({ type, text })
+    setTimeout(() => setToast(null), 4000)
+  }
+
   const [kpis, setKpis] = useState({
     einnahmen: 0,
     ausgaben: 0,
@@ -25,11 +41,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
   const [filterQuarter, setFilterQuarter] = useState('All') // 'All', 'Q1', 'Q2', 'Q3', 'Q4'
   const [filterCategory, setFilterCategory] = useState('')
 
-  useEffect(() => {
-    fetchBuchhaltungData()
-  }, [filterYear, filterQuarter])
-
-  const fetchBuchhaltungData = async () => {
+  const fetchBuchhaltungData = useCallback(async () => {
     if (!supabase) return
     setIsLoading(true)
     
@@ -55,7 +67,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
       // 2. Fetch Rechnungen for Einnahmen & geschuldete MwSt
       const { data: invoices, error: invoiceError } = await supabase
         .from('rechnungen')
-        .select('id, rechnungsnummer, total, konditionen, daten, status, projekt_id, projekte(name)')
+        .select('id, rechnung_nr, total, daten, status, projekt_id, projekte(name)')
         .eq('is_archived', false)
         .in('status', ['Bezahlt', 'Teilbezahlt'])
 
@@ -138,21 +150,34 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
 
     } catch (err) {
       console.error('Error fetching buchhaltung:', err)
+      showToast('error', 'Fehler beim Laden der Buchhaltungsdaten.')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filterYear, filterQuarter])
 
+  useEffect(() => {
+    fetchBuchhaltungData()
+  }, [fetchBuchhaltungData])
 
-  // Filter out data if a category is selected
-  const filteredAusgaben = filterCategory 
-    ? ausgaben.filter(a => a.kategorie === filterCategory)
-    : ausgaben
+  const categories = [...new Set(ausgaben.map(a => a.kategorie).filter(Boolean))]
 
-  const categories = [...new Set(ausgaben.map(a => a.kategorie))]
+  // Filter out data by category and search term
+  const filteredAusgaben = ausgaben.filter(a => {
+    const matchesCategory = !filterCategory || a.kategorie === filterCategory
+    const term = searchTerm.toLowerCase().trim()
+    const matchesSearch = !term ||
+      (a.titel && a.titel.toLowerCase().includes(term)) ||
+      (a.projekte?.name && a.projekte.name.toLowerCase().includes(term)) ||
+      (a.kategorie && a.kategorie.toLowerCase().includes(term))
+    return matchesCategory && matchesSearch
+  })
 
   const handleExportZIP = async () => {
-    if (filteredAusgaben.length === 0 && einnahmen.length === 0) return alert('Keine Daten zum Exportieren')
+    if (filteredAusgaben.length === 0 && einnahmen.length === 0) {
+      showToast('info', 'Keine Daten zum Exportieren vorhanden.')
+      return
+    }
     
     setIsExporting(true)
     try {
@@ -164,13 +189,13 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
         const ausgabenRows = filteredAusgaben.map(a => {
           return [
             formatDate(a.beleg_datum),
-            `"${a.titel.replace(/"/g, '""')}"`,
-            `"${a.kategorie}"`,
-            `"${a.projekte?.name?.replace(/"/g, '""') || ''}"`,
-            a.betrag_netto.toFixed(2),
-            a.mwst_satz,
-            a.mwst_betrag.toFixed(2),
-            a.betrag_brutto.toFixed(2),
+            `"${(a.titel || '').replace(/"/g, '""')}"`,
+            `"${(a.kategorie || '').replace(/"/g, '""')}"`,
+            `"${(a.projekte?.name || '').replace(/"/g, '""')}"`,
+            (parseFloat(a.betrag_netto) || 0).toFixed(2),
+            a.mwst_satz ?? 0,
+            (parseFloat(a.mwst_betrag) || 0).toFixed(2),
+            (parseFloat(a.betrag_brutto) || 0).toFixed(2),
             a.beleg_url || ''
           ].join(',')
         })
@@ -183,9 +208,9 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
         const einnahmenHeaders = ['Rechnungsnummer', 'Status', 'Projekt', 'Total CHF']
         const einnahmenRows = einnahmen.map(r => {
           return [
-            r.rechnungsnummer || r.id,
+            r.rechnung_nr || r.rechnungsnummer || r.id,
             r.status,
-            `"${r.projekte?.name?.replace(/"/g, '""') || ''}"`,
+            `"${(r.projekte?.name || '').replace(/"/g, '""')}"`,
             r.total
           ].join(',')
         })
@@ -201,7 +226,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
             const response = await fetch(a.beleg_url)
             const blob = await response.blob()
             const ext = a.beleg_url.split('.').pop().split('?')[0] || 'pdf'
-            const safeTitle = a.titel.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+            const safeTitle = (a.titel || 'beleg').replace(/[^a-z0-9]/gi, '_').toLowerCase()
             belegeFolder.file(`Beleg_${a.beleg_datum}_${safeTitle}.${ext}`, blob)
           } catch (e) {
             console.error('Fehler beim Download des Belegs:', a.beleg_url, e)
@@ -212,10 +237,10 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
       // --- ZIP GENERIEREN & DOWNLOAD ---
       const content = await zip.generateAsync({ type: 'blob' })
       saveAs(content, `Treuhand_Export_${filterYear}_${filterQuarter}.zip`)
-      
+      showToast('success', 'Treuhand-Export ZIP wurde erfolgreich erstellt und heruntergeladen.')
     } catch (error) {
       console.error('Export Fehler:', error)
-      alert('Fehler beim Erstellen des ZIP-Exports.')
+      showToast('error', 'Fehler beim Erstellen des ZIP-Exports.')
     } finally {
       setIsExporting(false)
     }
@@ -229,30 +254,38 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
         .eq('id', ausgabe.id)
 
       if (error) throw error
+      showToast('success', 'Ausgabe wurde als bezahlt markiert.')
       fetchBuchhaltungData() // Refresh list and KPIs
     } catch (err) {
       console.error('Error marking as paid:', err)
-      alert('Fehler beim Aktualisieren des Status.')
+      showToast('error', 'Fehler beim Aktualisieren des Status.')
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Möchtest du diese Ausgabe wirklich löschen?')) return
+  const handleRequestDelete = (ausgabe) => {
+    setAusgabeToDelete(ausgabe)
+  }
 
+  const handleConfirmDelete = async () => {
+    if (!ausgabeToDelete) return
+    setIsDeleting(true)
     try {
       const { error } = await supabase
         .from('ausgaben')
         .delete()
-        .eq('id', id)
+        .eq('id', ausgabeToDelete.id)
       
       if (error) throw error
       
-      setAusgaben(prev => prev.filter(a => a.id !== id))
-      // Recalculate KPIs by re-fetching
+      setAusgaben(prev => prev.filter(a => a.id !== ausgabeToDelete.id))
+      showToast('success', 'Ausgabe wurde erfolgreich gelöscht.')
+      setAusgabeToDelete(null)
       fetchBuchhaltungData()
     } catch (err) {
       console.error('Error deleting ausgabe:', err)
-      alert('Fehler beim Löschen der Ausgabe.')
+      showToast('error', 'Fehler beim Löschen der Ausgabe.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -389,13 +422,43 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
       {/* Filters & List */}
       <div className="bg-white border border-gray-200/60 rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col min-h-[500px]">
         {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">
-          <h3 className="font-bold text-text-primary">Ausgaben / Belege</h3>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="p-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-gray-50/30">
+          <div className="flex items-center gap-3">
+            <h3 className="font-bold text-text-primary">Ausgaben / Belege</h3>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+              {filteredAusgaben.length} {filteredAusgaben.length === 1 ? 'Eintrag' : 'Einträge'}
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            {/* Search Input */}
+            <div className="relative min-w-[220px]">
+              <input
+                type="text"
+                placeholder="Ausgabe oder Projekt suchen..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              />
+              <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full cursor-pointer text-sm"
+                  title="Suche zurücksetzen"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
             <select
               value={filterCategory}
               onChange={e => setFilterCategory(e.target.value)}
-              className="w-full sm:w-auto px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              className="px-3 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             >
               <option value="">Alle Kategorien</option>
               {categories.map(cat => (
@@ -405,7 +468,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
             <select
               value={filterQuarter}
               onChange={e => setFilterQuarter(e.target.value)}
-              className="w-full sm:w-auto px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-primary-500 outline-none font-semibold text-primary-700 bg-primary-50"
+              className="px-3 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none font-semibold text-primary-700 bg-primary-50"
             >
               <option value="All">Ganzes Jahr</option>
               <option value="Q1">Q1 (Jan-Mär)</option>
@@ -416,7 +479,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
             <select
               value={filterYear}
               onChange={e => setFilterYear(e.target.value)}
-              className="w-full sm:w-auto px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 border border-gray-300 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              className="px-3 py-2 min-h-[44px] sm:min-h-0 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             >
               <option value={currentYear.toString()}>{currentYear}</option>
               <option value={(currentYear - 1).toString()}>{currentYear - 1}</option>
@@ -432,9 +495,22 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             </div>
           ) : filteredAusgaben.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-48 text-gray-500">
+            <div className="flex flex-col justify-center items-center h-48 text-gray-500 text-center px-4">
               <div className="text-3xl mb-2">🧾</div>
-              <p>Keine Ausgaben in diesem Zeitraum gefunden.</p>
+              {searchTerm || filterCategory ? (
+                <>
+                  <p className="font-medium text-gray-700">Keine Ausgaben entsprechen deinen Filterkriterien.</p>
+                  <button
+                    type="button"
+                    onClick={() => { setSearchTerm(''); setFilterCategory(''); }}
+                    className="mt-2 text-sm text-primary-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Filter zurücksetzen
+                  </button>
+                </>
+              ) : (
+                <p>Keine Ausgaben in diesem Zeitraum gefunden.</p>
+              )}
             </div>
           ) : (
             <table className="w-full text-left border-collapse min-w-[700px]">
@@ -459,8 +535,19 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
                     <td className="py-3 px-4 text-sm font-semibold text-text-primary">
                       {ausgabe.titel}
                       {ausgabe.projekte?.name && (
-                        <div className="text-xs text-gray-500 font-normal mt-0.5 max-w-[150px] truncate">
-                          Projekt: {ausgabe.projekte.name}
+                        <div className="text-xs text-gray-500 font-normal mt-0.5 max-w-[200px] truncate">
+                          {onNavigate && ausgabe.projekt_id ? (
+                            <button
+                              type="button"
+                              onClick={() => onNavigate('projekte', { projektId: ausgabe.projekt_id })}
+                              className="text-primary-600 hover:underline font-medium cursor-pointer text-left inline-flex items-center gap-1"
+                              title={`Zu Projekt "${ausgabe.projekte.name}" wechseln`}
+                            >
+                              <span>Projekt: {ausgabe.projekte.name}</span>
+                            </button>
+                          ) : (
+                            <span>Projekt: {ausgabe.projekte.name}</span>
+                          )}
                         </div>
                       )}
                     </td>
@@ -538,7 +625,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
                         <svg className="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                       </button>
                       <button 
-                        onClick={() => handleDelete(ausgabe.id)}
+                        onClick={() => handleRequestDelete(ausgabe)}
                         className="text-gray-400 hover:text-red-600 transition-colors p-3 min-w-[48px] min-h-[48px] flex items-center justify-center rounded-lg hover:bg-red-50 cursor-pointer"
                         title="Löschen"
                       >
@@ -560,6 +647,75 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
         onClose={handleCloseModal} 
         onSave={handleSaveModal} 
       />
+
+      {/* Delete Confirmation Modal */}
+      {ausgabeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 animate-scale-in">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Ausgabe löschen</h3>
+                <p className="text-xs text-gray-500">Dieser Vorgang kann nicht rückgängig gemacht werden.</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Möchtest du die Ausgabe <strong className="text-gray-900 font-semibold">"{ausgabeToDelete.titel}"</strong> ({formatCurrency(ausgabeToDelete.betrag_brutto)}) wirklich unwiderruflich löschen?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setAusgabeToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting && (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
+                {isDeleting ? 'Wird gelöscht...' : 'Endgültig löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
+            toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+            toast.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
+            'bg-blue-50 text-blue-800 border-blue-200'
+          }`}>
+            <span>
+              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '⚠️' : 'ℹ️'}
+            </span>
+            <span>{toast.text}</span>
+            <button 
+              type="button" 
+              onClick={() => setToast(null)}
+              className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

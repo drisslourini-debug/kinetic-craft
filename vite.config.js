@@ -5,4 +5,13 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/api/zefix': {
+        target: 'https://www.zefix.admin.ch/ZefixPublicREST',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/zefix/, ''),
+      },
+    },
+  },
 })

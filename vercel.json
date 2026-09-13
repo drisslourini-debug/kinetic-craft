@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/zefix/(.*)",
+      "destination": "https://www.zefix.admin.ch/ZefixPublicREST/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

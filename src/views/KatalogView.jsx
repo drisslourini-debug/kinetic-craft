@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useAutoAnimate } from '@formkit/auto-animate/react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { formatMoney } from '../lib/formatters'
 
 export default function KatalogView({ userRole }) {
   const [kategorien, setKategorien] = useState([])
@@ -12,6 +10,10 @@ export default function KatalogView({ userRole }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeKatMenu, setActiveKatMenu] = useState(null)
   const [activeLeistungMenu, setActiveLeistungMenu] = useState(null)
+
+  // Category Modal State
+  const [categoryModal, setCategoryModal] = useState({ open: false, mode: 'create', kat: null, name: '' })
+  const [deleteModal, setDeleteModal] = useState({ open: false, type: null, id: null, title: '' })
 
   useEffect(() => {
     fetchData()
@@ -41,41 +43,46 @@ export default function KatalogView({ userRole }) {
   }
 
   // --- Category Actions ---
-  const handleAddKategorie = async () => {
-    const name = window.prompt('Name der neuen Kategorie:')
+  const handleSaveCategoryModal = async (e) => {
+    e.preventDefault()
+    const name = categoryModal.name.trim()
     if (!name) return
-    const { data } = await supabase.from('katalog_kategorien').insert([{ name, sort_order: kategorien.length }]).select()
-    if (data && data.length > 0) {
-      setKategorien([...kategorien, data[0]])
-      setActiveKategorie(data[0])
-    }
-  }
 
-  const handleRenameKategorie = async (kat) => {
-    const newName = window.prompt('Neuer Name für Kategorie:', kat.name)
-    if (!newName || newName === kat.name) return
-    
-    try {
-      const { data } = await supabase.from('katalog_kategorien').update({ name: newName }).eq('id', kat.id).select()
-      if (data && data.length > 0) {
-        setKategorien(kategorien.map(k => k.id === kat.id ? data[0] : k))
-        if (activeKategorie?.id === kat.id) setActiveKategorie(data[0])
+    if (categoryModal.mode === 'create') {
+      const { data, error } = await supabase.from('katalog_kategorien').insert([{ name, sort_order: kategorien.length }]).select()
+      if (!error && data && data.length > 0) {
+        setKategorien([...kategorien, data[0]])
+        setActiveKategorie(data[0])
       }
-    } catch (err) {
-      console.error('Rename Fehler:', err)
+    } else if (categoryModal.mode === 'rename' && categoryModal.kat) {
+      const { data, error } = await supabase.from('katalog_kategorien').update({ name }).eq('id', categoryModal.kat.id).select()
+      if (!error && data && data.length > 0) {
+        setKategorien(kategorien.map(k => k.id === categoryModal.kat.id ? data[0] : k))
+        if (activeKategorie?.id === categoryModal.kat.id) setActiveKategorie(data[0])
+      }
     }
+    setCategoryModal({ open: false, mode: 'create', kat: null, name: '' })
   }
 
-  const handleDeleteKategorie = async (id) => {
-    if (!window.confirm('Kategorie und alle enthaltenen Leistungen wirklich löschen?')) return
-    
-    await supabase.from('katalog_leistungen').delete().eq('kategorie_id', id)
-    await supabase.from('katalog_kategorien').delete().eq('id', id)
-    
-    const nextKategorien = kategorien.filter(k => k.id !== id)
-    setKategorien(nextKategorien)
-    setLeistungen(leistungen.filter(l => l.kategorie_id !== id))
-    if (activeKategorie?.id === id) setActiveKategorie(nextKategorien[0] || null)
+  const confirmDelete = async () => {
+    if (!deleteModal.id) return
+
+    if (deleteModal.type === 'kategorie') {
+      const id = deleteModal.id
+      await supabase.from('katalog_leistungen').delete().eq('kategorie_id', id)
+      await supabase.from('katalog_kategorien').delete().eq('id', id)
+      
+      const nextKategorien = kategorien.filter(k => k.id !== id)
+      setKategorien(nextKategorien)
+      setLeistungen(leistungen.filter(l => l.kategorie_id !== id))
+      if (activeKategorie?.id === id) setActiveKategorie(nextKategorien[0] || null)
+    } else if (deleteModal.type === 'leistung') {
+      const id = deleteModal.id
+      await supabase.from('katalog_leistungen').delete().eq('id', id)
+      setLeistungen(prev => prev.filter(l => l.id !== id))
+    }
+
+    setDeleteModal({ open: false, type: null, id: null, title: '' })
   }
 
   const moveKategorie = async (index, direction) => {
@@ -86,7 +93,7 @@ export default function KatalogView({ userRole }) {
     newKats[index] = newKats[index + direction]
     newKats[index + direction] = temp
     
-    newKats.forEach((k, i) => k.sort_order = i)
+    newKats.forEach((k, i) => { k.sort_order = i })
     setKategorien(newKats)
     
     for (let i = 0; i < newKats.length; i++) {
@@ -137,12 +144,6 @@ export default function KatalogView({ userRole }) {
     setLeistungen(prev => prev.map(l => l.id === id ? { ...l, is_archived: isArchived } : l))
   }
 
-  const handleDeleteLeistung = async (id) => {
-    if (!window.confirm('Leistung endgültig löschen?')) return
-    await supabase.from('katalog_leistungen').delete().eq('id', id)
-    setLeistungen(prev => prev.filter(l => l.id !== id))
-  }
-
   const moveLeistung = async (id, index, direction, displayList) => {
     if (index + direction < 0 || index + direction >= displayList.length) return
     
@@ -191,17 +192,28 @@ export default function KatalogView({ userRole }) {
         
         {/* Search Bar */}
         <div className="w-full sm:w-auto relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
           <input
             type="text"
-            placeholder="Suchen..."
+            placeholder="Leistungen suchen..."
             value={searchTerm}
-            className="pl-10 pr-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 w-full sm:w-64 bg-surface-card border border-border rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 shadow-sm"
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-9 py-2.5 min-h-[44px] w-full sm:w-64 bg-white border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 shadow-xs transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+              title="Suche leeren"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -213,13 +225,14 @@ export default function KatalogView({ userRole }) {
           {/* Linke Spalte: Kategorien (nur wenn keine Suche aktiv) */}
           <div className={`lg:col-span-1 bg-surface-card rounded-2xl border border-border flex flex-col shadow-sm ${isSearchActive ? 'hidden lg:flex lg:opacity-50 lg:pointer-events-none' : ''}`}>
             <div className="p-4 border-b border-border flex justify-between items-center bg-surface rounded-t-2xl">
-              <h3 className="font-bold text-text-primary">Kategorien</h3>
+              <h3 className="font-bold text-text-primary text-sm">Kategorien</h3>
               {userRole !== 'treuhand' && (
                 <button 
-                  onClick={handleAddKategorie}
-                  className="text-base sm:text-xs bg-primary-100 text-primary-700 px-4 py-2 sm:px-2 sm:py-1.5 min-h-[48px] sm:min-h-0 flex items-center justify-center rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
+                  type="button"
+                  onClick={() => setCategoryModal({ open: true, mode: 'create', kat: null, name: '' })}
+                  className="text-xs bg-primary-100 text-primary-700 px-2.5 py-1.5 flex items-center gap-1 rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
                 >
-                  + Neu
+                  <span>+ Neu</span>
                 </button>
               )}
             </div>
@@ -228,7 +241,11 @@ export default function KatalogView({ userRole }) {
             <div className="lg:hidden p-4 border-b border-border bg-surface">
               <select 
                 value={activeKategorie?.id || ''} 
-                className="w-full px-3 py-3 min-h-[48px] bg-white border border-border rounded-xl text-base font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                onChange={(e) => {
+                  const kat = kategorien.find(k => k.id === e.target.value)
+                  if (kat) setActiveKategorie(kat)
+                }}
+                className="w-full px-3 py-2.5 min-h-[44px] bg-white border border-border rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/30 cursor-pointer"
               >
                 {kategorien.map(kat => (
                   <option key={kat.id} value={kat.id}>{kat.name} ({leistungen.filter(l => l.kategorie_id === kat.id && !l.is_archived).length})</option>
@@ -236,9 +253,21 @@ export default function KatalogView({ userRole }) {
               </select>
               
               {activeKategorie && userRole !== 'treuhand' && (
-                <div className="flex justify-end gap-2 mt-2">
-                  <button onClick={() => handleRenameKategorie(activeKategorie)} className="text-xs text-text-secondary hover:text-primary-600 font-medium">Umbenennen</button>
-                  <button onClick={() => handleDeleteKategorie(activeKategorie.id)} className="text-xs text-text-secondary hover:text-red-600 font-medium">Löschen</button>
+                <div className="flex justify-end gap-3 mt-2.5">
+                  <button 
+                    type="button"
+                    onClick={() => setCategoryModal({ open: true, mode: 'rename', kat: activeKategorie, name: activeKategorie.name })} 
+                    className="text-xs text-text-secondary hover:text-primary-600 font-semibold cursor-pointer"
+                  >
+                    Umbenennen
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setDeleteModal({ open: true, type: 'kategorie', id: activeKategorie.id, title: activeKategorie.name })} 
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                  >
+                    Löschen
+                  </button>
                 </div>
               )}
             </div>
@@ -279,7 +308,13 @@ export default function KatalogView({ userRole }) {
                           
                           <div className="relative">
                             <button 
-                              className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors flex items-center justify-center"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveKatMenu(activeKatMenu === kat.id ? null : kat.id);
+                              }}
+                              className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+                              title="Optionen"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                             </button>
@@ -290,17 +325,19 @@ export default function KatalogView({ userRole }) {
                                 <div className="absolute right-0 mt-1 w-36 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
                                   <div className="p-1">
                                     <button 
-                                      onClick={() => { setActiveKatMenu(null); handleRenameKategorie(kat); }} 
-                                      className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors flex items-center gap-2"
+                                      type="button"
+                                      onClick={() => { setActiveKatMenu(null); setCategoryModal({ open: true, mode: 'rename', kat, name: kat.name }); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                                     >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                       Bearbeiten
                                     </button>
                                     <button 
-                                      onClick={() => { setActiveKatMenu(null); handleDeleteKategorie(kat.id); }} 
-                                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5"
+                                      type="button"
+                                      onClick={() => { setActiveKatMenu(null); setDeleteModal({ open: true, type: 'kategorie', id: kat.id, title: kat.name }); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5 cursor-pointer"
                                     >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                       Löschen
                                     </button>
                                   </div>
@@ -508,7 +545,8 @@ export default function KatalogView({ userRole }) {
                                             </button>
                                           )}
                                           <button 
-                                            onClick={() => { setActiveLeistungMenu(null); handleDeleteLeistung(pos.id); }}
+                                            type="button"
+                                            onClick={() => { setActiveLeistungMenu(null); setDeleteModal({ open: true, type: 'leistung', id: pos.id, title: pos.beschreibung || 'Leistung' }); }}
                                             className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 mt-0.5 cursor-pointer"
                                           >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -537,6 +575,83 @@ export default function KatalogView({ userRole }) {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* Category Modal (Create / Rename) */}
+      {categoryModal.open && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-border">
+            <h3 className="text-lg font-bold text-text-primary mb-2">
+              {categoryModal.mode === 'create' ? 'Neue Kategorie erstellen' : 'Kategorie umbenennen'}
+            </h3>
+            <p className="text-xs text-text-secondary mb-4">
+              {categoryModal.mode === 'create' 
+                ? 'Gib einen Namen für die neue Leistungskategorie ein.' 
+                : 'Passe den Namen dieser Kategorie an.'}
+            </p>
+            <form onSubmit={handleSaveCategoryModal} className="space-y-4">
+              <input
+                type="text"
+                autoFocus
+                required
+                value={categoryModal.name}
+                onChange={e => setCategoryModal({ ...categoryModal, name: e.target.value })}
+                placeholder="z.B. Malerarbeiten, Fassade, Beratung..."
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30 text-sm"
+              />
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCategoryModal({ open: false, mode: 'create', kat: null, name: '' })}
+                  className="w-1/2 py-2.5 bg-gray-100 hover:bg-gray-200 text-text-secondary font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-md transition-colors cursor-pointer"
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.open && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-border text-center">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-text-primary mb-1">Wirklich löschen?</h3>
+            <p className="text-xs text-text-secondary mb-5 leading-relaxed">
+              {deleteModal.type === 'kategorie'
+                ? `Möchtest du die Kategorie "${deleteModal.title}" und alle darin enthaltenen Leistungen wirklich unwiderruflich löschen?`
+                : `Möchtest du die Leistung "${deleteModal.title}" wirklich endgültig löschen?`}
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ open: false, type: null, id: null, title: '' })}
+                className="w-1/2 py-2.5 bg-gray-100 hover:bg-gray-200 text-text-secondary font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="w-1/2 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                Löschen
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -15,7 +15,8 @@ export default function OfferteHeader({
   onDuplicate,
   onConvertToRechnung,
   onArchive,
-  onRestore
+  onRestore,
+  onPlanTermin
 }) {
   const [showActionMenu, setShowActionMenu] = useState(false)
   const daten = offerte?.daten || {}
@@ -133,6 +134,23 @@ export default function OfferteHeader({
                   >
                     <span className="text-xl sm:text-lg">📋</span> Duplizieren
                   </button>
+
+                  <button 
+                    onClick={() => { setShowActionMenu(false); if (onPlanTermin) onPlanTermin('Aufmass'); }}
+                    disabled={isEditing}
+                    className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-xl sm:text-lg">📐</span> Aufmass / Besichtigung planen
+                  </button>
+
+                  <button 
+                    onClick={() => { setShowActionMenu(false); if (onPlanTermin) onPlanTermin('Kundentermin'); }}
+                    disabled={isEditing}
+                    className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-xl sm:text-lg">👥</span> Kundentermin im Kalender
+                  </button>
+
                   {status === 'Akzeptiert' && (
                     <button
                       onClick={() => { setShowActionMenu(false); onConvertToRechnung(); }}
@@ -143,10 +161,9 @@ export default function OfferteHeader({
                     </button>
                   )}
                   <button 
-                    onClick={async () => {
+                    onClick={() => {
                       setShowActionMenu(false);
                       if (offerte.is_archived) {
-                        if (!window.confirm('Offerte wiederherstellen?')) return
                         onRestore()
                       } else {
                         onArchive()

@@ -1,68 +1,99 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import logo from '../assets/logo.png'
-import html2pdf from 'html2pdf.js'
+import { generatePdf } from '../lib/pdfGenerator'
 import { SwissQRBill } from 'swissqrbill/svg'
-import { generateRechnungWord } from '../lib/rechnungWordGenerator'
-import { formatDateLong, formatMoney } from '../lib/formatters'
+import { generateDocumentFilename } from '../lib/documentNaming'
+import { formatDateLong } from '../lib/formatters'
 import { isQrIban, generateQrReference } from '../lib/qrHelper'
-export default function RechnungPrintView({ rechnung, kunde, projekt, onClose, previewMode = false }) {
-  const [settings, setSettings] = useState(null)
+import {
+  paginateDocument,
+  FoldAndPunchMarks,
+  DocumentHeader,
+  ContinuationHeader,
+  AddressWindow,
+  DocumentMeta,
+  TableHeader,
+  PositionsTableBody,
+  TotalsAndClosing,
+  DocumentFooter,
+  QrBillPage
+} from '../components/document/A4DocumentLayout'
+
+export default function RechnungPrintView({ 
+  rechnung, 
+  kunde, 
+  projekt, 
+  settings: propSettings, 
+  onClose, 
+  previewMode = false 
+}) {
+  const [loadedSettings, setLoadedSettings] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [scale, setScale] = useState(1)
+  const [qrSvg, setQrSvg] = useState(null)
+  const [feedbackToast, setFeedbackToast] = useState(null)
 
-  const containerRef = React.useRef(null)
+  const settings = propSettings || loadedSettings
+  const containerRef = useRef(null)
 
+  const showToast = (type, text) => {
+    setFeedbackToast({ type, text })
+    setTimeout(() => setFeedbackToast(null), 3500)
+  }
+
+  // Load settings if not passed as prop
   useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect;
-        // A4 pixel dimensions at 96dpi are roughly 794x1123
-        const A4_WIDTH = 794;
-        const A4_HEIGHT = 1123;
-        
-        if (previewMode) {
-          // Fit Page: Scale so the entire A4 page is visible within the container
-          const scaleW = width / A4_WIDTH;
-          const scaleH = height / A4_HEIGHT;
-          setScale(Math.min(scaleW, scaleH) * 0.95); // 5% padding
-        } else {
-          // Full screen view: just fit width if screen is small
-          setScale(Math.min(1, (width - 40) / A4_WIDTH));
-        }
-      }
-    });
-    
-    resizeObserver.observe(containerRef.current);
-    
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [previewMode]);
-
-  useEffect(() => {
+    if (propSettings) return
     if (supabase) {
-      supabase.from('einstellungen').select('*').limit(1).single()
-        .then(({ data }) => {
-          if (data) setSettings(data)
+      supabase.from('einstellungen').select('*').limit(1).maybeSingle()
+        .then(({ data, error }) => {
+          if (error && (error.code === '42703' || error.code === 'PGRST205' || error.code === '42P01')) {
+            const localSettings = localStorage.getItem('atelier77_einstellungen_v2')
+            if (localSettings) {
+              setLoadedSettings(JSON.parse(localSettings))
+            }
+          } else if (data) {
+            setLoadedSettings(data)
+          }
         })
     }
-  }, [])
+  }, [propSettings])
 
-  if (!rechnung) return null
+  // Responsive scaling for live preview in editor
+  useEffect(() => {
+    if (!containerRef.current) return
 
-  const daten = rechnung.daten || {}
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect
+        const A4_WIDTH = 794
+        const A4_HEIGHT = 1123
+
+        if (previewMode) {
+          const scaleW = width / A4_WIDTH
+          const scaleH = height / A4_HEIGHT
+          setScale(Math.min(scaleW, scaleH) * 0.96)
+        } else {
+          setScale(Math.min(1, (width - 40) / A4_WIDTH))
+        }
+      }
+    })
+
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [previewMode])
+
+  const daten = rechnung?.daten || {}
   const leistungen = daten.leistungen || []
-  
+
+  // Totals calculations
   let rawTotal = 0
   let optionenTotal = 0
 
   leistungen.forEach(pos => {
     const isInfo = (!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0)
     const isOption = pos.optional === true
-    
+
     if (!isInfo) {
       const posTotal = (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
       if (isOption) {
@@ -80,628 +111,425 @@ export default function RechnungPrintView({ rechnung, kunde, projekt, onClose, p
   const totalNachRabatt = rawTotal - rabattBetrag
   const mwstBetrag = totalNachRabatt * (mwst / 100)
   const calculatedTotal = totalNachRabatt + mwstBetrag
-  
+
   const pauschalpreis = parseFloat(daten.pauschalpreis || 0)
   const isPauschal = pauschalpreis > 0
   const baseTotal = isPauschal ? pauschalpreis : calculatedTotal
   const finalTotal = baseTotal + parseFloat(daten.mahnspesen_total || 0)
 
-  // Calculate total amount to pay for QR code
-  const totalAmountToPay = finalTotal;
-
-  const [qrSvg, setQrSvg] = useState(null);
-
+  // Generate Swiss QR-Bill
   useEffect(() => {
-    // Generiere QR Code sobald Einstellungen und Rechnung geladen sind
-    if (settings && settings.firma_iban && daten) {
+    if (!rechnung) return
+    const rawIban = settings?.bankverbindung || settings?.firma_iban || settings?.qr_iban
+    if (settings && rawIban) {
       try {
-        const kKunde = daten.kunde || {};
-        
-        // Remove spaces from IBAN
-        const cleanIban = settings.firma_iban.replace(/\s+/g, '');
-        
-        // Check if QR-IBAN and generate reference if necessary
-        const isQr = isQrIban(cleanIban);
-        let reference = 'NON';
-        let message = `Rechnung ${rechnung.rechnungsnummer || rechnung.rechnung_nr || rechnung.id || ''}`;
-        
+        const cleanIban = rawIban.replace(/\s+/g, '')
+        const effectiveKunde = kunde || rechnung?.daten?.kunde || {}
+        const isQr = isQrIban(cleanIban)
+        const docIdentifier = rechnung.rechnung_nr || rechnung.rechnungsnummer || rechnung.id || ''
+
+        let reference = 'NON'
+        let message = `Rechnung ${docIdentifier}`
+
         if (isQr) {
-           reference = generateQrReference(kKunde.id || '0', rechnung.id || '0');
-           message = undefined; // Unstructured message is not allowed if structured reference is used in many cases, but swissqrbill handles it. Let's keep it clean or empty it. Actually, Unstructured message is allowed alongside QR Reference, but we can just leave it as it was or leave it. We will keep message.
-           message = `Rechnung ${rechnung.rechnungsnummer || rechnung.rechnung_nr || rechnung.id || ''}`;
+          reference = generateQrReference(effectiveKunde.id || '0', rechnung.id || '0')
+          message = `Rechnung ${docIdentifier}`
         }
-        
+
+        const debtorName = effectiveKunde.firmenname || `${effectiveKunde.vorname || ''} ${effectiveKunde.nachname || ''}`.trim() || effectiveKunde.name || 'Kunde'
+        const debtorZip = (effectiveKunde.plz || (effectiveKunde.plz_ort || '').split(' ')[0] || '0000').trim()
+        const debtorCity = (effectiveKunde.ort || (effectiveKunde.plz_ort || '').split(' ').slice(1).join(' ') || 'Ort').trim()
+
+        const creditorZip = (settings.plz || (settings.plz_ort || '').split(' ')[0] || '0000').trim()
+        const creditorCity = (settings.ort || (settings.plz_ort || '').split(' ').slice(1).join(' ') || 'Ort').trim()
+
         const bill = new SwissQRBill({
           currency: 'CHF',
-          amount: totalAmountToPay,
-          creditor: { 
-            name: settings.firmenname || 'Firma', 
-            address: settings.strasse || 'Strasse', 
-            zip: (settings.plz_ort || '').split(' ')[0] || '0000', 
-            city: (settings.plz_ort || '').split(' ').slice(1).join(' ') || 'Ort', 
-            country: 'CH', 
-            account: cleanIban 
+          amount: finalTotal,
+          creditor: {
+            name: settings.firmenname || 'Atelier 77',
+            address: settings.strasse || 'Strasse',
+            zip: creditorZip,
+            city: creditorCity,
+            country: 'CH',
+            account: cleanIban
           },
-          debtor: { 
-            name: kKunde.firma || kKunde.name || 'Kunde', 
-            address: kKunde.strasse || '', 
-            zip: (kKunde.plz_ort || '').split(' ')[0] || '0000', 
-            city: (kKunde.plz_ort || '').split(' ').slice(1).join(' ') || '', 
-            country: 'CH' 
+          debtor: {
+            name: debtorName,
+            address: effectiveKunde.strasse || '',
+            zip: debtorZip,
+            city: debtorCity,
+            country: 'CH'
           },
-          reference: reference, 
+          reference: reference,
           message: message
-        });
-        
-        setQrSvg(bill.toString());
+        })
+
+        setQrSvg(bill.toString())
       } catch (err) {
-        console.error('Fehler bei der QR-Code Generierung. Möglicherweise ist die IBAN ungültig:', err);
+        console.error('Fehler bei der QR-Code Generierung:', err)
       }
     }
-  }, [settings, daten, totalAmountToPay, rechnung.rechnungsnummer]);
-  // Calculations moved up for QR Code
+  }, [settings, finalTotal, rechnung, kunde])
+
+  if (!rechnung) return null
 
   const gold = settings?.primary_color || '#c5a057'
-  
-  const hexToRgb = (hex) => {
-    let r = 197, g = 160, b = 87; // default gold
-    if (hex && hex.startsWith('#')) {
-      const h = hex.replace('#', '');
-      if (h.length === 6) {
-        r = parseInt(h.substring(0, 2), 16);
-        g = parseInt(h.substring(2, 4), 16);
-        b = parseInt(h.substring(4, 6), 16);
-      }
-    }
-    return [r, g, b];
-  };
+  const docNr = rechnung.rechnung_nr || `RE-${new Date(rechnung.created_at || Date.now()).getFullYear()}-${String(rechnung.id).padStart(3, '0')}`
+  const docDate = formatDateLong(rechnung.rechnungsdatum || rechnung.created_at || new Date().toISOString())
 
-  const handleDownloadPDF = () => {
+  // Intelligent A4 Page Pagination
+  const paginatedPages = paginateDocument(leistungen, {
+    introText: daten.einleitungstext || '',
+    hasAusfuehrung: Boolean(daten.ausfuehrung?.start || daten.ausfuehrung?.dauer),
+    hasSchlusstext: Boolean(daten.schlusstext),
+    hasSignature: true
+  })
+
+  const contentPagesCount = paginatedPages.length
+  // QR Bill counts as its own clean final page
+  const totalPages = qrSvg ? contentPagesCount + 1 : contentPagesCount
+
+  const pdfFilename = generateDocumentFilename({
+    type: 'Rechnung',
+    docNr,
+    kunde,
+    projekt,
+    date: rechnung.rechnungsdatum || rechnung.created_at
+  })
+
+  const getPdfOptions = () => ({
+    margin: 0,
+    filename: pdfFilename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { 
+      scale: 2, 
+      useCORS: true, 
+      letterRendering: true, 
+      windowWidth: 1024,
+      logging: false 
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'], after: '.a4-page' }
+  })
+
+  const handleDownloadPDF = async () => {
     setIsGenerating(true)
-    const element = document.getElementById('pdf-content')
-    const footerElement = document.getElementById('pdf-footer')
-    
-    // Temporarily hide the HTML footer so it's not rendered inline by html2canvas
-    if (footerElement) footerElement.style.display = 'none'
-
-    // Temporarily hide the shadow and adjust layout for html2pdf
-    const originalClassName = element.className
-    const originalStyles = {
-      padding: element.style.padding,
-      width: element.style.width,
-      minHeight: element.style.minHeight,
-      display: element.style.display,
-      flexDirection: element.style.flexDirection
-    }
-
-    element.className = "bg-white mx-auto print:my-0 print:shadow-none"
-    
-    // Remove padding on element so html2pdf can apply it to every page
-    // Set width to 160mm (210mm A4 width - 25mm left - 25mm right padding)
-    element.style.padding = '0'
-    element.style.width = '160mm'
-    element.style.minHeight = 'auto'
-    element.style.display = 'block'
-    element.style.flexDirection = 'unset'
-    
-    const opt = {
-      // html2pdf margin format: [top, left, bottom, right]
-      margin:       [20, 25, 25, 25],
-      filename:     `Rechnung_${rechnung.rechnung_nr || rechnung.id}_${settings?.firmenname || 'CRM'}.pdf`.replace(/\s+/g, '_'),
-      image:        { type: 'jpeg', quality: 1.0 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'], avoid: 'tr, .avoid-break' }
-    }
-
-    html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
-      // Draw the footer on every page
-      const totalPages = pdf.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        
-        const [r, g, b] = hexToRgb(settings?.primary_color);
-        pdf.setDrawColor(r, g, b);
-        pdf.setLineWidth(0.3);
-        pdf.line(25, 275, 185, 275);
-        
-        // Set font
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(153, 153, 153);
-        
-        // Text Content
-        const text1Parts = [settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean);
-        const text1 = text1Parts.join(' • ');
-        const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
-        const text2 = `${settings?.uid_nummer ? 'UID: ' + settings.uid_nummer : ''}${bank}`;
-        
-        // Center calculate
-        const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
-        const text2Width = pdf.getStringUnitWidth(text2) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
-        
-        pdf.text(text1, (210 - text1Width) / 2, 281);
-        pdf.text(text2, (210 - text2Width) / 2, 286);
-      }
-    }).save().then(() => {
-      // Restore original layout
-      element.className = originalClassName
-      Object.assign(element.style, originalStyles)
-      if (footerElement) footerElement.style.display = 'block'
+    try {
+      const element = document.getElementById('pdf-pages-container')
+      const opt = getPdfOptions()
+      await generatePdf(element, opt, 'save')
+      showToast('success', 'PDF erfolgreich heruntergeladen.')
+    } catch (err) {
+      console.error('PDF generation error:', err)
+      showToast('error', 'Fehler bei der PDF-Erstellung.')
+    } finally {
       setIsGenerating(false)
-    })
+    }
   }
 
-  const handleSaveToArchive = () => {
+  const handleSaveToArchive = async () => {
     setIsGenerating(true)
-    const element = document.getElementById('pdf-content')
-    const footerElement = document.getElementById('pdf-footer')
-    
-    if (footerElement) footerElement.style.display = 'none'
+    try {
+      const element = document.getElementById('pdf-pages-container')
+      const opt = getPdfOptions()
+      const blob = await generatePdf(element, opt, 'blob')
 
-    const originalClassName = element.className
-    const originalStyles = {
-      padding: element.style.padding,
-      width: element.style.width,
-      minHeight: element.style.minHeight,
-      display: element.style.display,
-      flexDirection: element.style.flexDirection
+      const file = new File([blob], pdfFilename, { type: 'application/pdf' })
+      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+
+      const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
+
+      const { error: dbError } = await supabase.from('dateien').insert([{
+        name: pdfFilename,
+        typ: 'application/pdf',
+        url: publicUrl,
+        size_bytes: file.size,
+        kunde_id: kunde?.id,
+        projekt_id: projekt?.id || null,
+        kategorie: 'Rechnung'
+      }])
+      if (dbError) throw dbError
+
+      showToast('success', 'PDF wurde erfolgreich im Archiv gespeichert!')
+    } catch (err) {
+      console.error('Error saving PDF to archive:', err)
+      showToast('error', 'Fehler beim Speichern in den Kunden-Dateien.')
+    } finally {
+      setIsGenerating(false)
     }
+  }
 
-    element.className = "bg-white mx-auto print:my-0 print:shadow-none"
-    element.style.padding = '0'
-    element.style.width = '160mm'
-    element.style.minHeight = 'auto'
-    element.style.display = 'block'
-    element.style.flexDirection = 'unset'
-    
-    const filename = `Rechnung_${rechnung.rechnung_nr || rechnung.id}_${settings?.firmenname || 'CRM'}.pdf`.replace(/\s+/g, '_')
-    const opt = {
-      margin:       [20, 25, 25, 25],
-      filename:     filename,
-      image:        { type: 'jpeg', quality: 1.0 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['css', 'legacy'], avoid: 'tr, .avoid-break' }
-    }
+  const handleEmailWithPDF = async () => {
+    setIsGenerating(true)
+    try {
+      const element = document.getElementById('pdf-pages-container')
+      const opt = getPdfOptions()
 
-    html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
-      const totalPages = pdf.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        const [r, g, b] = hexToRgb(settings?.primary_color);
-        pdf.setDrawColor(r, g, b);
-        pdf.setLineWidth(0.3);
-        pdf.line(25, 275, 185, 275);
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(153, 153, 153);
-        
-        const text1Parts = [settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean);
-        const text1 = text1Parts.join(' • ');
-        const bank = settings?.bankverbindung ? ` • ${settings.bankverbindung}` : '';
-        const text2 = `${settings?.uid_nummer ? 'UID: ' + settings.uid_nummer : ''}${bank}`;
-        
-        const text1Width = pdf.getStringUnitWidth(text1) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
-        const text2Width = pdf.getStringUnitWidth(text2) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
-        
-        pdf.text(text1, (210 - text1Width) / 2, 281);
-        pdf.text(text2, (210 - text2Width) / 2, 286);
-      }
-    }).output('blob').then(async (blob) => {
-      try {
-        const file = new File([blob], filename, { type: 'application/pdf' })
-        const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
-        
-        const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
-        if (uploadError) throw uploadError
-        
+      // 1. Generate PDF blob safely with oklab handling
+      const blob = await generatePdf(element, opt, 'blob')
+
+      // 2. Upload to Supabase storage and archive in dateien
+      const file = new File([blob], pdfFilename, { type: 'application/pdf' })
+      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+
+      const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+      if (uploadError) console.error('Upload warning:', uploadError)
+
+      if (!uploadError) {
         const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
-        
-        const { error: dbError } = await supabase.from('dateien').insert([{
-          name: filename, 
-          typ: 'application/pdf', 
-          url: publicUrl, 
-          size_bytes: file.size, 
+        await supabase.from('dateien').insert([{
+          name: pdfFilename,
+          typ: 'application/pdf',
+          url: publicUrl,
+          size_bytes: file.size,
           kunde_id: kunde?.id,
           projekt_id: projekt?.id || null,
           kategorie: 'Rechnung'
         }])
-        // Show success and open the PDF in new tab
-        alert('PDF wurde erfolgreich in den Kunden-Dateien gespeichert!')
-      } catch (err) {
-        console.error('Error saving PDF to Dateien:', err)
-        alert('Fehler beim Speichern in den Dateien.')
-      } finally {
-        element.className = originalClassName
-        Object.assign(element.style, originalStyles)
-        if (footerElement) footerElement.style.display = 'block'
-        setIsGenerating(false)
       }
-    }).catch(err => {
-      console.error('PDF error:', err)
-      element.className = originalClassName
-      Object.assign(element.style, originalStyles)
-      if (footerElement) footerElement.style.display = 'block'
+
+      // 3. Trigger local browser download so user has PDF ready to attach
+      const blobUrl = URL.createObjectURL(blob)
+      const downloadLink = document.createElement('a')
+      downloadLink.href = blobUrl
+      downloadLink.download = pdfFilename
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+
+      // 4. Open mailto link
+      const subject = encodeURIComponent(`Rechnung ${docNr} - ${settings?.firmenname || 'Atelier 77'}`)
+      const recipientName = kunde?.nachname ? ` ${kunde.nachname}` : (kunde?.firmenname ? ` ${kunde.firmenname}` : '')
+      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die Rechnung ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Atelier 77'}\n${settings?.website || ''}`)
+      window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
+
+      showToast('success', 'PDF archiviert, heruntergeladen & E-Mail vorbereitet!')
+    } catch (err) {
+      console.error('Error during email and archiving:', err)
+      showToast('error', 'Fehler beim Vorbereiten des PDFs für den E-Mail-Versand.')
+    } finally {
       setIsGenerating(false)
-      alert('Fehler beim Generieren.')
-    })
+    }
   }
 
   return (
-    <div ref={containerRef} className={previewMode ? "relative w-full h-full bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0" : "fixed inset-0 z-[100] bg-gray-100 overflow-y-auto print:static print:inset-auto print:overflow-visible print:block print:bg-white print:p-0"}>
-      {/* ===== ACTION BAR (hidden when printing) ===== */}
+    <div 
+      ref={containerRef} 
+      className={previewMode 
+        ? "relative w-full h-full bg-neutral-100 overflow-y-auto print:static print:overflow-visible print:block print:bg-white print:p-0" 
+        : "fixed inset-0 z-[100] bg-neutral-200/90 backdrop-blur-sm overflow-y-auto print:static print:overflow-visible print:block print:bg-white print:p-0"
+      }
+    >
+      {/* ===== ACTION BAR (hidden when printing or in mini preview) ===== */}
       {!previewMode && (
-      <div className="print:hidden sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 z-10 shadow-sm">
-        <button 
-          onClick={onClose} 
-          className="w-full sm:w-auto min-h-[48px] px-4 py-3 sm:py-2 text-base sm:text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-        >
-          ← Zurück
-        </button>
-        <div className="flex flex-col sm:flex-row flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
-          <div className="flex gap-2">
-            <button 
-              onClick={() => {
-                const subject = encodeURIComponent(`Rechnung ${rechnung?.id || ''} - ${settings?.firmenname || 'CRM'}`)
-                const body = encodeURIComponent(`Guten Tag${kunde?.nachname ? ' ' + kunde.nachname : ''},\n\nGerne überreichen wir Ihnen die Rechnung für das Projekt "${projekt?.name || ''}".\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Ihre Firma'}\n${settings?.website || ''}`)
-                window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
-              }}
-              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+        <div className="print:hidden sticky top-0 bg-white/95 backdrop-blur-md border-b border-border px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 z-30 shadow-sm">
+          <button
+            onClick={onClose}
+            className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary bg-surface hover:bg-neutral-100 border border-border rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            ← Zurück
+          </button>
+
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+            <button
+              onClick={handleEmailWithPDF}
+              disabled={isGenerating}
+              className="px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-surface hover:bg-neutral-50 border border-border rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              title="PDF generieren, archivieren, herunterladen und per E-Mail versenden"
             >
-              ✉️ E-Mail
+              ✉️ {isGenerating ? 'Bereite vor...' : 'E-Mail'}
             </button>
-            <button 
-              onClick={() => generateRechnungWord(rechnung, kunde, projekt, settings)} 
-              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+
+            <button
+              onClick={handleSaveToArchive}
+              disabled={isGenerating}
+              className="px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              title="PDF generieren und im Dateien-Archiv speichern"
             >
-              📝 Word
+              📁 {isGenerating ? 'Speichert...' : 'In Dateien archivieren'}
             </button>
-            <button 
-              onClick={() => window.print()} 
-              className="flex-1 sm:flex-none min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer" 
+
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+              className="px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              title="PDF herunterladen"
+            >
+              ⬇️ {isGenerating ? 'Erstelle PDF...' : 'PDF herunterladen'}
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 text-sm font-bold text-neutral-800 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Drucken über System-Druckdialog"
             >
               🖨️ Drucken
             </button>
           </div>
-          <button 
-            onClick={handleSaveToArchive} 
-            disabled={isGenerating}
-            className={`w-full sm:w-auto min-h-[48px] px-3 sm:px-4 py-3 sm:py-2 text-gray-700 text-base sm:text-sm font-bold rounded-xl border border-gray-300 bg-white hover:bg-gray-50 shadow-sm transition-all flex items-center justify-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
-          >
-            {isGenerating ? '⏳...' : '💾 In Dateien ablegen'}
-          </button>
-          <button 
-            onClick={handleDownloadPDF} 
-            disabled={isGenerating}
-            className={`w-full sm:w-auto min-h-[48px] px-4 sm:px-5 py-3 sm:py-2 text-white text-base sm:text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${isGenerating ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:opacity-90'}`} 
-            style={{ backgroundColor: gold }}
-          >
-            {isGenerating ? '⏳ Generiert...' : '📄 Download'}
-          </button>
         </div>
-      </div>
       )}
 
-      {/* ===== A4 PAGE ===== */} 
-      <div className="w-full flex flex-col items-center gap-8 pb-20 pt-8 print:gap-0 print:pb-0 print:pt-0" style={{ zoom: scale }}>
+      {/* ===== A4 PAGES CONTAINER ===== */}
       <div 
-        id="pdf-content"
-        className="bg-white mx-auto my-8 print:my-0 print:shadow-none shadow-2xl"
-        style={{
-          width: '210mm',
-          minHeight: '297mm',
-          padding: '20mm 25mm 25mm 25mm',
-          fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
-          fontSize: '11pt',
-          lineHeight: '1.5',
-          color: '#1a1a1a',
-          position: 'relative',
-          boxSizing: 'border-box',
-          display: 'block', // Changed from flex to block to fix html2pdf page breaking
-        }}
+        className={previewMode ? "p-4" : "p-6 sm:p-10"}
+        style={previewMode ? { transform: `scale(${scale})`, transformOrigin: 'top center' } : {}}
       >
-        
-        {/* ===== PAGE BREAK INDICATORS (ONLY IN PREVIEW) ===== */}
-        {previewMode && (
-          <div className="absolute inset-0 pointer-events-none z-50 print:hidden" style={{
-            backgroundImage: 'repeating-linear-gradient(to bottom, transparent, transparent calc(297mm - 2px), #3b82f6 calc(297mm - 2px), #3b82f6 297mm)',
-            opacity: 0.4
-          }} />
-        )}
-        
-        {/* ===== HEADER: Logo left + Company info right ===== */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12mm' }} className="avoid-break">
-          <div>
-            {settings?.logo_url ? (
-              <img src={settings.logo_url} alt={settings?.firmenname} style={{ height: '52px', objectFit: 'contain' }} />
-            ) : (
-              <div style={{ fontSize: '18pt', fontWeight: 'bold', color: gold }}>{settings?.firmenname || 'Firma'}</div>
-            )}
-          </div>
-          <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#666', lineHeight: '1.6' }}>
-            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || ''}</div>
-            <div>{settings?.strasse || ''}</div>
-            <div>{settings?.plz_ort || ''}</div>
-            <div style={{ marginTop: '2mm' }}>{settings?.telefon || ''}</div>
-            <div>{settings?.email || ''}</div>
-            {settings?.website && <div>{settings.website}</div>}
-          </div>
-        </div>
+        <div id="pdf-pages-container">
+          {paginatedPages.map((pageItems, pageIdx) => {
+            const isFirst = pageIdx === 0
+            const isLast = pageIdx === contentPagesCount - 1
 
-        {/* ===== ABSENDERZEILE + EMPFÄNGER (C5 Fenster) ===== */}
-        <div style={{ marginBottom: '14mm' }} className="avoid-break">
-          {/* Absenderzeile (klein, über Adresse) */}
-          <div style={{ fontSize: '7pt', color: '#999', marginBottom: '2mm', borderBottom: '0.5px solid #ccc', paddingBottom: '1mm', display: 'inline-block' }}>
-            {[settings?.firmenname, settings?.strasse, settings?.plz_ort].filter(Boolean).join(' · ')}
-          </div>
-          
-          {/* Empfänger-Adresse */}
-          <div style={{ fontSize: '10.5pt', lineHeight: '1.7' }}>
-            {kunde?.firmenname && <div style={{ fontWeight: 600 }}>{kunde.firmenname}</div>}
-            {(kunde?.vorname || kunde?.nachname) && (
-              <div>{kunde?.vorname} {kunde?.nachname}</div>
-            )}
-            {kunde?.strasse && <div>{kunde.strasse}</div>}
-            <div>{kunde?.plz} {kunde?.ort}</div>
-          </div>
-        </div>
+            return (
+              <div
+                key={pageIdx}
+                className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none mb-8 last:mb-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                style={{
+                  width: '210mm',
+                  height: '297mm',
+                  maxHeight: '297mm',
+                  boxSizing: 'border-box',
+                  padding: '20mm 20mm 20mm 25mm',
+                  position: 'relative',
+                  backgroundColor: '#ffffff',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* 1. DIN FOLD & PUNCH MARKS (Page 1 only) */}
+                {isFirst && <FoldAndPunchMarks />}
 
-        {/* ===== META: Rechnung Nr, Datum, Projekt ===== */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10mm' }} className="avoid-break">
-          <div>
-            <h1 style={{ fontSize: '18pt', fontWeight: 700, margin: '0 0 1mm 0', color: '#1a1a1a' }}>{daten.mahnstufe ? `${daten.mahnstufe}. Mahnung` : 'Rechnung'}</h1>
-            <div style={{ fontSize: '10pt', color: '#666' }}>Nr. {rechnung.rechnung_nr || `RE-${new Date(rechnung.created_at).getFullYear()}-${String(rechnung.id).padStart(3, '0')}`}</div>
-          </div>
-          
-          <div style={{ textAlign: 'right', fontSize: '9.5pt', lineHeight: '1.7' }}>
-            <div><span style={{ color: '#888' }}>Datum:</span> <span style={{ fontWeight: 500 }}>{formatDateLong(rechnung.created_at)}</span></div>
-            {daten.konditionen?.gueltigkeit && (
-              <div><span style={{ color: '#888' }}>Gültigkeit:</span> <span style={{ fontWeight: 500 }}>{daten.konditionen.gueltigkeit}</span></div>
-            )}
-            {daten.konditionen?.zahlungsfrist && (
-              <div><span style={{ color: '#888' }}>Zahlungsfrist:</span> <span style={{ fontWeight: 500 }}>{daten.konditionen.zahlungsfrist}</span></div>
-            )}
-            {projekt?.name && (
-              <div style={{ marginTop: '2mm' }}>
-                <span style={{ color: '#888' }}>Projekt:</span> <span style={{ fontWeight: 600 }}>{projekt.name}</span>
-                {projekt.adresse && <div style={{ color: '#666', fontSize: '9pt' }}>{projekt.adresse}</div>}
+                {/* 2. HEADER */}
+                {isFirst ? (
+                  <DocumentHeader settings={settings} brandColor={gold} />
+                ) : (
+                  <ContinuationHeader 
+                    docType="Rechnung" 
+                    docNr={docNr} 
+                    projektName={projekt?.name} 
+                    date={docDate} 
+                    brandColor={gold} 
+                    settings={settings} 
+                  />
+                )}
+
+                {/* 3. ADDRESS WINDOW & META (Page 1 only) */}
+                {isFirst && (
+                  <>
+                    <AddressWindow kunde={kunde} settings={settings} />
+                    <DocumentMeta 
+                      docType="Rechnung" 
+                      docNr={docNr} 
+                      date={docDate} 
+                      konditionen={{
+                        ...daten.konditionen,
+                        zahlungsfrist: rechnung.faellig_am ? `fällig am ${formatDateLong(rechnung.faellig_am)}` : (rechnung.zahlungsfrist_tage ? `${rechnung.zahlungsfrist_tage} Tage` : daten.konditionen?.zahlungsfrist)
+                      }} 
+                      projekt={projekt} 
+                    />
+                    <div style={{ fontSize: '9.5pt', marginBottom: '6mm', lineHeight: '1.5', color: '#333' }}>
+                      {daten.einleitungstext || 'Wir danken für Ihren geschätzten Auftrag und stellen Ihnen folgende Leistungen in Rechnung:'}
+                    </div>
+                  </>
+                )}
+
+                {/* 4. POSITIONS TABLE */}
+                {pageItems.length > 0 && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '4mm' }}>
+                    <TableHeader brandColor={gold} />
+                    <PositionsTableBody items={pageItems} brandColor={gold} />
+                  </table>
+                )}
+
+                {/* 5. TOTALS & CLOSING (Final content page only) */}
+                {isLast && (
+                  <TotalsAndClosing
+                    rawTotal={rawTotal}
+                    rabatt={rabatt}
+                    rabattBetrag={rabattBetrag}
+                    totalNachRabatt={totalNachRabatt}
+                    mwst={mwst}
+                    mwstBetrag={mwstBetrag}
+                    finalTotal={finalTotal}
+                    isPauschal={isPauschal}
+                    optionenTotal={optionenTotal}
+                    brandColor={gold}
+                    daten={daten}
+                    settings={settings}
+                  />
+                )}
+
+                {/* 6. PINNED FOOTER (Every page) */}
+                <DocumentFooter
+                  pageNum={pageIdx + 1}
+                  totalPages={totalPages}
+                  settings={settings}
+                  brandColor={gold}
+                />
               </div>
-            )}
-          </div>
-        </div>
+            )
+          })}
 
-        {/* ===== EINLEITUNGSTEXT ===== */}
-        <div style={{ fontSize: '10pt', marginBottom: '8mm', lineHeight: '1.6', color: '#333' }} className="avoid-break">
-          {daten.mahnstufe 
-            ? (daten.mahnstufe === 1 
-                ? 'Wir haben festgestellt, dass die untenstehende Rechnung noch nicht beglichen wurde. Wir bitten um rasche Überweisung.' 
-                : `${daten.mahnstufe}. Mahnung für die ausstehende Rechnung. Wir fordern Sie auf, den Betrag umgehend zu begleichen.`)
-            : (daten.einleitungstext || 'Gerne unterbreiten wir Ihnen folgende Rechnung:')}
-        </div>
-
-        {/* ===== LEISTUNGS-TABELLE ===== */}
-        <div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8mm' }}>
-            {/* Gold accent line */}
-            <thead className="avoid-break">
-              <tr>
-                <td colSpan={6} style={{ borderTop: `2px solid ${gold}`, padding: 0, height: '3mm' }}></td>
-              </tr>
-              <tr style={{ fontSize: '8pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#555' }}>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'left', width: '12mm' }}>Pos.</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'left' }}>Beschreibung</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'right', width: '18mm' }}>Menge</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'right', width: '14mm' }}>Einh.</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'right', width: '22mm' }}>Preis/E</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'right', width: '28mm' }}>Total</th>
-              </tr>
-              <tr>
-                <td colSpan={6} style={{ borderBottom: '1px solid #ddd', padding: 0 }}></td>
-              </tr>
-            </thead>
-
-            <tbody>
-              {leistungen.map((pos, i) => {
-                const isInfo = pos.type === 'title' || ((!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0))
-                const isOption = pos.optional === true
-                const posTotal = isInfo ? 0 : (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
-                const posNr = pos.posNr || (i + 1)
-
-                // Kategorie-Titel
-                if (isInfo) {
-                  return (
-                    <tr key={i} style={{ pageBreakInside: 'avoid' }}>
-                      <td style={{ padding: '6mm 2mm 1.5mm', fontWeight: 700, fontSize: '10pt', color: '#1a1a1a', verticalAlign: 'top' }}>
-                        {posNr}
-                      </td>
-                      <td colSpan={5} style={{ padding: '6mm 2mm 1.5mm', fontWeight: 700, fontSize: '10pt', color: '#1a1a1a' }}>
-                        {pos.beschreibung}
-                        {pos.details && <div style={{ fontWeight: 400, fontSize: '8.5pt', color: '#666', marginTop: '1mm' }}>{pos.details}</div>}
-                      </td>
-                    </tr>
-                  )
-                }
-
-                return (
-                  <tr key={i} style={{ borderBottom: '0.5px solid #eee', pageBreakInside: 'avoid' }}>
-                    <td style={{ padding: '2mm 2mm', verticalAlign: 'top', fontSize: '9.5pt', color: '#1a1a1a', fontWeight: 500 }}>
-                      {posNr}
-                    </td>
-                    <td style={{ padding: '2mm 2mm', verticalAlign: 'top', fontSize: '9.5pt', paddingRight: '4mm' }}>
-                      <span style={{ color: isOption ? '#888' : '#1a1a1a', fontWeight: 500 }}>
-                        {pos.beschreibung}
-                      </span>
-                      {isOption && <span style={{ color: gold, fontSize: '8pt', marginLeft: '3mm', fontWeight: 400 }}>(Option)</span>}
-                      {pos.details && <div style={{ fontSize: '8pt', color: '#888', marginTop: '0.5mm' }}>{pos.details}</div>}
-                    </td>
-                    <td style={{ padding: '2mm 2mm', textAlign: 'right', verticalAlign: 'top', fontSize: '9.5pt', color: isOption ? '#888' : '#333', whiteSpace: 'nowrap' }}>
-                      {pos.menge || '–'}
-                    </td>
-                    <td style={{ padding: '2mm 2mm', textAlign: 'right', verticalAlign: 'top', fontSize: '9.5pt', color: isOption ? '#888' : '#333' }}>
-                      {pos.einheit || ''}
-                    </td>
-                    <td style={{ padding: '2mm 2mm', textAlign: 'right', verticalAlign: 'top', fontSize: '9.5pt', color: isOption ? '#888' : '#333', whiteSpace: 'nowrap' }}>
-                      {pos.einzelpreis ? formatMoney(pos.einzelpreis) : '–'}
-                    </td>
-                    <td style={{ padding: '2mm 2mm', textAlign: 'right', verticalAlign: 'top', fontSize: '9.5pt', fontWeight: 500, color: isOption ? '#888' : '#1a1a1a', whiteSpace: 'nowrap' }}>
-                      {posTotal > 0 ? `CHF ${formatMoney(posTotal)}` : '–'}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-            
-            {/* ===== TOTALS INSIDE TABLE FOR PERFECT ALIGNMENT ===== */}
-            <tbody style={{ borderTop: `1px solid ${gold}`, pageBreakInside: 'avoid' }}>
-              <tr>
-                <td colSpan={6} style={{ height: '4mm' }}></td>
-              </tr>
-              {!isPauschal && (
-                <>
-                  <tr>
-                    <td colSpan={4}></td>
-                    <td style={{ padding: '1.5mm 2mm', textAlign: 'left', fontSize: '9.5pt', color: '#555' }}>Zwischentotal</td>
-                    <td style={{ padding: '1.5mm 2mm', textAlign: 'right', fontSize: '9.5pt', color: '#1a1a1a' }}>CHF {formatMoney(rawTotal)}</td>
-                  </tr>
-                  {rabatt > 0 && (
-                    <tr>
-                      <td colSpan={4}></td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'left', fontSize: '9.5pt', color: '#555' }}>Rabatt ({formatMoney(rabatt)}%)</td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'right', fontSize: '9.5pt', color: '#1a1a1a' }}>– CHF {formatMoney(rabattBetrag)}</td>
-                    </tr>
-                  )}
-                  {rabatt > 0 && (
-                    <tr>
-                      <td colSpan={4}></td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'left', fontSize: '9.5pt', color: '#333', fontWeight: 500 }}>Total exkl. MwSt.</td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'right', fontSize: '9.5pt', color: '#1a1a1a', fontWeight: 500 }}>CHF {formatMoney(totalNachRabatt)}</td>
-                    </tr>
-                  )}
-                  {mwst > 0 && (
-                    <tr>
-                      <td colSpan={4}></td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'left', fontSize: '9.5pt', color: '#555' }}>MwSt. ({formatMoney(mwst)}%)</td>
-                      <td style={{ padding: '1.5mm 2mm', textAlign: 'right', fontSize: '9.5pt', color: '#1a1a1a' }}>+ CHF {formatMoney(mwstBetrag)}</td>
-                    </tr>
-                  )}
-                </>
-              )}
-              
-              {daten.mahnstufe > 0 && daten.mahnspesen_total > 0 && (
-                <tr>
-                  <td colSpan={4}></td>
-                  <td style={{ padding: '1.5mm 2mm', textAlign: 'left', fontSize: '9.5pt', color: '#555' }}>Mahnspesen</td>
-                  <td style={{ padding: '1.5mm 2mm', textAlign: 'right', fontSize: '9.5pt', color: '#1a1a1a' }}>+ CHF {formatMoney(daten.mahnspesen_total)}</td>
-                </tr>
-              )}
-
-              {/* TOTAL line with gold borders */}
-              <tr>
-                <td colSpan={4}></td>
-                <td colSpan={2} style={{ padding: 0 }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    padding: '3mm 2mm', 
-                    marginTop: '2mm',
-                    borderTop: `2px solid ${gold}`, 
-                    borderBottom: `2px solid ${gold}`,
-                    fontWeight: 700, 
-                    fontSize: '11.5pt', 
-                    color: '#1a1a1a' 
-                  }}>
-                    <span>{isPauschal ? 'Pauschalpreis' : 'TOTAL'}</span>
-                    <span>CHF {formatMoney(finalTotal)}</span>
-                  </div>
-                </td>
-              </tr>
-
-              {/* Optional positions note */}
-              {optionenTotal > 0 && (
-                <tr>
-                  <td colSpan={4}></td>
-                  <td colSpan={2} style={{ padding: '3mm 2mm 0', textAlign: 'right', fontSize: '8.5pt', color: '#888' }}>
-                    Optionale Positionen (nicht im Total): CHF {formatMoney(optionenTotal)}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* ===== AUSFÜHRUNG ===== */}
-          {daten.ausfuehrung?.start && (
-            <div style={{ fontSize: '9pt', color: '#555', marginBottom: '6mm', lineHeight: '1.6' }} className="avoid-break">
-              {daten.ausfuehrung.start && <div><span style={{ fontWeight: 600 }}>Ausführungsstart:</span> {daten.ausfuehrung.start}</div>}
-              {daten.ausfuehrung.dauer && <div><span style={{ fontWeight: 600 }}>Geschätzte Dauer:</span> {daten.ausfuehrung.dauer}</div>}
+          {qrSvg && (
+            <div className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}>
+              <QrBillPage
+                qrSvg={qrSvg}
+                rechnung={rechnung}
+                kunde={kunde}
+                settings={settings}
+                pageNum={totalPages}
+                totalPages={totalPages}
+                brandColor={gold}
+              />
             </div>
           )}
-
-          {/* ===== SCHLUSSTEXT + GRUSS + UNTERSCHRIFT ===== */}
-          <div style={{ fontSize: '10pt', color: '#333', lineHeight: '1.6', marginBottom: '15mm' }}>
-            <p style={{ margin: '0 0 6mm 0' }}>{daten.schlusstext || 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.'}</p>
-            
-            <div className="avoid-break">
-              <p style={{ margin: '0 0 2mm 0' }}>Freundliche Grüsse</p>
-              
-              {/* Signature area */}
-              <div style={{ marginTop: '12mm', marginBottom: '2mm' }}>
-                {settings?.unterschrift_url ? (
-                  <img src={settings.unterschrift_url} alt="Unterschrift" style={{ height: '20mm', objectFit: 'contain' }} />
-                ) : (
-                  <div style={{ height: '15mm', borderBottom: '0.5px solid #ccc', width: '50mm' }}></div>
-                )}
-              </div>
-              <div style={{ fontSize: '9.5pt', fontWeight: 600 }}>{settings?.firmenname || ''}</div>
-              <div style={{ fontSize: '8.5pt', color: '#888' }}>{settings?.website || ''}</div>
-            </div>
-          </div>
         </div>
-
-        {/* ===== FOOTER ===== */}
-        <div id="pdf-footer" style={{ 
-          marginTop: '30mm',
-          paddingTop: '5mm'
-        }}>
-          <div style={{ height: '1px', backgroundColor: gold, marginBottom: '3mm' }}></div>
-          <div style={{ textAlign: 'center', fontSize: '7.5pt', color: '#999', lineHeight: '1.7' }}>
-            <div>{[settings?.firmenname, settings?.strasse, settings?.plz_ort, settings?.telefon, settings?.email].filter(Boolean).join(' • ')}</div>
-            <div>{settings?.uid_nummer ? `UID: ${settings.uid_nummer}` : ''}{settings?.bankverbindung ? ` • ${settings.bankverbindung}` : ''}</div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ===== QR-BILL PAGE ===== */}
-      {qrSvg && (
-        <div style={{ pageBreakBefore: 'always', width: '210mm', height: '297mm', position: 'relative', background: 'white' }}>
-           {/* Der QR-Einzahlungsschein ist genormt und nimmt exakt die unteren 105mm (A6) ein */}
-           <div 
-             style={{ position: 'absolute', bottom: 0, left: 0, width: '210mm', height: '105mm' }}
-             dangerouslySetInnerHTML={{ __html: qrSvg }} 
-           />
-        </div>
-      )}
       </div>
 
       {/* ===== PRINT STYLES ===== */}
       <style>{`
         @media print {
-          body { 
-            -webkit-print-color-adjust: exact; 
-            print-color-adjust: exact; 
-            background: white !important;
+          @page {
+            size: A4 portrait;
             margin: 0;
-            padding: 0;
           }
-          @page { 
-            margin: 0; 
-            size: A4; 
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .a4-page {
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin: 0 !important;
+            padding: 20mm 20mm 20mm 25mm !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
           }
         }
       `}</style>
+
+      {/* Toast Feedback */}
+      {feedbackToast && (
+        <div className={`fixed bottom-6 right-6 z-[110] px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
+          feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{feedbackToast.text}</span>
+        </div>
+      )}
     </div>
   )
 }
-
-
-
-

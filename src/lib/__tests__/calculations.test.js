@@ -56,7 +56,7 @@ describe('calculations.js', () => {
       expect(totals.rabattBetrag).toBe(20)
       expect(totals.totalNachRabatt).toBe(180)
       expect(totals.mwstBetrag).toBe(180 * 0.081) // 14.58
-      expect(totals.finalTotal).toBe(180 + 14.58) // 194.58
+      expect(totals.finalTotal).toBe(194.6) // Swiss 5-cent rounding: 194.58 -> 194.60
     })
 
     it('uses pauschalpreis instead of calculated total when active', () => {

@@ -15,6 +15,8 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
     kunden_id: prefilledKundeId || '',
     kategorie: '',
     adresse: '',
+    startdatum: '',
+    enddatum: '',
   })
   const [kunden, setKunden] = useState([])
   const [isSaving, setIsSaving] = useState(false)
@@ -62,6 +64,8 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
           kunden_id: formData.kunden_id,
           kategorie: formData.kategorie,
           adresse: formData.adresse,
+          startdatum: formData.startdatum || null,
+          enddatum: formData.enddatum || null,
           status: 'Aktiv'
         }])
         .select('*, kunden(name)') // Select related data for instant UI update
@@ -211,6 +215,32 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                         placeholder="Strasse eingeben (Auto-Fill)..."
                         className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 pt-1 border-t border-gray-100">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                          📅 Geplanter Start (optional)
+                        </label>
+                        <input 
+                          type="date" 
+                          value={formData.startdatum}
+                          onChange={e => setFormData({...formData, startdatum: e.target.value})}
+                          className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                          📅 Geplantes Ende (optional)
+                        </label>
+                        <input 
+                          type="date" 
+                          value={formData.enddatum}
+                          min={formData.startdatum}
+                          onChange={e => setFormData({...formData, enddatum: e.target.value})}
+                          className="w-full px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all shadow-sm text-base sm:text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
