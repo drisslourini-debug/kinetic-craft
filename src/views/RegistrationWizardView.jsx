@@ -6,12 +6,12 @@ import ZefixAutocomplete from '../components/ZefixAutocomplete'
 import { BRANCHEN, finalizeTenantRegistration } from '../services/onboardingService'
 
 const COLOR_PRESETS = [
-  { name: 'Kinetic Cyan', value: '#0ea5e9' },
-  { name: 'Nordic Teal', value: '#0d9488' },
+  { name: 'Handwerk Gold (Standard)', value: '#b88a38' },
   { name: 'Corporate Blau', value: '#2563eb' },
   { name: 'Schiefer Anthrazit', value: '#334155' },
   { name: 'Waldgrün', value: '#059669' },
   { name: 'Weinrot', value: '#9f1239' },
+  { name: 'Kinetic Cyan', value: '#0ea5e9' },
 ]
 
 const SWISS_CANTONS = [
@@ -123,7 +123,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
     
     // Step 3: Trade, Branding & Demo
     branche: 'maler_gipser',
-    primary_color: '#0ea5e9',
+    primary_color: '#b88a38',
     createDemoData: true
   })
 
@@ -342,13 +342,13 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
       {/* LEFT COLUMN: Swiss Quality & Branding Showcase (Desktop Only) */}
       <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         {/* Subtle Decorative Background Glows */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-sky-500/20 rounded-full filter blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/20 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/20 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-yellow-500/15 rounded-full filter blur-3xl pointer-events-none" />
 
         {/* Top Header */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-500/30 border border-white/20">
+            <div className="w-12 h-12 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/30 border border-white/20">
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4v16" />
                 <path d="M4 12l9-8" />
@@ -359,9 +359,9 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold tracking-tight text-xl text-white">Kinetic</span>
-                <span className="font-bold tracking-tight text-xl text-sky-400">Craft</span>
+                <span className="font-bold tracking-tight text-xl text-amber-400">Craft</span>
               </div>
-              <span className="text-xs block text-sky-300/80 font-semibold tracking-wider uppercase">by Kinetic Schweiz</span>
+              <span className="text-xs block text-amber-300/80 font-semibold tracking-wider uppercase">by Kinetic Schweiz</span>
             </div>
           </div>
 
@@ -381,7 +381,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
         {/* Feature Highlights */}
         <div className="relative z-10 space-y-4 my-8">
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0 text-base">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 text-base">
               🧾
             </div>
             <div>
@@ -391,7 +391,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center shrink-0 text-base">
+            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 text-yellow-300 flex items-center justify-center shrink-0 text-base">
               ⚡
             </div>
             <div>
@@ -401,7 +401,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-300 flex items-center justify-center shrink-0 text-base">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-300 flex items-center justify-center shrink-0 text-base">
               🎨
             </div>
             <div>
@@ -453,7 +453,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           <div className="text-center sm:text-left mb-6">
             <div className="flex items-center justify-between gap-4 mb-3">
               <div className="lg:hidden flex items-center gap-2">
-                <div className="h-10 w-10 bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black text-sm">
+                <div className="h-10 w-10 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white font-black text-sm">
                   KC
                 </div>
                 <div className="flex flex-col">
@@ -461,7 +461,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <span className="text-[10px] text-gray-400">by Kinetic Schweiz</span>
                 </div>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full border border-sky-200">
+              <span className="text-xs font-semibold px-2.5 py-1 bg-amber-50 text-amber-800 rounded-full border border-amber-200">
                 14 Tage kostenlos testen
               </span>
             </div>
@@ -484,7 +484,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <div key={s.num} className="flex items-center gap-2">
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                       step === s.num
-                        ? 'bg-gradient-to-r from-sky-500 to-teal-500 text-white shadow-sm ring-2 ring-sky-200'
+                        ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white shadow-sm ring-2 ring-amber-200'
                         : step > s.num
                           ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-gray-100 text-gray-400'
@@ -504,7 +504,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <div 
                     key={i} 
                     className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                      step >= i ? 'bg-gradient-to-r from-sky-500 to-teal-500' : 'bg-gray-100'
+                      step >= i ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600' : 'bg-gray-100'
                     }`} 
                   />
                 ))}
@@ -548,7 +548,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.vorname}
                       onChange={e => setFormData({ ...formData, vorname: e.target.value })}
                       placeholder="Beat"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
                   <div>
@@ -562,7 +562,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.nachname}
                       onChange={e => setFormData({ ...formData, nachname: e.target.value })}
                       placeholder="Muster"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
                 </div>
@@ -578,7 +578,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                     placeholder="beat@schreinerei-muster.ch"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                   />
                 </div>
 
@@ -594,7 +594,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.password}
                       onChange={e => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Mindestens 8 Zeichen"
-                      className="w-full pl-3.5 pr-11 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full pl-3.5 pr-11 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                     <button
                       type="button"
@@ -644,7 +644,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.telefon}
                       onChange={e => setFormData({ ...formData, telefon: e.target.value })}
                       placeholder="79 123 45 67"
-                      className="w-full pl-16 pr-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full pl-16 pr-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
                 </div>
@@ -656,7 +656,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       type="checkbox"
                       checked={formData.agbAccepted}
                       onChange={e => setFormData({ ...formData, agbAccepted: e.target.checked })}
-                      className="mt-1 h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded cursor-pointer shrink-0"
+                      className="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer shrink-0"
                     />
                     <span className="text-xs text-text-secondary leading-normal">
                       Ich akzeptiere die <strong>AGB</strong> und die <strong>Datenschutzerklärung</strong> nach neuem Schweizer Datenschutzgesetz (revDSG).
@@ -668,7 +668,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <span>{inviteToken ? 'Einladung jetzt annehmen' : 'Weiter zu Firmendaten'}</span>
                     <span>→</span>
@@ -719,7 +719,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     </label>
                     <ZefixAutocomplete
                       onSelect={handleZefixSelect}
-                      className="w-full px-3.5 py-2.5 bg-sky-50/40 border border-sky-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full px-3.5 py-2.5 bg-amber-50/30 border border-amber-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-text-primary text-sm placeholder:text-gray-400"
                     />
                     <p className="text-[11px] text-text-secondary mt-1">
                       💡 Gibt automatisch Firmenname, UID und Sitz aus dem Handelsregister des Bundes ein.
@@ -738,7 +738,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     value={formData.firmenname}
                     onChange={e => setFormData({ ...formData, firmenname: e.target.value })}
                     placeholder="z.B. Musterbau & Schreinerei GmbH"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm font-semibold placeholder:text-gray-400"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm font-semibold placeholder:text-gray-400"
                   />
                 </div>
 
@@ -752,7 +752,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     value={formData.uid}
                     onChange={e => setFormData({ ...formData, uid: e.target.value })}
                     placeholder="CHE-123.456.789 MWST"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                   />
                 </div>
 
@@ -776,7 +776,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       }
                     }}
                     placeholder="Gewerbestrasse 10"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                   />
                 </div>
 
@@ -792,7 +792,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.plz}
                       onChange={e => setFormData({ ...formData, plz: e.target.value })}
                       placeholder="3000"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
 
@@ -806,7 +806,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       value={formData.ort}
                       onChange={e => setFormData({ ...formData, ort: e.target.value })}
                       placeholder="Bern"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm placeholder:text-gray-400"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
 
@@ -817,7 +817,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     <select
                       value={formData.kanton}
                       onChange={e => setFormData({ ...formData, kanton: e.target.value })}
-                      className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 text-text-primary text-sm font-semibold"
+                      className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm font-semibold"
                     >
                       {SWISS_CANTONS.map(c => (
                         <option key={c.code} value={c.code}>{c.code}</option>
@@ -837,7 +837,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="w-2/3 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-2/3 py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <span>Weiter zu Handwerk & Design</span>
                     <span>→</span>
@@ -873,7 +873,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                           onClick={() => handleBranchSelect(b)}
                           className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                             isSelected
-                              ? 'border-sky-500 bg-sky-50/70 shadow-xs ring-2 ring-sky-500/20'
+                              ? 'border-amber-500 bg-amber-50/70 shadow-xs ring-2 ring-amber-500/20'
                               : 'border-border bg-gray-50/50 hover:bg-white hover:border-gray-300'
                           }`}
                         >
@@ -900,7 +900,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                         onClick={() => handleColorChange(preset.value)}
                         className={`h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                           formData.primary_color.toLowerCase() === preset.value.toLowerCase()
-                            ? 'ring-2 ring-offset-2 ring-sky-500 scale-105'
+                            ? 'ring-2 ring-offset-2 ring-amber-500 scale-105'
                             : 'opacity-85 hover:opacity-100'
                         }`}
                         style={{ backgroundColor: preset.value }}
@@ -952,7 +952,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-200 hover:border-sky-400 rounded-xl bg-gray-50/50 hover:bg-sky-50/20 transition-all cursor-pointer">
+                    <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-200 hover:border-amber-400 rounded-xl bg-gray-50/50 hover:bg-amber-50/20 transition-all cursor-pointer">
                       <svg className="w-8 h-8 text-text-secondary/50 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       <span className="text-xs font-bold text-text-primary">Logo hochladen (PNG, JPG, SVG)</span>
                       <span className="text-[11px] text-text-secondary mt-0.5">Oder einfach später im Dashboard hinterlegen</span>
@@ -973,7 +973,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       type="checkbox"
                       checked={formData.createDemoData}
                       onChange={e => setFormData({ ...formData, createDemoData: e.target.checked })}
-                      className="mt-0.5 h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded cursor-pointer shrink-0"
+                      className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer shrink-0"
                     />
                     <div>
                       <span className="text-xs font-bold text-amber-950 block">
@@ -998,7 +998,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-2/3 flex justify-center items-center gap-2 py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-wait cursor-pointer text-sm"
+                    className="w-2/3 flex justify-center items-center gap-2 py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-wait cursor-pointer text-sm"
                   >
                     {isLoading ? (
                       <>
@@ -1032,7 +1032,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="button"
                     onClick={onGoToLogin}
-                    className="w-full py-3.5 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 transition-colors cursor-pointer"
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 transition-colors cursor-pointer"
                   >
                     Zurück zur Anmeldung
                   </button>
@@ -1049,7 +1049,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
               <button 
                 type="button"
                 onClick={onGoToLogin} 
-                className="text-sky-600 hover:text-sky-800 font-bold transition-colors cursor-pointer"
+                className="text-amber-600 hover:text-amber-800 font-bold transition-colors cursor-pointer"
               >
                 Hier anmelden
               </button>

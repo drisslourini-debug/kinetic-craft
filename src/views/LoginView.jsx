@@ -95,13 +95,13 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
       {/* LEFT COLUMN: Swiss Quality & Trust (Desktop Only) */}
       <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         {/* Decorative Atmosphere Glows */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-sky-500/20 rounded-full filter blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/15 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/20 rounded-full filter blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-yellow-500/15 rounded-full filter blur-3xl pointer-events-none" />
 
         {/* Brand & Heading */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-500/30 border border-white/20">
+            <div className="w-12 h-12 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/30 border border-white/20">
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4v16" />
                 <path d="M4 12l9-8" />
@@ -112,9 +112,9 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold tracking-tight text-xl text-white">Kinetic</span>
-                <span className="font-bold tracking-tight text-xl text-sky-400">Craft</span>
+                <span className="font-bold tracking-tight text-xl text-amber-400">Craft</span>
               </div>
-              <span className="text-xs block text-sky-300/80 font-semibold tracking-wider uppercase">by Kinetic Schweiz</span>
+              <span className="text-xs block text-amber-300/80 font-semibold tracking-wider uppercase">by Kinetic Schweiz</span>
             </div>
           </div>
 
@@ -134,7 +134,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
         {/* Swiss Trust Feature Badges */}
         <div className="relative z-10 space-y-4 my-8">
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0 text-base">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 text-base">
               🧾
             </div>
             <div>
@@ -144,7 +144,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-300 flex items-center justify-center shrink-0 text-base">
+            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 text-yellow-300 flex items-center justify-center shrink-0 text-base">
               🔒
             </div>
             <div>
@@ -184,7 +184,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
           {/* Mobile Header Branding */}
           <div className="lg:hidden flex justify-center mb-6">
             <div className="flex items-center gap-2.5">
-              <div className="w-11 h-11 bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+              <div className="w-11 h-11 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-amber-500/20">
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M4 4v16" />
                   <path d="M4 12l9-8" />
@@ -195,7 +195,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
               <div className="flex flex-col text-left">
                 <div className="flex items-center gap-1">
                   <span className="font-extrabold text-lg text-text-primary leading-tight">Kinetic</span>
-                  <span className="font-extrabold text-lg text-sky-600 leading-tight">Craft</span>
+                  <span className="font-extrabold text-lg text-amber-600 leading-tight">Craft</span>
                 </div>
                 <span className="text-[10px] text-gray-400 font-semibold">by Kinetic Schweiz</span>
               </div>
@@ -204,7 +204,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
 
           <div className="bg-white p-7 sm:p-10 shadow-xl rounded-3xl border border-border/80 relative overflow-hidden">
             {/* Top Accent Line */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-sky-400 via-teal-400 to-indigo-500" />
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600" />
 
             {onBackToLanding && (
               <button
@@ -219,7 +219,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
 
             <div className="text-center sm:text-left mb-8">
               <div className="flex items-center gap-2 mb-1.5 justify-center sm:justify-start">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                   Kinetic Craft
                 </span>
                 <span className="text-xs text-text-secondary">by Kinetic Schweiz</span>
@@ -249,7 +249,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all placeholder:text-gray-400"
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all placeholder:text-gray-400"
                     placeholder="beat@firma.ch"
                   />
                 </div>
@@ -271,7 +271,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all placeholder:text-gray-400"
+                    className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all placeholder:text-gray-400"
                     placeholder="••••••••"
                   />
                   <button
@@ -300,7 +300,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded cursor-pointer"
+                    className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
                   />
                   <span className="ml-2 text-xs font-medium text-text-secondary">
                     Angemeldet bleiben
@@ -310,7 +310,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                 <button
                   type="button"
                   onClick={openResetModal}
-                  className="text-xs font-bold text-sky-600 hover:text-sky-800 transition-colors cursor-pointer"
+                  className="text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors cursor-pointer"
                 >
                   Passwort vergessen?
                 </button>
@@ -331,8 +331,8 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                   disabled={isLoading}
                   className={`w-full min-h-[48px] flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white ${
                     isLoading 
-                      ? 'bg-sky-400 cursor-wait' 
-                      : 'bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 shadow-sky-500/20 hover:shadow-lg active:scale-[0.99]'
+                      ? 'bg-amber-400 cursor-wait' 
+                      : 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/20 hover:shadow-lg active:scale-[0.99]'
                   } transition-all duration-200 cursor-pointer`}
                 >
                   {isLoading ? (
@@ -358,7 +358,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
               <button 
                 type="button"
                 onClick={onGoToRegistration} 
-                className="text-sky-600 hover:text-sky-800 font-bold transition-colors cursor-pointer"
+                className="text-amber-600 hover:text-amber-800 font-bold transition-colors cursor-pointer"
               >
                 Jetzt 14 Tage kostenlos testen
               </button>
@@ -384,7 +384,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
               </button>
 
               <div className="text-center mb-6">
-                <div className="w-12 h-12 bg-sky-50 text-sky-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
@@ -404,7 +404,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                   <button
                     type="button"
                     onClick={() => setShowResetModal(false)}
-                    className="w-full py-3 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 transition-colors cursor-pointer"
+                    className="w-full py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 transition-colors cursor-pointer"
                   >
                     Zurück zur Anmeldung
                   </button>
@@ -421,7 +421,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
                       placeholder="beat@firma.ch"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-text-primary text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-text-primary text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
                     />
                   </div>
 
@@ -443,7 +443,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                     <button
                       type="submit"
                       disabled={resetLoading}
-                      className="w-1/2 py-3 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-md shadow-sky-500/20 transition-colors flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="w-1/2 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 transition-colors flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {resetLoading ? 'Senden...' : 'Link senden'}
                     </button>

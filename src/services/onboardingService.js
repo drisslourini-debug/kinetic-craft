@@ -1,13 +1,13 @@
 import { supabase } from '../lib/supabase'
 
 export const BRANCHEN = [
-  { id: 'maler_gipser', name: 'Maler & Gipser', icon: '🎨', defaultColor: '#0ea5e9' },
+  { id: 'maler_gipser', name: 'Maler & Gipser', icon: '🎨', defaultColor: '#b88a38' },
   { id: 'schreinerei', name: 'Schreinerei & Holzbau', icon: '🪚', defaultColor: '#9f1239' },
   { id: 'sanitaer_heizung', name: 'Sanitär & Heizung', icon: '🔧', defaultColor: '#2563eb' },
   { id: 'elektro', name: 'Elektro & Installation', icon: '⚡', defaultColor: '#4f46e5' },
   { id: 'gartenbau', name: 'Gartenbau & Umgebung', icon: '🌱', defaultColor: '#059669' },
   { id: 'bau_renovation', name: 'Bau & Renovation', icon: '🏗️', defaultColor: '#334155' },
-  { id: 'allround', name: 'Allround-Handwerk & Service', icon: '🔨', defaultColor: '#0d9488' },
+  { id: 'allround', name: 'Allround-Handwerk & Service', icon: '🔨', defaultColor: '#b88a38' },
 ]
 
 export const DEMO_DATA_PRESETS = {

@@ -88,7 +88,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     {
       id: 'offerten',
       tag: 'Abrechnung & QR-Bill',
-      tagColor: 'bg-sky-50 text-sky-700 border-sky-200',
+      tagColor: 'bg-amber-50 text-amber-800 border-amber-200',
       title: 'Offerten & Rechnungen mit Schweizer QR-Code',
       desc: 'Erstellen Sie professionelle Offerten mit Ihrem Firmenlogo, Schweizer MWST (8.1%) und integriertem QR-Zahlteil nach ISO 20022. Druckbereit und als PDF versandfähig in unter 60 Sekunden.',
       image: '/screenshots/02_offerten_rechnungen.png',
@@ -97,7 +97,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     {
       id: 'kunden',
       tag: 'Baustellen & CRM',
-      tagColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
       title: 'Kundenkartei & Baustellen-Dossiers',
       desc: 'Alle Liegenschaften, Pläne, Dokumente und Ansprechpartner an einem Ort. Mit Zefix-Handelsregisterabgleich und direkter Google Maps-Verbindung für Monteure.',
       image: '/screenshots/03_kunden_baustellen.png',
@@ -106,7 +106,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     {
       id: 'kalender',
       tag: 'Planung & Team',
-      tagColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      tagColor: 'bg-slate-100 text-slate-800 border-slate-200',
       title: 'Monteur-Kalender & Einsatzplanung',
       desc: 'Verteilen Sie Aufträge, Montagen und Termine im Team. Synchronisiert mit den Schweizer Arbeitszeiten, Feiertagen nach Kanton und mobilen Geräten.',
       image: '/screenshots/04_kalender_planung.png',
@@ -115,7 +115,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     {
       id: 'buchhaltung',
       tag: 'Finanzen & Belege',
-      tagColor: 'bg-amber-50 text-amber-800 border-amber-200',
+      tagColor: 'bg-amber-100/80 text-amber-900 border-amber-300',
       title: 'Automatische Buchhaltung & Treuhand-Portal',
       desc: 'Materialbelege per Smartphone-Foto erfassen, MWST automatisch vorkontieren und dem Treuhänder mit einem Klick einen gesicherten Direktzugang gewähren.',
       image: '/screenshots/05_buchhaltung_belege.png',
@@ -152,19 +152,19 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
   ]
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-sky-100 selection:text-sky-900">
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900">
       
       {/* ========================================================================= */}
-      {/* 1. TOP ANNOUNCEMENT BANNER (Nordic Pastel Accent) */}
+      {/* 1. TOP ANNOUNCEMENT BANNER (Swiss Craft Accent) */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-sky-50 via-teal-50 to-indigo-50 border-b border-sky-100 px-4 py-2 text-center text-xs sm:text-sm font-medium text-slate-800 flex items-center justify-center gap-2">
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sky-600 text-white text-[10px] font-bold">🇨🇭</span>
+      <div className="bg-gradient-to-r from-amber-50 via-yellow-50/60 to-orange-50/40 border-b border-amber-200/60 px-4 py-2 text-center text-xs sm:text-sm font-medium text-slate-800 flex items-center justify-center gap-2">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-600 text-white text-[10px] font-bold">🇨🇭</span>
         <span>
-          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> – Das frische Handwerker-CRM mit 100% Schweizer QR-Rechnung.
+          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> – Das Handwerker-CRM mit 100% Schweizer QR-Rechnung.
         </span>
         <button 
           onClick={onGoToRegistration}
-          className="hidden md:inline-flex items-center font-bold text-sky-700 hover:text-sky-900 underline underline-offset-2 ml-1 cursor-pointer"
+          className="hidden md:inline-flex items-center font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1 cursor-pointer"
         >
           Jetzt 14 Tage kostenlos testen →
         </button>
@@ -178,7 +178,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           
           {/* Kinetic Craft Brand Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 flex items-center justify-center text-white shadow-sm shadow-sky-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 flex items-center justify-center text-white shadow-sm shadow-amber-500/25">
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4v16" />
                 <path d="M4 12l9-8" />
@@ -189,8 +189,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">Kinetic</span>
-                <span className="font-bold text-lg sm:text-xl tracking-tight text-sky-600">Craft</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
+                <span className="font-bold text-lg sm:text-xl tracking-tight text-amber-600">Craft</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
                   CRM
                 </span>
               </div>
@@ -202,13 +202,13 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#funktionen" className="hover:text-sky-600 transition-colors">Funktionen</a>
-            <a href="#einblicke" className="hover:text-sky-600 transition-colors">App-Einblicke</a>
-            <a href="#gewerke" className="hover:text-sky-600 transition-colors">Gewerke</a>
-            <a href="#tarife" className="hover:text-sky-600 transition-colors">Tarife</a>
-            <a href="#vorteile" className="hover:text-sky-600 transition-colors">Vorteile</a>
-            <a href="#anfrage" className="hover:text-sky-600 transition-colors">Offerte anfragen</a>
-            <a href="#faq" className="hover:text-sky-600 transition-colors">FAQ</a>
+            <a href="#funktionen" className="hover:text-amber-600 transition-colors">Funktionen</a>
+            <a href="#einblicke" className="hover:text-amber-600 transition-colors">App-Einblicke</a>
+            <a href="#gewerke" className="hover:text-amber-600 transition-colors">Gewerke</a>
+            <a href="#tarife" className="hover:text-amber-600 transition-colors">Tarife</a>
+            <a href="#vorteile" className="hover:text-amber-600 transition-colors">Vorteile</a>
+            <a href="#anfrage" className="hover:text-amber-600 transition-colors">Offerte anfragen</a>
+            <a href="#faq" className="hover:text-amber-600 transition-colors">FAQ</a>
           </nav>
 
           {/* Desktop Action CTAs */}
@@ -221,10 +221,10 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </button>
             <button
               onClick={onGoToRegistration}
-              className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 active:from-sky-700 active:to-teal-700 rounded-xl shadow-sm shadow-sky-500/25 hover:shadow-md hover:shadow-sky-500/20 transition-all cursor-pointer flex items-center gap-2"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 rounded-xl shadow-sm shadow-amber-500/25 hover:shadow-md hover:shadow-amber-500/30 transition-all cursor-pointer flex items-center gap-2"
             >
               <span>14 Tage testen</span>
-              <span className="text-sky-100">→</span>
+              <span className="text-amber-100">→</span>
             </button>
           </div>
 
@@ -265,7 +265,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               </button>
               <button
                 onClick={onGoToRegistration}
-                className="w-full py-2.5 text-center text-sm font-bold text-white bg-gradient-to-r from-sky-500 to-teal-500 rounded-xl shadow-sm"
+                className="w-full py-2.5 text-center text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl shadow-sm"
               >
                 14 Tage kostenlos testen
               </button>
@@ -277,23 +277,23 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       {/* ========================================================================= */}
       {/* 3. HERO SECTION (Nordic Pastel Glow + Real Desktop Screenshot) */}
       {/* ========================================================================= */}
-      <section className="relative pt-12 pb-16 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-sky-50/20 to-white">
+      <section className="relative pt-12 pb-16 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-amber-50/20 to-white">
         
-        {/* Soft Decorative Pastel Ambient Glows */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-r from-sky-200/40 via-teal-200/30 to-indigo-200/30 blur-3xl -z-10 rounded-full pointer-events-none" />
+        {/* Soft Decorative Ambient Glows */}
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-r from-amber-200/40 via-yellow-200/30 to-orange-200/20 blur-3xl -z-10 rounded-full pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           
           {/* Eyebrow Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-sky-200/80 text-sky-800 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-amber-200/80 text-amber-900 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
             <span>Entwickelt für Schweizer Handwerksbetriebe · 100% Swiss QR-Rechnung</span>
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] max-w-4xl mx-auto">
             Das Handwerker-CRM, <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-sky-600 via-teal-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-amber-600 via-amber-700 to-yellow-700 bg-clip-text text-transparent">
               das mitdenkt.
             </span>
           </h1>
@@ -307,10 +307,10 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onGoToRegistration}
-              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 active:from-sky-700 active:to-teal-700 rounded-2xl shadow-lg shadow-sky-500/25 hover:shadow-xl hover:shadow-sky-500/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
+              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 rounded-2xl shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
             >
               <span>14 Tage kostenlos testen</span>
-              <span className="text-sky-100 font-normal">→</span>
+              <span className="text-amber-100 font-normal">→</span>
             </button>
             <a
               href="#einblicke"
@@ -324,15 +324,15 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           {/* Micro Trust Proof */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-xs sm:text-sm text-slate-500 font-medium">
             <div className="flex items-center gap-1.5">
-              <span className="text-teal-500 font-bold">✓</span>
+              <span className="text-amber-600 font-bold">✓</span>
               <span>Keine Kreditkarte erforderlich</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-teal-500 font-bold">✓</span>
+              <span className="text-amber-600 font-bold">✓</span>
               <span>In 2 Minuten startklar</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-teal-500 font-bold">✓</span>
+              <span className="text-amber-600 font-bold">✓</span>
               <span>Support & Server in der Schweiz</span>
             </div>
           </div>
@@ -349,15 +349,15 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-red-400"></span>
                 <span className="w-3 h-3 rounded-full bg-amber-400"></span>
-                <span className="w-3 h-3 rounded-full bg-teal-400"></span>
+                <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg px-4 py-1 text-xs font-mono text-slate-500 flex items-center gap-2 max-w-xs w-full justify-center shadow-xs">
-                <span className="text-teal-500">🔒</span>
+                <span className="text-amber-600">🔒</span>
                 <span>craft.kinetic-schweiz.ch/dashboard</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
                 <span className="hidden sm:inline">Schweizer Cloud</span>
-                <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               </div>
             </div>
 
@@ -378,7 +378,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
               {/* Floating Feature Badges over screenshot */}
               <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
-                <span className="text-sky-500 font-extrabold">⚡</span>
+                <span className="text-amber-600 font-extrabold">⚡</span>
                 <span>Offerte in 60 Sekunden</span>
               </div>
               <div className="absolute bottom-4 left-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
@@ -399,7 +399,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-3xl sm:text-4xl font-black text-sky-600 font-mono tracking-tight">60 Sek.</div>
+              <div className="text-3xl sm:text-4xl font-black text-amber-600 font-mono tracking-tight">60 Sek.</div>
               <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Von Aufmass zur fertigen Offerte</div>
             </div>
             <div>
@@ -407,7 +407,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Swiss QR-Rechnung & MWST-konform</div>
             </div>
             <div>
-              <div className="text-3xl sm:text-4xl font-black text-teal-600 font-mono tracking-tight">0 CHF</div>
+              <div className="text-3xl sm:text-4xl font-black text-amber-700 font-mono tracking-tight">0 CHF</div>
               <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Keine versteckten Einrichtungsgebühren</div>
             </div>
             <div>
@@ -428,7 +428,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs uppercase font-bold tracking-wider text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
               Echte App-Einblicke
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
@@ -489,11 +489,11 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       {/* ========================================================================= */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-sky-50 via-teal-50/40 to-white rounded-3xl border border-sky-100 p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12">
+          <div className="bg-gradient-to-br from-amber-50/60 via-yellow-50/30 to-white rounded-3xl border border-amber-200/70 p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12">
             
             {/* Left Column: Text & Value Props */}
             <div className="flex-1 space-y-6">
-              <span className="text-xs uppercase font-bold tracking-wider text-sky-800 bg-sky-100 px-3 py-1 rounded-full">
+              <span className="text-xs uppercase font-bold tracking-wider text-amber-900 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
                 Mobile First
               </span>
               <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
@@ -504,8 +504,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               </p>
 
               <div className="space-y-3 pt-2">
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-sky-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm shrink-0">
                     📷
                   </div>
                   <div>
@@ -514,8 +514,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-sky-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
+                  <div className="w-8 h-8 rounded-lg bg-yellow-100 text-yellow-800 flex items-center justify-center font-bold text-sm shrink-0">
                     📍
                   </div>
                   <div>
@@ -524,8 +524,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-sky-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold text-sm shrink-0">
+                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-sm shrink-0">
                     ✍️
                   </div>
                   <div>
@@ -567,7 +567,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       <section id="gewerke" className="py-20 bg-slate-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <span className="text-xs uppercase font-bold tracking-wider text-teal-700 bg-teal-100/80 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
               Massgeschneidert
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
@@ -596,7 +596,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 onClick={() => setSelectedGewerk(g.id)}
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   selectedGewerk === g.id
-                    ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/30'
+                    ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                 }`}
               >
@@ -611,7 +611,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             {filteredGewerke.map((g) => (
               <div
                 key={g.id}
-                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-sky-400 hover:shadow-md transition-all group flex flex-col justify-between"
+                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-md hover:shadow-amber-500/10 transition-all group flex flex-col justify-between"
               >
                 <div>
                   <div className="text-3xl mb-4 group-hover:scale-110 transition-transform w-fit">
@@ -620,7 +620,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                   <h3 className="text-lg font-bold text-slate-900 mb-2">{g.title}</h3>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">{g.desc}</p>
                 </div>
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-sky-700">
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-amber-700">
                   <span>✦ {g.highlight}</span>
                   <span className="text-slate-400 group-hover:translate-x-1 transition-transform">→</span>
                 </div>
@@ -637,7 +637,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <span className="text-xs uppercase font-bold tracking-wider text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
               Transparente Tarife
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
@@ -663,12 +663,12 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 onClick={() => setBillingCycle('yearly')}
                 className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   billingCycle === 'yearly'
-                    ? 'bg-white text-sky-700 shadow-xs'
+                    ? 'bg-white text-amber-800 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <span>Jährlich</span>
-                <span className="bg-teal-100 text-teal-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
                   10% Rabatt
                 </span>
               </button>
@@ -692,15 +692,15 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Bis zu 20 Kunden</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Standard Offerten & Rechnungen</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Schweizer QR-Code Generierung</span>
                   </li>
                   <li className="flex items-center gap-2 text-slate-400">
@@ -723,43 +723,43 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
 
             {/* 2. Professional Plan */}
-            <div className="border-2 border-sky-400 rounded-2xl p-6 sm:p-8 bg-gradient-to-b from-sky-50/40 via-white to-teal-50/20 flex flex-col justify-between relative shadow-xl ring-1 ring-sky-400/20 transform md:-translate-y-2">
-              <span className="absolute -top-3 right-6 bg-gradient-to-r from-sky-500 to-teal-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
+            <div className="border-2 border-amber-400 rounded-2xl p-6 sm:p-8 bg-gradient-to-b from-amber-50/40 via-white to-yellow-50/20 flex flex-col justify-between relative shadow-xl ring-1 ring-amber-400/20 transform md:-translate-y-2">
+              <span className="absolute -top-3 right-6 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
                 Beliebteste Wahl
               </span>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-xl font-bold text-slate-900">Professional</h3>
-                  <span className="text-xs bg-sky-100 text-sky-800 px-2.5 py-0.5 rounded-full font-bold">Unbegrenzt</span>
+                  <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-bold">Unbegrenzt</span>
                 </div>
-                <div className="text-3xl sm:text-4xl font-black text-sky-700 my-4 font-mono">
+                <div className="text-3xl sm:text-4xl font-black text-amber-700 my-4 font-mono">
                   {billingCycle === 'yearly' ? 'CHF 44.00' : 'CHF 49.00'} <span className="text-xs font-normal text-slate-500 font-sans">/ Monat</span>
                 </div>
                 <p className="text-xs text-slate-600 mb-6">Für wachsende Handwerksbetriebe, die ihr Büro vollständig digitalisieren wollen.</p>
 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-800">
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Unbegrenzte Kunden & Projekte</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Unbegrenzte Offerten & QR-Rechnungen</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Vollwertige Buchhaltung & MWST-Abrechnung</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Treuhand-Zugänge inklusive</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Eigenes Briefpapier, Firmenlogo & Farben</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Word- & PDF-Export mit Firmen-Design</span>
                   </li>
                 </ul>
@@ -768,7 +768,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <div className="mt-8 space-y-2">
                 <button
                   onClick={onGoToRegistration}
-                  className="w-full py-3.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 active:from-sky-700 active:to-teal-700 text-white shadow-md shadow-sky-500/30 transition-all cursor-pointer"
+                  className="w-full py-3.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 text-white shadow-md shadow-amber-500/25 transition-all cursor-pointer"
                 >
                   14 Tage kostenlos testen
                 </button>
@@ -790,23 +790,23 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Alle Funktionen aus Professional</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Persönliche Datenmigration (Bexio, Sorba, Excel)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Team-Schulung vor Ort oder per Video</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Fester Schweizer Ansprechpartner</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-teal-600 font-bold">✓</span>
+                    <span className="text-amber-600 font-bold">✓</span>
                     <span>Massgeschneiderte SLA & Prioritäts-Support</span>
                   </li>
                 </ul>
@@ -832,7 +832,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-lg">
             
             <div className="text-center max-w-2xl mx-auto mb-10">
-              <span className="text-xs uppercase font-bold tracking-wider text-sky-800 bg-sky-100 px-3 py-1 rounded-full">
+              <span className="text-xs uppercase font-bold tracking-wider text-amber-900 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
                 Persönliche Beratung
               </span>
               <h2 className="text-3xl font-black text-slate-900 mt-4 tracking-tight">
@@ -844,8 +844,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
 
             {inquirySubmitted ? (
-              <div className="bg-sky-50/50 p-8 rounded-2xl border border-sky-200 text-center space-y-4 shadow-sm animate-fade-in">
-                <div className="w-14 h-14 bg-teal-100 text-teal-700 rounded-full flex items-center justify-center text-2xl mx-auto font-bold">
+              <div className="bg-amber-50/50 p-8 rounded-2xl border border-amber-200 text-center space-y-4 shadow-sm animate-fade-in">
+                <div className="w-14 h-14 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-2xl mx-auto font-bold">
                   ✓
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">Vielen Dank für Ihre Anfrage!</h3>
@@ -855,7 +855,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 <div className="pt-4">
                   <button
                     onClick={onGoToRegistration}
-                    className="px-6 py-3 bg-gradient-to-r from-sky-500 to-teal-500 text-white font-bold rounded-xl text-sm hover:from-sky-600 hover:to-teal-600 transition-colors"
+                    className="px-6 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-sm transition-colors"
                   >
                     Jetzt schon 14 Tage unverbindlich testen →
                   </button>
@@ -873,7 +873,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                     <select
                       value={inquiryData.gewerk}
                       onChange={(e) => setInquiryData({ ...inquiryData, gewerk: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     >
                       <option value="Schreinerei">Schreinerei & Holzbau</option>
                       <option value="Malerei">Maler & Gipser</option>
@@ -892,7 +892,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                     <select
                       value={inquiryData.teamSize}
                       onChange={(e) => setInquiryData({ ...inquiryData, teamSize: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     >
                       <option value="1 Person">1 Person (Solo-Handwerker)</option>
                       <option value="2-5 Mitarbeiter">2 - 5 Mitarbeiter</option>
@@ -914,7 +914,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                       placeholder="z. B. Beat Keller"
                       value={inquiryData.name}
                       onChange={(e) => setInquiryData({ ...inquiryData, name: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
 
@@ -928,7 +928,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                       placeholder="z. B. Keller Holzbau AG"
                       value={inquiryData.firma}
                       onChange={(e) => setInquiryData({ ...inquiryData, firma: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -944,7 +944,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                       placeholder="name@betrieb.ch"
                       value={inquiryData.email}
                       onChange={(e) => setInquiryData({ ...inquiryData, email: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
 
@@ -957,7 +957,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                       placeholder="044 123 45 67"
                       value={inquiryData.telefon}
                       onChange={(e) => setInquiryData({ ...inquiryData, telefon: e.target.value })}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -971,13 +971,13 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                     placeholder="z. B. Datenmigration aus Altsoftware gewünscht, Schnittstelle zu Treuhand..."
                     value={inquiryData.bemerkung}
                     onChange={(e) => setInquiryData({ ...inquiryData, bemerkung: e.target.value })}
-                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   ></textarea>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-gradient-to-r from-sky-500 to-teal-500 hover:from-sky-600 hover:to-teal-600 text-white font-bold rounded-xl text-base shadow-md shadow-sky-500/25 transition-all cursor-pointer"
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-base shadow-md shadow-amber-500/25 transition-all cursor-pointer"
                 >
                   Unverbindliche Offerte anfordern →
                 </button>
@@ -997,7 +997,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       <section id="vorteile" className="py-20 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs uppercase font-bold tracking-wider text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
               Schweizer Werte
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
@@ -1010,7 +1010,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl mb-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl mb-4">
                 🎯
               </div>
               <h3 className="font-bold text-base text-slate-900 mb-2">Kein IT-Kauderwelsch</h3>
@@ -1020,7 +1020,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
 
             <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-2xl mb-4">
+              <div className="w-12 h-12 rounded-xl bg-yellow-100 text-yellow-800 flex items-center justify-center text-2xl mb-4">
                 📱
               </div>
               <h3 className="font-bold text-base text-slate-900 mb-2">Mobile First auf der Baustelle</h3>
@@ -1030,7 +1030,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
 
             <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-2xl mb-4">
+              <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center text-2xl mb-4">
                 🔒
               </div>
               <h3 className="font-bold text-base text-slate-900 mb-2">100% nDSG Datenschutz</h3>
@@ -1040,7 +1040,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
 
             <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl mb-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-2xl mb-4">
                 🇨🇭
               </div>
               <h3 className="font-bold text-base text-slate-900 mb-2">Support aus der Schweiz</h3>
@@ -1059,7 +1059,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="text-xs uppercase font-bold tracking-wider text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
               Häufige Fragen
             </span>
             <h2 className="text-3xl font-black text-slate-900 mt-4 tracking-tight">
@@ -1097,13 +1097,13 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             })}
           </div>
 
-          <div className="mt-12 p-6 bg-gradient-to-r from-sky-50 via-teal-50 to-indigo-50 rounded-2xl border border-sky-200 text-center">
+          <div className="mt-12 p-6 bg-gradient-to-r from-amber-50 via-yellow-50/60 to-orange-50/40 rounded-2xl border border-amber-200 text-center">
             <p className="text-sm font-semibold text-slate-900">
               Haben Sie eine spezifische Frage zu Ihrem Betrieb?
             </p>
             <p className="text-xs text-slate-600 mt-1">
               Kontaktieren Sie unser Schweizer Support-Team direkt unter{' '}
-              <a href="mailto:support@ki-netic.ch" className="font-bold underline text-sky-700">support@ki-netic.ch</a>
+              <a href="mailto:support@ki-netic.ch" className="font-bold underline text-amber-800 hover:text-amber-950">support@ki-netic.ch</a>
             </p>
           </div>
         </div>
@@ -1114,11 +1114,11 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       {/* ========================================================================= */}
       <section className="py-20 bg-slate-900 text-white relative overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 text-xs font-bold border border-sky-500/30 mb-6">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 mb-6">
             ✦ Bereit für weniger Büro & mehr Handwerk?
           </span>
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-            Starten Sie noch heute mit <span className="bg-gradient-to-r from-sky-400 to-teal-300 bg-clip-text text-transparent">Kinetic Craft.</span>
+            Starten Sie noch heute mit <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">Kinetic Craft.</span>
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
             Erstellen Sie Ihre erste Schweizer QR-Rechnung in unter 60 Sekunden. 14 Tage unverbindlich testen – keine Kreditkarte erforderlich.
@@ -1127,7 +1127,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onGoToRegistration}
-              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-sky-400 to-teal-300 hover:from-sky-300 hover:to-teal-200 rounded-2xl shadow-lg shadow-sky-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 rounded-2xl shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
               14 Tage kostenlos testen
             </button>
@@ -1151,7 +1151,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             {/* Col 1: Brand & Origin */}
             <div className="space-y-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-400 to-teal-500 flex items-center justify-center text-white">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 flex items-center justify-center text-white shadow-sm shadow-amber-500/20">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 4v16" />
                     <path d="M4 12l9-8" />
@@ -1176,11 +1176,11 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             <div>
               <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-3">Produkt</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="#funktionen" className="hover:text-sky-600">Funktionsübersicht</a></li>
-                <li><a href="#einblicke" className="hover:text-sky-600">App-Screenshots</a></li>
-                <li><a href="#gewerke" className="hover:text-sky-600">Branchenlösungen</a></li>
-                <li><a href="#tarife" className="hover:text-sky-600">Tarife & Upgrades</a></li>
-                <li><button onClick={onGoToRegistration} className="hover:text-sky-600 cursor-pointer">14 Tage Testzugang</button></li>
+                <li><a href="#funktionen" className="hover:text-amber-600">Funktionsübersicht</a></li>
+                <li><a href="#einblicke" className="hover:text-amber-600">App-Screenshots</a></li>
+                <li><a href="#gewerke" className="hover:text-amber-600">Branchenlösungen</a></li>
+                <li><a href="#tarife" className="hover:text-amber-600">Tarife & Upgrades</a></li>
+                <li><button onClick={onGoToRegistration} className="hover:text-amber-600 cursor-pointer">14 Tage Testzugang</button></li>
               </ul>
             </div>
 
@@ -1202,12 +1202,12 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 Vertrieb, Betreuung & Implementierung für Schweizer Betriebe.
               </p>
               <div className="mt-3 space-y-1.5 text-xs">
-                <p>E-Mail: <a href="mailto:support@ki-netic.ch" className="font-bold text-sky-700 hover:underline">support@ki-netic.ch</a></p>
+                <p>E-Mail: <a href="mailto:support@ki-netic.ch" className="font-bold text-amber-700 hover:underline">support@ki-netic.ch</a></p>
                 <p>Web: <span className="font-semibold text-slate-700">kinetic-schweiz.ch</span></p>
                 <div className="pt-2">
                   <button
                     onClick={onGoToLogin}
-                    className="text-xs font-bold text-slate-700 hover:text-sky-700 underline cursor-pointer"
+                    className="text-xs font-bold text-slate-700 hover:text-amber-700 underline cursor-pointer"
                   >
                     Kunden-Login öffnen →
                   </button>
