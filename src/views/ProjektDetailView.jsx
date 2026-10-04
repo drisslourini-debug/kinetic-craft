@@ -380,19 +380,19 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
             <button 
               onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-              className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+              className="px-4 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
             >
-              + Neue Offerte
+              <span>+</span> Neue Offerte
             </button>
             <button 
               onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-              className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+              className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
             >
               + Neue Rechnung
             </button>
             <button
               onClick={() => setActiveTab('dateien')}
-              className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+              className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
             >
               + Datei
             </button>
@@ -489,28 +489,38 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         </div>
       )}
 
-      {/* Tabs - Pill Design */}
-      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+      {/* Tabs - Segmented Control */}
+      <div className="flex bg-neutral-100/90 p-1.5 rounded-2xl border border-neutral-200/80 overflow-x-auto hide-scrollbar gap-1.5 w-fit max-w-full">
         {[
           { id: 'projektdaten', label: 'Projektdaten' },
-          { id: 'termine', label: `📅 Termine (${termine.length})` },
-          { id: 'offerten', label: `Offerten (${offerten.length})` },
-          { id: 'rechnungen', label: `Rechnungen (${rechnungen.length})` },
-          { id: 'ausgaben', label: `Ausgaben (${ausgaben.length})` },
-          { id: 'dateien', label: `Dateien (${dateien.length})` },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setEditState(null); }}
-            className={`flex items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === tab.id 
-                ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
-                : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+          { id: 'termine', label: '📅 Termine', count: termine.length },
+          { id: 'offerten', label: 'Offerten', count: offerten.length },
+          { id: 'rechnungen', label: 'Rechnungen', count: rechnungen.length },
+          { id: 'ausgaben', label: 'Ausgaben', count: ausgaben.length },
+          { id: 'dateien', label: 'Dateien', count: dateien.length },
+        ].map(tab => {
+          const isActive = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setEditState(null); }}
+              className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                isActive 
+                  ? 'bg-white text-text-primary shadow-xs' 
+                  : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
+              }`}
+            >
+              <span>{tab.label}</span>
+              {typeof tab.count === 'number' && (
+                <span className={`px-1.5 py-0.5 text-[11px] rounded-md font-medium transition-colors ${
+                  isActive ? 'bg-neutral-100 text-neutral-800' : 'bg-neutral-200/70 text-neutral-600'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {isLoading ? (
@@ -518,48 +528,51 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
       ) : (
         <div className="animate-fade-in" ref={parent}>
           
-          {/* TAB: PROJEKTDATEN */}
+          {/* TAB: PROJEKTDATEN - 2-Column Bento Grid */}
           {activeTab === 'projektdaten' && (
-            <div className="animate-fade-in-up space-y-4">
-              <ProjektStammdatenBlock
-                projekt={projekt}
-                kunde={kunde}
-                draft={draft}
-                isEditing={editState === 'stammdaten'}
-                isSaving={isSaving}
-                onEdit={() => startEdit('stammdaten')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                onNavigate={onNavigate}
-                disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
-              />
-              
-              <ProjektTermineBlock
-                projekt={projekt}
-                draft={draft}
-                isEditing={editState === 'termine'}
-                isSaving={isSaving}
-                onEdit={() => startEdit('termine')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
-                termineCount={termine.length}
-                onOpenTermineTab={() => setActiveTab('termine')}
-              />
-              
-              <ProjektNotizenBlock
-                projekt={projekt}
-                draft={draft}
-                isEditing={editState === 'notizen'}
-                isSaving={isSaving}
-                onEdit={() => startEdit('notizen')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
-              />
+            <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              <div>
+                <ProjektStammdatenBlock
+                  projekt={projekt}
+                  kunde={kunde}
+                  draft={draft}
+                  isEditing={editState === 'stammdaten'}
+                  isSaving={isSaving}
+                  onEdit={() => startEdit('stammdaten')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  onNavigate={onNavigate}
+                  disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
+                />
+              </div>
+              <div className="space-y-6">
+                <ProjektTermineBlock
+                  projekt={projekt}
+                  draft={draft}
+                  isEditing={editState === 'termine'}
+                  isSaving={isSaving}
+                  onEdit={() => startEdit('termine')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
+                  termineCount={termine.length}
+                  onOpenTermineTab={() => setActiveTab('termine')}
+                />
+                
+                <ProjektNotizenBlock
+                  projekt={projekt}
+                  draft={draft}
+                  isEditing={editState === 'notizen'}
+                  isSaving={isSaving}
+                  onEdit={() => startEdit('notizen')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  disabled={projekt.status === 'Abgeschlossen' || projekt.status === 'Abgebrochen' || userRole === 'treuhand'}
+                />
+              </div>
             </div>
           )}
 

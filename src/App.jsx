@@ -488,15 +488,21 @@ export default function App() {
               </h1>
             </div>
             
-            <div className="flex items-center gap-4">
-              {userRole === 'treuhand' && (
-                <span className="hidden sm:inline-flex px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
+            <div className="flex items-center gap-3">
+              {userRole === 'treuhand' ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                   Treuhand-Zugang
+                </span>
+              ) : (
+                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-text-secondary text-xs font-semibold rounded-full border border-neutral-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  {globalSettings?.firmenname || 'Atelier 77'}
                 </span>
               )}
               <button 
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+                className="md:hidden px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
               >
                 Abmelden
               </button>

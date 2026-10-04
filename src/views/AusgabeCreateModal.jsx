@@ -153,7 +153,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-md animate-fade-in">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
         <div className="p-5 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
           <div>

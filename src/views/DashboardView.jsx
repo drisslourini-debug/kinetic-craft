@@ -347,17 +347,17 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
               <h3 className="font-bold text-text-primary mb-6">Umsatzentwicklung (Letzte 6 Monate)</h3>
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.chartData} margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
+                  <BarChart data={data.chartData} margin={{ top: 10, right: 10, left: 24, bottom: 0 }}>
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `CHF ${value/1000}k`} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(value) => `CHF ${Math.round(value/1000)}k`} />
                     <Tooltip 
-                      cursor={{ fill: '#f1f5f9' }}
-                      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      cursor={{ fill: '#f8fafc' }}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                       formatter={(value) => [formatCurrency(value), 'Umsatz']}
                     />
-                    <Bar dataKey="Umsatz" radius={[6, 6, 0, 0]}>
+                    <Bar dataKey="Umsatz" radius={[8, 8, 0, 0]}>
                       {data.chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === data.chartData.length - 1 ? '#0284c7' : '#bae6fd'} />
+                        <Cell key={`cell-${index}`} fill={index === data.chartData.length - 1 ? '#b88a38' : '#e4d3b6'} />
                       ))}
                     </Bar>
                   </BarChart>

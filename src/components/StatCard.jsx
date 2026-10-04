@@ -65,17 +65,17 @@ export default function StatCard({
   const colors = COLOR_MAP[color] || COLOR_MAP.primary;
 
   const activeClasses = isActive 
-    ? `border-${color}-400 ring-4 ring-${color}-400/20 shadow-md` 
-    : `border-border hover:border-${color}-300 hover:shadow-md`;
+    ? `border-${color}-500 ring-4 ring-${color}-500/15 shadow-md` 
+    : `border-border/80 hover:border-${color}-400/60 shadow-xs hover:shadow-md`;
 
   return (
     <div 
-      className={`bg-surface-card rounded-2xl border-2 p-5 relative overflow-hidden group transition-all ${activeClasses} ${onClick ? 'cursor-pointer' : ''}`}
+      className={`bg-surface-card rounded-2xl border p-5 relative overflow-hidden group transition-all duration-200 ${activeClasses} ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      {/* Watermark Icon */}
+      {/* Subtle Watermark Icon */}
       <svg 
-        className={`absolute -right-4 -bottom-4 w-24 h-24 ${colors.watermark} opacity-60 group-hover:scale-110 group-hover:opacity-100 transition-all duration-500`} 
+        className={`absolute -right-3 -bottom-3 w-20 h-20 ${colors.watermark} opacity-20 group-hover:scale-105 group-hover:opacity-35 transition-all duration-300 pointer-events-none`} 
         fill="none" 
         stroke="currentColor" 
         viewBox="0 0 24 24"

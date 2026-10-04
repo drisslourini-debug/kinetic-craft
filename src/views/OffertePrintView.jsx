@@ -346,12 +346,12 @@ export default function OffertePrintView({
         : "fixed inset-0 z-[100] bg-neutral-200/90 backdrop-blur-sm overflow-y-auto print:static print:overflow-visible print:block print:bg-white print:p-0"
       }
     >
-      {/* ===== ACTION BAR (hidden when printing or in mini preview) ===== */}
+      {/* ===== FLOATING GLASSMORPHIC ACTION BAR (hidden when printing or in mini preview) ===== */}
       {!previewMode && (
-        <div className="print:hidden sticky top-0 bg-white/95 backdrop-blur-md border-b border-border px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3 z-30 shadow-sm">
+        <div className="print:hidden sticky top-4 z-30 mx-auto w-fit max-w-[95%] bg-white/90 backdrop-blur-md border border-neutral-200/80 px-5 py-2.5 rounded-2xl shadow-xl flex flex-wrap items-center justify-center sm:justify-between gap-3 my-2 animate-fade-in">
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary bg-surface hover:bg-neutral-100 border border-border rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-3.5 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >
             ← Zurück
           </button>
@@ -360,7 +360,7 @@ export default function OffertePrintView({
             <button
               onClick={handleEmailWithPDF}
               disabled={isGenerating}
-              className="px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-surface hover:bg-neutral-50 border border-border rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               title="PDF generieren, archivieren, herunterladen und per E-Mail versenden"
             >
               ✉️ {isGenerating ? 'Bereite vor...' : 'E-Mail'}
@@ -369,7 +369,7 @@ export default function OffertePrintView({
             <button
               onClick={handleSaveToArchive}
               disabled={isGenerating}
-              className="px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               title="PDF generieren und im Dateien-Archiv speichern"
             >
               📁 {isGenerating ? 'Speichert...' : 'In Dateien archivieren'}
@@ -378,7 +378,7 @@ export default function OffertePrintView({
             <button
               onClick={handleDownloadPDF}
               disabled={isGenerating}
-              className="px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-colors shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-all shadow-xs shadow-primary-600/20 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98]"
               title="PDF herunterladen"
             >
               ⬇️ {isGenerating ? 'Erstelle PDF...' : 'PDF herunterladen'}
@@ -386,7 +386,7 @@ export default function OffertePrintView({
 
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 text-sm font-bold text-neutral-800 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 text-sm font-bold text-neutral-800 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
               title="Drucken über System-Druckdialog"
             >
               🖨️ Drucken

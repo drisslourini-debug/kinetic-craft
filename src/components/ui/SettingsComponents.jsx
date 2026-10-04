@@ -1,5 +1,5 @@
-export const SettingsBlock = ({ title, description, isEditing, onEdit, onCancel, onSave, isSaving, children, readOnlyView, disabled }) => (
-  <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6 mb-6 w-full lg:max-w-5xl">
+export const SettingsBlock = ({ title, description, isEditing, onEdit, onCancel, onSave, isSaving, children, readOnlyView, disabled, className = '' }) => (
+  <div className={`bg-surface-card rounded-2xl border border-border shadow-xs p-6 mb-6 w-full ${className}`}>
     <div className="flex justify-between items-start mb-6">
       <div>
         <div className="flex items-center gap-2">

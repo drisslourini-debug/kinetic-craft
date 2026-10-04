@@ -374,26 +374,26 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           {userRole !== 'treuhand' && (
             <>
               <button
+                onClick={() => onNavigate && onNavigate('offerten', { action: 'create', kundeId: kunde.id })}
+                className="px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
+              >
+                <span>+</span> Neue Offerte
+              </button>
+              <button
                 onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: kunde.id })}
-                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+                className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
                 + Projekt
               </button>
               <button
-                onClick={() => onNavigate && onNavigate('offerten', { action: 'create', kundeId: kunde.id })}
-                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
-              >
-                + Offerte
-              </button>
-              <button
                 onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', kundeId: kunde.id })}
-                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+                className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
                 + Rechnung
               </button>
               <button
                 onClick={() => setActiveTab('dateien')}
-                className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-[auto] text-base sm:text-xs font-medium bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl sm:rounded-lg border border-border shadow-sm transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+                className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
                 + Datei
               </button>
@@ -469,21 +469,34 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         </div>
       )}
 
-      {/* Tabs - Pill Design to match Einstellungen */}
-      <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
-        {['stammdaten', 'projekte', 'offerten', 'finanzen', 'dateien']
-          .filter(tab => !(userRole === 'treuhand' && (tab === 'projekte' || tab === 'offerten')))
-          .map(tab => (
+      {/* Segmented Control Tabs */}
+      <div className="inline-flex p-1.5 bg-neutral-100/90 border border-neutral-200/70 rounded-2xl gap-1 overflow-x-auto hide-scrollbar max-w-full shadow-2xs">
+        {[
+          { id: 'stammdaten', label: 'Stammdaten' },
+          { id: 'projekte', label: 'Projekte', count: projekte.length },
+          { id: 'offerten', label: 'Offerten', count: offerten.length },
+          { id: 'finanzen', label: 'Finanzen' },
+          { id: 'dateien', label: 'Dateien', count: dateien.length }
+        ]
+          .filter(t => !(userRole === 'treuhand' && (t.id === 'projekte' || t.id === 'offerten')))
+          .map(t => (
           <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setEditState(null); }}
-            className={`flex items-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
-              activeTab === tab 
-                ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20' 
-                : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-gray-300 hover:bg-gray-50'
+            key={t.id}
+            onClick={() => { setActiveTab(t.id); setEditState(null); }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
+              activeTab === t.id 
+                ? 'bg-white text-text-primary shadow-xs font-bold' 
+                : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
             }`}
           >
-            {tab}
+            <span>{t.label}</span>
+            {t.count !== undefined && (
+              <span className={`px-1.5 py-0.5 text-[11px] font-bold rounded-full ${
+                activeTab === t.id ? 'bg-primary-100 text-primary-800' : 'bg-neutral-200/70 text-text-secondary'
+              }`}>
+                {t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -493,47 +506,53 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
       ) : (
         <div className="animate-fade-in" ref={parent}>
           
-          {/* TAB: STAMMDATEN */}
+          {/* TAB: STAMMDATEN - 2-Spalten Bento-Grid */}
           {activeTab === 'stammdaten' && (
-            <div className="animate-fade-in-up space-y-4">
-              <KundeStammdaten
-                kunde={kunde}
-                draft={draft}
-                isEditing={editState === 'stammdaten'}
-                isSaving={isSaving}
-                validationErrors={validationErrors}
-                onEdit={() => startEdit('stammdaten')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                disabled={userRole === 'treuhand'}
-              />
+            <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* Spalte 1: Grunddaten & Identifikation */}
+              <div className="space-y-6">
+                <KundeStammdaten
+                  kunde={kunde}
+                  draft={draft}
+                  isEditing={editState === 'stammdaten'}
+                  isSaving={isSaving}
+                  validationErrors={validationErrors}
+                  onEdit={() => startEdit('stammdaten')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  disabled={userRole === 'treuhand'}
+                />
+              </div>
               
-              <KundeKontakt
-                kunde={kunde}
-                draft={draft}
-                isEditing={editState === 'kontakt'}
-                isSaving={isSaving}
-                validationErrors={validationErrors}
-                onEdit={() => startEdit('kontakt')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                onAddressDetails={(details) => setDraft(prev => ({...prev, strasse: details.strasse, plz: details.plz, ort: details.ort}))}
-                disabled={userRole === 'treuhand'}
-              />
-              
-              <KundeSettings
-                kunde={kunde}
-                draft={draft}
-                isEditing={editState === 'konditionen'}
-                isSaving={isSaving}
-                onEdit={() => startEdit('konditionen')}
-                onCancel={cancelEdit}
-                onSave={handleSaveBlock}
-                onChange={handleDraftChange}
-                disabled={userRole === 'treuhand'}
-              />
+              {/* Spalte 2: Adresse, Kontakt & Konditionen */}
+              <div className="space-y-6">
+                <KundeKontakt
+                  kunde={kunde}
+                  draft={draft}
+                  isEditing={editState === 'kontakt'}
+                  isSaving={isSaving}
+                  validationErrors={validationErrors}
+                  onEdit={() => startEdit('kontakt')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  onAddressDetails={(details) => setDraft(prev => ({...prev, strasse: details.strasse, plz: details.plz, ort: details.ort}))}
+                  disabled={userRole === 'treuhand'}
+                />
+                
+                <KundeSettings
+                  kunde={kunde}
+                  draft={draft}
+                  isEditing={editState === 'konditionen'}
+                  isSaving={isSaving}
+                  onEdit={() => startEdit('konditionen')}
+                  onCancel={cancelEdit}
+                  onSave={handleSaveBlock}
+                  onChange={handleDraftChange}
+                  disabled={userRole === 'treuhand'}
+                />
+              </div>
             </div>
           )}
 

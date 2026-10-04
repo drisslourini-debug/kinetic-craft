@@ -211,7 +211,7 @@ export default function OnboardingChecklistWidget({
                     {step.completed ? '✓' : idx + 1}
                   </div>
                   <div>
-                    <h4 className={`text-sm font-semibold leading-tight ${step.completed ? 'line-through text-text-secondary' : 'text-text-primary'}`}>
+                    <h4 className={`text-sm font-semibold leading-tight ${step.completed ? 'text-text-secondary' : 'text-text-primary'}`}>
                       {step.label}
                     </h4>
                     <p className="text-xs text-text-secondary mt-1">

@@ -33,9 +33,18 @@ test.describe('Datenschutz revDSG & Session-Hygiene', () => {
     await page.locator('button:has-text("Einstellungen")').first().click();
     await page.waitForTimeout(1500);
 
-    // 4. Abmelden über Logout-Button
-    const logoutBtn = page.getByRole('button', { name: /Abmelden/i }).first();
-    await logoutBtn.click();
+    // 4. Abmelden über Sidebar Logout
+    const logoutTrigger = page.locator('button[title="Abmelden"]').first();
+    if (await logoutTrigger.isVisible()) {
+      await logoutTrigger.click();
+      await page.waitForTimeout(500);
+      const confirmBtn = page.locator('.fixed.z-50 button:has-text("Abmelden")').first();
+      await confirmBtn.waitFor({ state: 'visible', timeout: 5000 });
+      await confirmBtn.click();
+    } else {
+      const mobileLogout = page.getByRole('button', { name: /Abmelden/i }).first();
+      await mobileLogout.click();
+    }
     await page.waitForTimeout(1500);
     console.log('✅ Erfolgreich abgemeldet.');
 
