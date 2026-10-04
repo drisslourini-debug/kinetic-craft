@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/formatters'
@@ -7,7 +7,7 @@ import { calculateDocumentTotals } from '../lib/calculations'
 import { EINHEITEN } from '../lib/constants'
 import { generateNextRechnungNr, parseZahlungsfrist } from '../lib/documentService'
 import AddressAutocomplete from './AddressAutocomplete'
-import RechnungPrintView from '../views/RechnungPrintView'
+const RechnungPrintView = lazy(() => import('../views/RechnungPrintView'))
 
 const STEPS = [
   { id: 1, label: 'Kunde', icon: '👤' },
@@ -1357,12 +1357,14 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
 
           {/* SUCCESS UI */}
           {submitSuccess && (
-            <RechnungPrintView 
-              rechnung={submitSuccess} 
-              kunde={submitSuccess.kunden} 
-              projekt={submitSuccess.projekte} 
-              onClose={onClose} 
-            />
+            <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
+              <RechnungPrintView 
+                rechnung={submitSuccess} 
+                kunde={submitSuccess.kunden} 
+                projekt={submitSuccess.projekte} 
+                onClose={onClose} 
+              />
+            </Suspense>
           )}
         </div>
       </div> {/* <-- Closes flex-1 overflow-y-auto */}

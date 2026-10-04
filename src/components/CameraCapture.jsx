@@ -51,7 +51,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }) {
       }
     }
     return () => stopCamera()
-  }, [isOpen, startCamera, stopCamera, photoUrl])
+  }, [isOpen, startCamera, stopCamera])
 
   const handleCapture = () => {
     if (!videoRef.current || !canvasRef.current) return
@@ -70,6 +70,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }) {
     canvas.toBlob((blob) => {
       setPhotoBlob(blob)
       setPhotoUrl(URL.createObjectURL(blob))
+      stopCamera() // Kamera-Stream sofort stoppen, schont Smartphone-Akku auf der Baustelle
     }, 'image/jpeg', 0.85)
   }
 
@@ -83,6 +84,7 @@ export default function CameraCapture({ isOpen, onClose, onCapture }) {
       URL.revokeObjectURL(photoUrl)
       setPhotoUrl(null)
     }
+    startCamera()
   }
 
   const handleUse = () => {

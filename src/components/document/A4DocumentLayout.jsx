@@ -349,7 +349,7 @@ export function PositionsTableBody({ items, brandColor }) {
               {pos.einzelpreis ? formatMoney(pos.einzelpreis) : '–'}
             </td>
             <td style={{ padding: '2mm 1.5mm', textAlign: 'right', verticalAlign: 'top', fontSize: '9pt', fontWeight: 600, color: isOption ? '#888' : '#111', whiteSpace: 'nowrap' }}>
-              {posTotal > 0 ? `CHF ${formatMoney(posTotal)}` : '–'}
+              {posTotal !== 0 ? `CHF ${formatMoney(posTotal)}` : '–'}
             </td>
           </tr>
         )
@@ -497,13 +497,16 @@ export function TotalsAndClosing({
 export function DocumentFooter({ pageNum, totalPages, settings, brandColor }) {
   const cleanString = (str) => (str || '').replace(/\r?\n/g, ' ').trim()
 
+  const effectiveUid = cleanString(settings?.uid || settings?.uid_nummer)
+  const formattedUid = effectiveUid ? `UID: ${effectiveUid}${!effectiveUid.toUpperCase().includes('MWST') ? ' MWST' : ''}` : ''
+
   const footerParts = [
     cleanString(settings?.firmenname),
     cleanString(settings?.strasse),
     cleanString((settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort),
     cleanString(settings?.telefon),
     cleanString(settings?.email),
-    settings?.uid_nummer ? `UID: ${cleanString(settings.uid_nummer)}` : '',
+    formattedUid,
     cleanString(settings?.bankverbindung)
   ].filter(Boolean)
 

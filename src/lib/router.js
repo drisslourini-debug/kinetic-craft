@@ -82,8 +82,9 @@ export function formatUrl(view, params = {}) {
     basePath = `/${view}/${encodeURIComponent(id)}`
   }
 
-  // Preserve testBypass if currently in window.location.search
+  // Preserve testBypass only in DEV mode if currently in window.location.search
   if (
+    import.meta.env?.DEV &&
     typeof window !== 'undefined' &&
     window.location?.search?.includes('testBypass=true') &&
     p.testBypass === undefined

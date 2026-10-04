@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
-import RechnungPrintView from './RechnungPrintView'
+const RechnungPrintView = lazy(() => import('./RechnungPrintView'))
 import { formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr } from '../lib/documentService'
@@ -106,16 +106,27 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
   const handleStatusChange = async (newStatus) => {
     if (!supabase) return
+    // GeBüV: Paid or cancelled invoices cannot be reverted to draft or open status
+    if ((status === 'Bezahlt' || status === 'Storniert') && newStatus !== 'Bezahlt' && newStatus !== 'Storniert') {
+      showToast('error', 'GeBüV: Eine bezahlte oder stornierte Rechnung darf nicht wieder in den Entwurf-Status versetzt werden.')
+      return
+    }
+    const oldStatus = status
     setStatus(newStatus)
     setIsUpdating(true)
     
     try {
-      await supabase
+      const { error } = await supabase
         .from('rechnungen')
         .update({ status: newStatus })
         .eq('id', rechnung.id)
+      if (error) throw error
+      rechnung.status = newStatus
+      showToast('success', `Status auf "${newStatus}" aktualisiert.`)
     } catch (err) {
       console.error('Failed to update status:', err)
+      showToast('error', err.message || 'Status konnte nicht aktualisiert werden.')
+      setStatus(oldStatus)
     } finally {
       setIsUpdating(false)
     }
@@ -437,7 +448,11 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   } : rechnung;
 
   if (showPrintView) {
-    return <RechnungPrintView rechnung={rechnung} kunde={kunde} projekt={projekt} settings={settings} onClose={() => setShowPrintView(false)} />
+    return (
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent" /></div>}>
+        <RechnungPrintView rechnung={rechnung} kunde={kunde} projekt={projekt} settings={settings} onClose={() => setShowPrintView(false)} />
+      </Suspense>
+    )
   }
 
   return (
@@ -460,7 +475,30 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
               </h2>
               {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
-            <p className="text-text-secondary mt-1">Erstellt am {formatDate(rechnung.created_at)}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-text-secondary text-sm">Erstellt am {formatDate(rechnung.created_at)}</p>
+              {rechnung.pdf_url ? (
+                <a
+                  href={rechnung.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  title="Archiviertes PDF anzeigen"
+                >
+                  <span>📁</span> Im Archiv gesichert
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPrintView(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                  title="PDF generieren und im Archiv ablegen"
+                >
+                  <span>📁</span> Noch nicht archiviert
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -477,10 +515,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
               'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
             }`}
           >
-            <option value="Entwurf">Entwurf</option>
-            <option value="Versendet">Versendet</option>
+            <option value="Entwurf" disabled={status === 'Bezahlt' || status === 'Storniert'}>Entwurf {status === 'Bezahlt' || status === 'Storniert' ? '(gesperrt)' : ''}</option>
+            <option value="Versendet" disabled={status === 'Bezahlt' || status === 'Storniert'}>Versendet</option>
             <option value="Bezahlt">Bezahlt</option>
-            <option value="Überfällig">Überfällig</option>
+            <option value="Überfällig" disabled={status === 'Bezahlt' || status === 'Storniert'}>Überfällig</option>
             <option value="Storniert">Storniert</option>
           </select>
           
@@ -1238,7 +1276,9 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
         {showLivePreview && isEditing && (
           <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
-            <RechnungPrintView rechnung={previewRechnung} kunde={kunde} projekt={projekt} settings={settings} previewMode={true} />
+            <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
+              <RechnungPrintView rechnung={previewRechnung} kunde={kunde} projekt={projekt} settings={settings} previewMode={true} />
+            </Suspense>
           </div>
         )}
       </div>

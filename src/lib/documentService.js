@@ -1,11 +1,12 @@
 /**
  * Centralized document service for generating document numbers and 
  * calculating payment terms across the Atelier 77 Dashboard.
+ * Includes atomic server-side sequence RPC with fallback for collision prevention (NUM-01).
  */
 
 /**
  * Generates the next sequential invoice number in format RE-YYYY-NNN.
- * Queries existing invoices for the current year and increments.
+ * First tries atomic RPC `get_next_document_number`, then falls back to table query.
  * 
  * @param {Object} supabase - Supabase client instance
  * @param {number} [startnummer] - Optional starting number (from settings)
@@ -13,6 +14,23 @@
  */
 export async function generateNextRechnungNr(supabase, startnummer = null) {
   const year = new Date().getFullYear()
+
+  // 1. Try atomic server-side sequence RPC
+  if (supabase?.rpc) {
+    try {
+      const { data, error } = await supabase.rpc('get_next_document_number', {
+        p_doc_type: 'rechnung',
+        p_year: year
+      })
+      if (!error && data) {
+        return data
+      }
+    } catch (_) {
+      // Fallback
+    }
+  }
+
+  // 2. Client-side query fallback
   const { data: existing } = await supabase
     .from('rechnungen')
     .select('rechnung_nr')
@@ -28,6 +46,50 @@ export async function generateNextRechnungNr(supabase, startnummer = null) {
   }
 
   return `RE-${year}-${String(nextNum).padStart(3, '0')}`
+}
+
+/**
+ * Generates the next sequential offerte number in format OF-YYYY-NNN.
+ * First tries atomic RPC `get_next_document_number`, then falls back to table query.
+ * 
+ * @param {Object} supabase - Supabase client instance
+ * @param {number} [startnummer] - Optional starting number (from settings)
+ * @returns {Promise<string>} Next quote number (e.g. "OF-2026-1001")
+ */
+export async function generateNextOfferteNr(supabase, startnummer = null) {
+  const year = new Date().getFullYear()
+
+  // 1. Try atomic server-side sequence RPC
+  if (supabase?.rpc) {
+    try {
+      const { data, error } = await supabase.rpc('get_next_document_number', {
+        p_doc_type: 'offerte',
+        p_year: year
+      })
+      if (!error && data) {
+        return data
+      }
+    } catch (_) {
+      // Fallback
+    }
+  }
+
+  // 2. Client-side query fallback
+  const { data: existing } = await supabase
+    .from('offerten')
+    .select('offerte_nr')
+    .ilike('offerte_nr', `OF-${year}-%`)
+    .order('offerte_nr', { ascending: false })
+    .limit(1)
+
+  let nextNum = startnummer || 1000
+  if (existing && existing.length > 0) {
+    const parts = existing[0].offerte_nr.split('-')
+    const lastNum = parseInt(parts[2]) || 0
+    nextNum = Math.max(nextNum, lastNum + 1)
+  }
+
+  return `OF-${year}-${String(nextNum).padStart(3, '0')}`
 }
 
 /**
@@ -58,7 +120,13 @@ export function parseZahlungsfrist(zahlungsziel, fallback = 30) {
  * @returns {string} Due date as ISO date string (YYYY-MM-DD)
  */
 export function calculateDueDate(startDate, fristTage) {
-  const date = new Date(startDate)
-  date.setDate(date.getDate() + fristTage)
-  return date.toISOString().split('T')[0]
+  if (!startDate) return ''
+  const parts = String(startDate).split('T')[0].split('-').map(Number)
+  if (parts.length < 3 || isNaN(parts[0])) return ''
+  const date = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0)
+  date.setDate(date.getDate() + parseInt(fristTage || 0, 10))
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }

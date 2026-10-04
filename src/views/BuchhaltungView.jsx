@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { formatDate, formatCurrency } from '../lib/formatters'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+import { generateBananaJournalCsv, generateEstvMwstSummaryCsv } from '../lib/accountingExport'
 import AusgabeCreateModal from './AusgabeCreateModal'
 import { useModalHistory } from '../hooks/useModalHistory'
 
@@ -218,6 +219,14 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
         zip.file('Einnahmen.csv', '\uFEFF' + einnahmenCsv)
       }
 
+      // --- BANANA BUCHHALTUNG (SCHWEIZER KMU KONTENRAHMEN) ---
+      const bananaCsv = generateBananaJournalCsv(filteredAusgaben, einnahmen)
+      zip.file('Banana_Buchungsjournal.csv', bananaCsv)
+
+      // --- ESTV FORMULAR 200 MWST-ÜBERSICHT ---
+      const estvSummaryCsv = generateEstvMwstSummaryCsv(filteredAusgaben, einnahmen)
+      zip.file('ESTV_MWST_Formular200.csv', estvSummaryCsv)
+
       // --- BELEGE (PDF/JPG) ---
       const belegeFolder = zip.folder('Belege')
       for (const a of filteredAusgaben) {
@@ -244,6 +253,17 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
     } finally {
       setIsExporting(false)
     }
+  }
+
+  const handleExportBanana = () => {
+    if (filteredAusgaben.length === 0 && einnahmen.length === 0) {
+      showToast('info', 'Keine Daten zum Exportieren vorhanden.')
+      return
+    }
+    const csv = generateBananaJournalCsv(filteredAusgaben, einnahmen)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    saveAs(blob, `Banana_Journal_${filterYear}_${filterQuarter}.csv`)
+    showToast('success', 'Banana-Buchungsjournal heruntergeladen.')
   }
   
   const handleMarkAsPaid = async (ausgabe) => {
@@ -325,6 +345,14 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             )}
             {isExporting ? 'Exportiere ZIP...' : 'Treuhand-ZIP Export'}
+          </button>
+          <button 
+            onClick={handleExportBanana}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] bg-white text-gray-700 border border-gray-300 font-semibold text-base sm:text-sm rounded-xl hover:bg-gray-50 active:scale-[0.97] transition-all shadow-sm cursor-pointer"
+            title="Direkter Export für Banana Buchhaltung nach Schweizer KMU-Kontenrahmen"
+          >
+            <span>🍌</span>
+            Banana-Export
           </button>
           {userRole !== 'treuhand' && (
             <button 

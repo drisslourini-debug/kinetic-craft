@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 
 import { calculateRechnungStatus } from '../lib/statusLogic'
 import { formatDate, formatCurrency } from '../lib/formatters'
+import { getTenantStoragePath, extractStoragePath } from '../lib/storageHelper'
 
 import KundeStammdaten from '../components/kunde/KundeStammdaten'
 import KundeKontakt from '../components/kunde/KundeKontakt'
@@ -202,6 +203,29 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     } catch (err) {
       console.error(err)
       showToast('error', 'Umbenennen fehlgeschlagen.')
+    }
+  }
+
+  const handleDeleteFile = async (datei) => {
+    if (!window.confirm(`Möchtest du die Datei "${datei.name}" wirklich unwiderruflich löschen?`)) return
+    try {
+      if (datei.url) {
+        const storagePath = extractStoragePath(datei.url)
+        if (storagePath) {
+          try {
+            await supabase.storage.from('anhange').remove([storagePath])
+          } catch (stErr) {
+            console.warn('Storage delete warning:', stErr)
+          }
+        }
+      }
+      const { error } = await supabase.from('dateien').delete().eq('id', datei.id)
+      if (error) throw error
+      setDateien(prev => prev.filter(d => d.id !== datei.id))
+      showToast('success', `Datei "${datei.name}" gelöscht.`)
+    } catch (err) {
+      console.error('Delete error:', err)
+      showToast('error', 'Löschen fehlgeschlagen.')
     }
   }
 
@@ -820,16 +844,18 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
 
                       try {
                         setIsLoading(true)
-                        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-                        const filePath = `uploads/${fileName}`
+                        const filePath = getTenantStoragePath(kunde.tenant_id, finalName, 'kunden')
                         
                         const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
                         if (uploadError) throw uploadError
                         
                         const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
                         
+                        const isImg = file.type?.startsWith('image/')
+                        const standardKat = isImg ? 'Fotos & Pläne' : 'Allgemeine Dokumente'
+
                         const { data, error: dbError } = await supabase.from('dateien').insert([{
-                          name: finalName, typ: file.type || fileExt, url: publicUrl, size_bytes: file.size, kunde_id: kunde.id, kategorie: 'Upload'
+                          name: finalName, typ: file.type || fileExt, url: publicUrl, size_bytes: file.size, kunde_id: kunde.id, kategorie: standardKat
                         }]).select()
                         
                         if (dbError) throw dbError
@@ -866,9 +892,14 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                           <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                         </a>
                         {userRole !== 'treuhand' && (
-                          <button onClick={() => openRenameModal(datei.id, datei.name)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors flex items-center justify-center" title="Umbenennen">
-                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                          </button>
+                          <>
+                            <button onClick={() => openRenameModal(datei.id, datei.name)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-white shadow-sm rounded-lg text-gray-500 hover:text-amber-500 transition-colors flex items-center justify-center" title="Umbenennen">
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button onClick={() => handleDeleteFile(datei)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-white shadow-sm rounded-lg text-gray-500 hover:text-red-500 transition-colors flex items-center justify-center" title="Löschen">
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </>
                         )}
                       </div>
                       <div className="flex-1 flex flex-col items-center justify-center mb-3 pt-2">

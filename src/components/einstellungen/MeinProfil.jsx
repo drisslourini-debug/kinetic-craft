@@ -30,15 +30,23 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setSessionUser(session.user)
-        if (!userName && session.user.user_metadata?.full_name) {
-          setProfileName(session.user.user_metadata.full_name)
+        const storedName = session.user.user_metadata?.full_name || userName || ''
+        if (storedName) {
+          setProfileName(storedName)
+        }
+        if (session.user.user_metadata?.notify_due !== undefined) {
+          setNotifyDueInvoices(session.user.user_metadata.notify_due)
+        }
+        if (session.user.user_metadata?.notify_weekly !== undefined) {
+          setNotifyWeeklyReport(session.user.user_metadata.notify_weekly)
         }
       }
     })
   }, [userName])
 
   const handleSaveName = async () => {
-    if (!profileName.trim()) {
+    const cleanName = profileName.trim()
+    if (!cleanName) {
       showToast('error', 'Bitte gib einen Namen ein.')
       return
     }
@@ -46,19 +54,25 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
     setIsSavingName(true)
     try {
       if (sessionUser?.id) {
-        // Update user_roles table
-        await supabase
-          .from('user_roles')
-          .update({ user_name: profileName.trim() })
-          .eq('id', sessionUser.id)
-
-        // Update auth metadata
-        await supabase.auth.updateUser({
-          data: { full_name: profileName.trim() }
+        // 1. Update auth metadata (Primary source of truth for user profile)
+        const { error: authErr } = await supabase.auth.updateUser({
+          data: { full_name: cleanName }
         })
+        if (authErr) throw authErr
 
+        // 2. Best-effort update user_roles table
+        try {
+          await supabase
+            .from('user_roles')
+            .update({ user_name: cleanName })
+            .eq('id', sessionUser.id)
+        } catch (e) {
+          console.warn('user_roles update non-critical fallback:', e)
+        }
+
+        // 3. Update active UI state across the app
         if (onUserNameChange) {
-          onUserNameChange(profileName.trim())
+          onUserNameChange(cleanName)
         }
       }
       setIsEditingName(false)
@@ -275,7 +289,16 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
             <input 
               type="checkbox" 
               checked={notifyDueInvoices} 
-              onChange={e => { setNotifyDueInvoices(e.target.checked); showToast('success', 'Einstellung gespeichert'); }}
+              onChange={async (e) => {
+                const val = e.target.checked
+                setNotifyDueInvoices(val)
+                try {
+                  await supabase.auth.updateUser({ data: { notify_due: val } })
+                  showToast('success', 'Einstellung gespeichert')
+                } catch (err) {
+                  console.error('Save notification error:', err)
+                }
+              }}
               className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500 cursor-pointer"
             />
           </label>
@@ -287,7 +310,16 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
             <input 
               type="checkbox" 
               checked={notifyWeeklyReport} 
-              onChange={e => { setNotifyWeeklyReport(e.target.checked); showToast('success', 'Einstellung gespeichert'); }}
+              onChange={async (e) => {
+                const val = e.target.checked
+                setNotifyWeeklyReport(val)
+                try {
+                  await supabase.auth.updateUser({ data: { notify_weekly: val } })
+                  showToast('success', 'Einstellung gespeichert')
+                } catch (err) {
+                  console.error('Save notification error:', err)
+                }
+              }}
               className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500 cursor-pointer"
             />
           </label>

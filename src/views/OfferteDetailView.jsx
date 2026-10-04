@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { useModalHistory } from '../hooks/useModalHistory'
-import OffertePrintView from './OffertePrintView'
+const OffertePrintView = lazy(() => import('./OffertePrintView'))
 import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 import TerminModal from '../components/kalender/TerminModal'
@@ -680,7 +680,11 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   } : offerte;
 
   if (showPrintView) {
-    return <OffertePrintView offerte={offerte} kunde={kunde} projekt={projekt} onClose={() => setShowPrintView(false)} />
+    return (
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent" /></div>}>
+        <OffertePrintView offerte={offerte} kunde={kunde} projekt={projekt} onClose={() => setShowPrintView(false)} />
+      </Suspense>
+    )
   }
 
   return (
@@ -701,7 +705,30 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Offerte #{offerte.id}</h2>
               {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
-            <p className="text-text-secondary mt-1">Erstellt am {formatDate(offerte.created_at)}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-text-secondary text-sm">Erstellt am {formatDate(offerte.created_at)}</p>
+              {offerte.pdf_url ? (
+                <a
+                  href={offerte.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  title="Archiviertes PDF anzeigen"
+                >
+                  <span>📁</span> Im Archiv gesichert
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowPrintView(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                  title="PDF generieren und im Archiv ablegen"
+                >
+                  <span>📁</span> Noch nicht archiviert
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -1735,7 +1762,9 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
         {showLivePreview && isEditing && (
           <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
-            <OffertePrintView offerte={previewOfferte} kunde={kunde} projekt={projekt} previewMode={true} />
+            <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
+              <OffertePrintView offerte={previewOfferte} kunde={kunde} projekt={projekt} previewMode={true} />
+            </Suspense>
           </div>
         )}
         </div>

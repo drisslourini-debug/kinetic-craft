@@ -84,7 +84,7 @@ export default function KatalogDrawer({ onClose, onInsert }) {
             <button 
               onClick={onClose}
               className="p-2 text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
-              title="Schließen"
+              title="Schliessen"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>

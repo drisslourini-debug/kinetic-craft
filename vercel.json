@@ -5,6 +5,14 @@
       "destination": "https://www.zefix.admin.ch/ZefixPublicREST/$1"
     },
     {
+      "source": "/api/calendar.ics",
+      "destination": "/api/calendar"
+    },
+    {
+      "source": "/api/calendar",
+      "destination": "/api/calendar"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts'
 import { formatDate, formatCurrency } from '../lib/formatters'
@@ -24,9 +24,8 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
   const [holidays, setHolidays] = useState([])
   const [calendarEvents, setCalendarEvents] = useState([])
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      if (!supabase) return
+  const fetchDashboardData = useCallback(async () => {
+    if (!supabase) return
       
       try {
         setIsLoading(true)
@@ -238,10 +237,11 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
       } finally {
         setIsLoading(false)
       }
-    }
-    
-    fetchDashboardData()
   }, [])
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
 
   return (

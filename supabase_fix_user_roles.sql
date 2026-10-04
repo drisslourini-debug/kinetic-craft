@@ -42,26 +42,7 @@ BEGIN
 
 END $$;
 
--- 4. Automatischer Trigger für zukünftige Benutzer-Registrierungen
--- Verhindert, dass neue Benutzer ohne Mandant dastehen und RLS-Fehler erhalten
-CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_default_tenant_id UUID := 'ce510545-c59b-4f0d-b89b-89f756cbb378';
-BEGIN
-  INSERT INTO public.user_roles (id, tenant_id, role, user_name)
-  VALUES (
-    NEW.id,
-    v_default_tenant_id,
-    'admin',
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1))
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
+-- 4. SICHERHEITSHINWEIS (SEC-01): Der frühere Auto-Admin Trigger wurde entfernt.
+-- Neue Benutzer dürfen NIEMALS automatisch einem bestehenden Mandanten als Admin zugewiesen werden.
 DROP TRIGGER IF EXISTS trg_on_auth_user_created ON auth.users;
-CREATE TRIGGER trg_on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+DROP FUNCTION IF EXISTS public.handle_new_auth_user();

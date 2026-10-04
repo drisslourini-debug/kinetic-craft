@@ -27,11 +27,15 @@ const DEFAULT_TEXT_VORLAGEN = [
   { id: 'rs_3', category: 'rechnung_schluss', label: 'Ausführlich', text: 'Die Rechnung versteht sich exkl. allfälliger Gerüstkosten und bauseitiger Vorleistungen. Materialpreisänderungen bleiben vorbehalten. Nicht offerierte Arbeiten werden nach Aufwand verrechnet. Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' }
 ]
 
-export default function EinstellungenView({ userRole, refreshGlobalSettings }) {
+export default function EinstellungenView({ onNavigate, userRole, refreshGlobalSettings, userName: initialUserName, onUserNameChange: parentOnUserNameChange }) {
   const [activeNav, setActiveNav] = useState('profil') // 'profil', 'unternehmen', 'finanzen', 'nummernkreise', 'vorlagen', 'team', 'rollen', 'lizenz'
   const [tenantId, setTenantId] = useState(null)
   const [tenantInfo, setTenantInfo] = useState(null)
-  const [userName, setUserName] = useState('')
+  const [userName, setUserName] = useState(initialUserName || '')
+
+  useEffect(() => {
+    if (initialUserName) setUserName(initialUserName)
+  }, [initialUserName])
 
   const [settings, setSettings] = useState({
     firmenname: '',
@@ -105,7 +109,8 @@ export default function EinstellungenView({ userRole, refreshGlobalSettings }) {
           if (roleData) {
             tId = roleData.tenant_id
             setTenantId(tId)
-            if (roleData.user_name) setUserName(roleData.user_name)
+            const resolvedName = session?.user?.user_metadata?.full_name || roleData.user_name
+            if (resolvedName) setUserName(resolvedName)
             if (roleData.tenants) setTenantInfo(roleData.tenants)
           }
         }
@@ -469,7 +474,10 @@ export default function EinstellungenView({ userRole, refreshGlobalSettings }) {
             <MeinProfil
               userRole={userRole}
               userName={userName}
-              onUserNameChange={name => setUserName(name)}
+              onUserNameChange={(newName) => {
+                setUserName(newName)
+                if (parentOnUserNameChange) parentOnUserNameChange(newName)
+              }}
             />
           )}
 

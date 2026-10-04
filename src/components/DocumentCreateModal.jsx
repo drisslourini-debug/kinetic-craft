@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { generateNextRechnungNr, generateNextOfferteNr } from '../lib/documentService'
 
 export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate }) {
   // type can be 'offerte' or 'rechnung'
@@ -128,21 +129,9 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
       const table = isOfferte ? 'offerten' : 'rechnungen'
       const nrField = isOfferte ? 'offerte_nr' : 'rechnung_nr'
       
-      const year = new Date(date).getFullYear()
-      const prefix = isOfferte ? `OF-${year}-` : `RE-${year}-`
-      
-      let nextNum = isOfferte 
-        ? (settings?.startnummer_offerten || 1000)
-        : (settings?.startnummer_rechnungen || 1000)
-        
-      const { data: existing } = await supabase.from(table).select(nrField).not(nrField, 'is', null).order('created_at', { ascending: false }).limit(20);
-      if (existing && existing.length > 0) {
-        const nums = existing.map(e => {
-          const match = e[nrField].match(/\d+$/);
-          return match ? parseInt(match[0], 10) : 0;
-        }).filter(n => n > 0);
-        if (nums.length > 0) nextNum = Math.max(...nums) + 1;
-      }
+      const docNr = isOfferte 
+        ? await generateNextOfferteNr(supabase, settings?.startnummer_offerten)
+        : await generateNextRechnungNr(supabase, settings?.startnummer_rechnungen)
 
       // Base Draft Data
       const draftData = {
@@ -150,7 +139,7 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
         projekt_id: selectedProjektId || null,
         status: 'Entwurf',
         total: 0,
-        [nrField]: prefix + nextNum,
+        [nrField]: docNr,
         daten: {
           titel: title,
           datum: date,

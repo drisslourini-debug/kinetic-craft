@@ -5,9 +5,11 @@ export default function KalenderSyncModal({
   isOpen,
   onClose,
   termine = [],
-  firmenname = 'Atelier 77'
+  firmenname = 'Atelier 77',
+  tenantId = null
 }) {
   const [copied, setCopied] = useState(false);
+  const [copiedWebcal, setCopiedWebcal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -20,12 +22,19 @@ export default function KalenderSyncModal({
     downloadIcsFile(filename, icsContent);
   };
 
-  const dummyFeedUrl = `${window.location.origin}/api/calendar.ics`;
+  const feedUrl = `${window.location.origin}/api/calendar.ics${tenantId ? `?tenant=${tenantId}` : ''}`;
+  const webcalUrl = feedUrl.replace(/^https?:\/\//i, 'webcal://');
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(dummyFeedUrl);
+    navigator.clipboard.writeText(feedUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleCopyWebcal = () => {
+    navigator.clipboard.writeText(webcalUrl);
+    setCopiedWebcal(true);
+    setTimeout(() => setCopiedWebcal(false), 2500);
   };
 
   return (
@@ -77,18 +86,27 @@ export default function KalenderSyncModal({
           </div>
 
           {/* WebCal / Live Subscription */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-              📡 Live-Kalender-Abonnement (WebCal / iCal Feed)
-            </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                📡 Live-Kalender-Abonnement (WebCal / iCal Feed)
+              </h3>
+              <a
+                href={webcalUrl}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                title="Öffnet die Standard-Kalender-App zur automatischen Synchronisation"
+              >
+                <span>⚡</span> 1-Klick Abonnieren
+              </a>
+            </div>
             <p className="text-xs text-text-secondary">
-              Abonniere diesen Link in deiner bevorzugten Kalender-App, um automatische Aktualisierungen zu erhalten:
+              Abonniere diesen Link in deiner bevorzugten Kalender-App (Apple Kalender, Outlook, Google Kalender):
             </p>
             <div className="flex items-center gap-2">
               <input 
                 type="text"
                 readOnly
-                value={dummyFeedUrl}
+                value={feedUrl}
                 className="flex-1 px-3 py-2 bg-gray-50 border border-border rounded-xl text-xs text-text-primary font-mono select-all"
               />
               <button
@@ -96,7 +114,14 @@ export default function KalenderSyncModal({
                 onClick={handleCopyLink}
                 className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0"
               >
-                {copied ? '✓ Kopiert' : 'Kopieren'}
+                {copied ? '✓ Kopiert' : 'HTTPS kopieren'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyWebcal}
+                className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0"
+              >
+                {copiedWebcal ? '✓ Kopiert' : 'webcal://'}
               </button>
             </div>
           </div>

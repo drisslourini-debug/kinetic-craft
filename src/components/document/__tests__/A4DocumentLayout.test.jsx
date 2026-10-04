@@ -4,7 +4,9 @@ import { render, screen } from '@testing-library/react'
 import {
   paginateDocument,
   FoldAndPunchMarks,
-  ContinuationHeader
+  ContinuationHeader,
+  DocumentFooter,
+  PositionsTableBody
 } from '../A4DocumentLayout'
 
 describe('A4DocumentLayout - paginateDocument', () => {
@@ -110,5 +112,35 @@ describe('A4DocumentLayout - Visual Components', () => {
     )
     expect(screen.getByText(/OFF-2026-001/i)).toBeTruthy()
     expect(screen.getByText(/Umbau Büro/i)).toBeTruthy()
+  })
+
+  it('renders DocumentFooter with UID and MWST suffix even when settings uses uid instead of uid_nummer', () => {
+    render(
+      <DocumentFooter
+        pageNum={1}
+        totalPages={2}
+        settings={{
+          firmenname: 'Atelier 77',
+          uid: 'CHE-123.456.789',
+          strasse: 'Dorfstrasse 10',
+          plz_ort: '3000 Bern'
+        }}
+        brandColor="#c5a057"
+      />
+    )
+    expect(screen.getByText(/UID: CHE-123.456.789 MWST/i)).toBeTruthy()
+  })
+
+  it('renders negative position totals correctly (e.g. Akonto deduction)', () => {
+    const items = [
+      { id: '1', posNr: '1.1', beschreibung: 'Geleistete Akontozahlung', menge: 1, einzelpreis: -500 }
+    ]
+    const { container } = render(
+      <table>
+        <PositionsTableBody items={items} />
+      </table>
+    )
+    expect(container.textContent).toContain('-500.00')
+    expect(container.textContent).not.toContain('–')
   })
 })

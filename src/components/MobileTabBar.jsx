@@ -8,21 +8,33 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
 
   let currentMainTabs = [
     { id: 'dashboard', label: 'Home', icon: '📊' },
-    { id: 'kunden', label: 'Kunden', icon: '👥' },
+    { id: 'kalender', label: 'Kalender', icon: '📅' },
     { id: 'projekte', label: 'Projekte', icon: '🏗️' },
-    { id: 'offerten', label: 'Offerten', icon: '📄' },
+    { id: 'kunden', label: 'Kunden', icon: '👥' },
   ];
 
   let currentMenuItems = [
-    { id: 'kalender', label: 'Kalender', icon: '📅' },
+    { id: 'offerten', label: 'Offerten', icon: '📄' },
     { id: 'rechnungen', label: 'Rechnungen', icon: '💰' },
     { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
-    { id: 'dateien', label: 'Archiv', icon: '📁' },
+    { id: 'dateien', label: 'Dateien & Pläne', icon: '📁' },
     { id: 'katalog', label: 'Katalog', icon: '🏷️' },
     { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
   ];
 
-  if (userRole === 'treuhand') {
+  if (userRole === 'monteur') {
+    currentMainTabs = [
+      { id: 'kalender', label: 'Kalender', icon: '📅' },
+      { id: 'projekte', label: 'Projekte', icon: '🏗️' },
+      { id: 'dateien', label: 'Fotos & Pläne', icon: '📷' },
+      { id: 'kunden', label: 'Kunden', icon: '👥' },
+    ];
+    currentMenuItems = [
+      { id: 'dashboard', label: 'Home', icon: '📊' },
+      { id: 'katalog', label: 'Katalog', icon: '🏷️' },
+      { id: 'einstellungen', label: 'Mein Profil', icon: '⚙️' },
+    ];
+  } else if (userRole === 'treuhand') {
     currentMainTabs = [
       { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
       { id: 'kunden', label: 'Kunden', icon: '👥' },

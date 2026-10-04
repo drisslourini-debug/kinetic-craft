@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { generatePdf } from '../lib/pdfGenerator'
 import { generateDocumentFilename } from '../lib/documentNaming'
 import { formatDateLong } from '../lib/formatters'
+import { getTenantStoragePath } from '../lib/storageHelper'
 import {
   paginateDocument,
   FoldAndPunchMarks,
@@ -174,25 +175,67 @@ export default function OffertePrintView({
       const blob = await generatePdf(element, opt, 'blob')
 
       const file = new File([blob], pdfFilename, { type: 'application/pdf' })
-      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+      const filePath = getTenantStoragePath(loadedSettings?.tenant_id || propSettings?.tenant_id, pdfFilename, 'offerten')
 
       const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
 
-      const { error: dbError } = await supabase.from('dateien').insert([{
-        name: pdfFilename,
+      // Ermittle Versionsnummer für dieses Dokument
+      let version = 1
+      try {
+        const { data: existingFiles } = await supabase
+          .from('dateien')
+          .select('id, version')
+          .eq('kunde_id', kunde?.id)
+          .ilike('name', `%${docNr}%`)
+        if (existingFiles && existingFiles.length > 0) {
+          version = existingFiles.length + 1
+        }
+      } catch (e) {
+        console.warn('Could not check existing version:', e)
+      }
+
+      const finalFilename = version > 1 ? `${pdfFilename.replace(/\.pdf$/i, '')}_v${version}.pdf` : pdfFilename
+
+      const filePayload = {
+        name: finalFilename,
         typ: 'application/pdf',
         url: publicUrl,
         size_bytes: file.size,
-        kunde_id: kunde?.id,
+        kunde_id: kunde?.id || null,
         projekt_id: projekt?.id || null,
-        kategorie: 'Offerte'
-      }])
-      if (dbError) throw dbError
+        kategorie: 'Offerte',
+        quelle: 'Offerte-Export',
+        offerte_id: offerte?.id || null,
+        version: version
+      }
 
-      showToast('success', 'PDF wurde erfolgreich im Archiv gespeichert!')
+      try {
+        const { error: dbError } = await supabase.from('dateien').insert([filePayload])
+        if (dbError && dbError.message?.includes('offerte_id')) {
+          delete filePayload.offerte_id
+          delete filePayload.version
+          await supabase.from('dateien').insert([filePayload])
+        } else if (dbError) {
+          throw dbError
+        }
+      } catch (err) {
+        delete filePayload.offerte_id
+        delete filePayload.version
+        await supabase.from('dateien').insert([filePayload])
+      }
+
+      // Aktualisiere Offerte mit pdf_url und archiviert_am
+      if (offerte?.id) {
+        await supabase.from('offerten').update({
+          pdf_url: publicUrl,
+          archiviert_am: new Date().toISOString()
+        }).eq('id', offerte.id)
+      }
+
+      showToast('success', `PDF wurde erfolgreich als ${finalFilename} im Archiv gespeichert!`)
     } catch (err) {
       console.error('Error saving PDF to archive:', err)
       showToast('error', 'Fehler beim Speichern in den Kunden-Dateien.')
@@ -212,22 +255,62 @@ export default function OffertePrintView({
 
       // 2. Upload to Supabase storage and archive in dateien
       const file = new File([blob], pdfFilename, { type: 'application/pdf' })
-      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+      const filePath = getTenantStoragePath(loadedSettings?.tenant_id || propSettings?.tenant_id, pdfFilename, 'offerten')
 
       const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
       if (uploadError) console.error('Upload warning:', uploadError)
 
       if (!uploadError) {
         const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
-        await supabase.from('dateien').insert([{
-          name: pdfFilename,
+        
+        let version = 1
+        try {
+          const { data: existingFiles } = await supabase
+            .from('dateien')
+            .select('id, version')
+            .eq('kunde_id', kunde?.id)
+            .ilike('name', `%${docNr}%`)
+          if (existingFiles && existingFiles.length > 0) {
+            version = existingFiles.length + 1
+          }
+        } catch (e) {
+          console.warn('Could not check existing version:', e)
+        }
+
+        const finalFilename = version > 1 ? `${pdfFilename.replace(/\.pdf$/i, '')}_v${version}.pdf` : pdfFilename
+
+        const filePayload = {
+          name: finalFilename,
           typ: 'application/pdf',
           url: publicUrl,
           size_bytes: file.size,
-          kunde_id: kunde?.id,
+          kunde_id: kunde?.id || null,
           projekt_id: projekt?.id || null,
-          kategorie: 'Offerte'
-        }])
+          kategorie: 'Offerte',
+          quelle: 'Offerte-Email',
+          offerte_id: offerte?.id || null,
+          version: version
+        }
+
+        try {
+          const { error: dbError } = await supabase.from('dateien').insert([filePayload])
+          if (dbError && dbError.message?.includes('offerte_id')) {
+            delete filePayload.offerte_id
+            delete filePayload.version
+            await supabase.from('dateien').insert([filePayload])
+          }
+        } catch (err) {
+          delete filePayload.offerte_id
+          delete filePayload.version
+          await supabase.from('dateien').insert([filePayload])
+        }
+
+        if (offerte?.id) {
+          await supabase.from('offerten').update({
+            pdf_url: publicUrl,
+            archiviert_am: new Date().toISOString()
+          }).eq('id', offerte.id)
+        }
       }
 
       // 3. Trigger local browser download so user has PDF ready to attach

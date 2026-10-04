@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabase'
 import { injectThemeVariables } from './utils/colors'
 import {
@@ -11,21 +11,30 @@ import {
 } from './lib/router'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import Sidebar from './components/Sidebar'
-import DashboardView from './views/DashboardView'
-import KundenView from './views/KundenView'
-import ProjekteView from './views/ProjekteView'
-import KalenderView from './views/KalenderView'
-import OffertenView from './views/OffertenView'
-import RechnungenView from './views/RechnungenView'
-import KatalogView from './views/KatalogView'
-import BuchhaltungView from './views/BuchhaltungView'
-import DateienView from './views/DateienView'
-import EinstellungenView from './views/EinstellungenView'
-import LoginView from './views/LoginView'
-import RegistrationWizardView from './views/RegistrationWizardView'
-import LandingPageView from './views/LandingPageView'
-import PaywallScreen from './components/PaywallScreen'
 import MobileTabBar from './components/MobileTabBar'
+
+const DashboardView = lazy(() => import('./views/DashboardView'))
+const KundenView = lazy(() => import('./views/KundenView'))
+const ProjekteView = lazy(() => import('./views/ProjekteView'))
+const KalenderView = lazy(() => import('./views/KalenderView'))
+const OffertenView = lazy(() => import('./views/OffertenView'))
+const RechnungenView = lazy(() => import('./views/RechnungenView'))
+const KatalogView = lazy(() => import('./views/KatalogView'))
+const BuchhaltungView = lazy(() => import('./views/BuchhaltungView'))
+const DateienView = lazy(() => import('./views/DateienView'))
+const EinstellungenView = lazy(() => import('./views/EinstellungenView'))
+const LoginView = lazy(() => import('./views/LoginView'))
+const RegistrationWizardView = lazy(() => import('./views/RegistrationWizardView'))
+const LandingPageView = lazy(() => import('./views/LandingPageView'))
+const PaywallScreen = lazy(() => import('./components/PaywallScreen'))
+
+function ViewLoader() {
+  return (
+    <div className="flex h-[50vh] w-full items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent" />
+    </div>
+  )
+}
 
 const views = {
   dashboard: DashboardView,
@@ -55,10 +64,12 @@ const viewTitles = {
 
 export default function App() {
   const [session, setSession] = useState(() => {
-    return window.location.search.includes('testBypass=true') ? { user: { id: 'test' } } : null
+    return (import.meta.env.DEV && window.location.search.includes('testBypass=true')) ? { user: { id: 'test' } } : null
   })
   const [userRole, setUserRole] = useState(null)
-  const [isInitializing, setIsInitializing] = useState(!window.location.search.includes('testBypass=true'))
+  const [isInitializing, setIsInitializing] = useState(() => {
+    return !(import.meta.env.DEV && window.location.search.includes('testBypass=true'))
+  })
 
   const initialRoute = parseLocation()
   const [activeView, setActiveView] = useState(initialRoute.view)
@@ -194,7 +205,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (window.location.search.includes('testBypass=true')) {
+    if (import.meta.env.DEV && window.location.search.includes('testBypass=true')) {
       setIsInitializing(false)
       return
     }
@@ -217,7 +228,7 @@ export default function App() {
   useEffect(() => {
     async function fetchRole() {
       if (!session || !session.user) return
-      if (session.user.id === 'test') {
+      if (import.meta.env.DEV && session.user.id === 'test') {
         setUserRole('admin')
         setIsInitializing(false)
         return
@@ -234,9 +245,7 @@ export default function App() {
         if (!data?.tenant_id && session.user.id !== 'test') {
           const urlParams = new URLSearchParams(window.location.search)
           const hashParams = window.location.hash ? new URLSearchParams(window.location.hash.split('?')[1] || '') : null
-          const inviteToken = urlParams.get('token') 
-            || hashParams?.get('token')
-            || (session.user?.email === 'amin.lourini@gmail.com' ? 'fb2f878b-ca54-4952-958d-63ee12568931' : null)
+          const inviteToken = urlParams.get('token') || hashParams?.get('token')
 
           if (inviteToken) {
             try {
@@ -260,12 +269,12 @@ export default function App() {
           }
         }
         
-        const role = (data && data.role) ? data.role : 'admin' // default fallback
+        const role = (data && data.role) ? data.role : 'monteur' // sicherer Standard-Fallback
         setUserRole(role)
-        if (data && data.user_name) {
-          setUserName(data.user_name)
-        } else if (session.user.user_metadata?.full_name) {
+        if (session.user.user_metadata?.full_name) {
           setUserName(session.user.user_metadata.full_name)
+        } else if (data && data.user_name) {
+          setUserName(data.user_name)
         } else if (session.user.email) {
           setUserName(session.user.email.split('@')[0])
         }
@@ -298,7 +307,7 @@ export default function App() {
         }
       } catch (err) {
         console.error('Failed to fetch user role:', err)
-        setUserRole('admin')
+        setUserRole('monteur')
       } finally {
         setIsInitializing(false)
       }
@@ -346,6 +355,16 @@ export default function App() {
     try {
       await supabase.auth.signOut()
     } finally {
+      try {
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('atelier77_einstellungen')) {
+            localStorage.removeItem(key)
+          }
+        })
+      } catch {}
+      setUserRole(null)
+      setTenantInfo(null)
+      setGlobalSettings(null)
       window.location.hash = ''
       setAuthScreen('landing')
       handleNavigate('dashboard', null, { replace: true })
@@ -355,45 +374,51 @@ export default function App() {
   if (!session) {
     if (authScreen === 'register') {
       return (
-        <RegistrationWizardView 
-          onRegistrationSuccess={handleLoginSuccess} 
-          onGoToLogin={() => {
-            window.location.hash = '#login'
-            setAuthScreen('login')
-          }} 
-          onBackToLanding={() => {
-            window.location.hash = ''
-            setAuthScreen('landing')
-          }}
-        />
+        <Suspense fallback={<ViewLoader />}>
+          <RegistrationWizardView 
+            onRegistrationSuccess={handleLoginSuccess} 
+            onGoToLogin={() => {
+              window.location.hash = '#login'
+              setAuthScreen('login')
+            }} 
+            onBackToLanding={() => {
+              window.location.hash = ''
+              setAuthScreen('landing')
+            }}
+          />
+        </Suspense>
       )
     }
     if (authScreen === 'login') {
       return (
-        <LoginView 
-          onLoginSuccess={handleLoginSuccess} 
+        <Suspense fallback={<ViewLoader />}>
+          <LoginView 
+            onLoginSuccess={handleLoginSuccess} 
+            onGoToRegistration={() => {
+              window.location.hash = '#register'
+              setAuthScreen('register')
+            }} 
+            onBackToLanding={() => {
+              window.location.hash = ''
+              setAuthScreen('landing')
+            }}
+          />
+        </Suspense>
+      )
+    }
+    return (
+      <Suspense fallback={<ViewLoader />}>
+        <LandingPageView 
+          onGoToLogin={() => {
+            window.location.hash = '#login'
+            setAuthScreen('login')
+          }} 
           onGoToRegistration={() => {
             window.location.hash = '#register'
             setAuthScreen('register')
           }} 
-          onBackToLanding={() => {
-            window.location.hash = ''
-            setAuthScreen('landing')
-          }}
         />
-      )
-    }
-    return (
-      <LandingPageView 
-        onGoToLogin={() => {
-          window.location.hash = '#login'
-          setAuthScreen('login')
-        }} 
-        onGoToRegistration={() => {
-          window.location.hash = '#register'
-          setAuthScreen('register')
-        }} 
-      />
+      </Suspense>
     )
   }
 
@@ -401,7 +426,11 @@ export default function App() {
   if (tenantInfo && tenantInfo.trial_ends_at && tenantInfo.status === 'trial') {
     const trialEnd = new Date(tenantInfo.trial_ends_at)
     if (new Date() > trialEnd) {
-      return <PaywallScreen tenant={tenantInfo} />
+      return (
+        <Suspense fallback={<ViewLoader />}>
+          <PaywallScreen tenant={tenantInfo} />
+        </Suspense>
+      )
     }
   }
 
@@ -488,7 +517,17 @@ export default function App() {
               </div>
             </div>
           )}
-          <ActiveComponent onNavigate={handleNavigate} viewParams={viewParams} userRole={userRole} globalSettings={globalSettings} refreshGlobalSettings={refreshGlobalSettings} userName={userName} />
+          <Suspense fallback={<ViewLoader />}>
+            <ActiveComponent 
+              onNavigate={handleNavigate} 
+              viewParams={viewParams} 
+              userRole={userRole} 
+              globalSettings={globalSettings} 
+              refreshGlobalSettings={refreshGlobalSettings} 
+              userName={userName}
+              onUserNameChange={(newName) => setUserName(newName)}
+            />
+          </Suspense>
         </div>
       </main>
 

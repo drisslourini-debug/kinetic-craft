@@ -5,6 +5,8 @@ import { SwissQRBill } from 'swissqrbill/svg'
 import { generateDocumentFilename } from '../lib/documentNaming'
 import { formatDateLong } from '../lib/formatters'
 import { isQrIban, generateQrReference } from '../lib/qrHelper'
+import { calculateDocumentTotals } from '../lib/calculations'
+import { getTenantStoragePath } from '../lib/storageHelper'
 import {
   paginateDocument,
   FoldAndPunchMarks,
@@ -86,54 +88,46 @@ export default function RechnungPrintView({
   const daten = rechnung?.daten || {}
   const leistungen = daten.leistungen || []
 
-  // Totals calculations
-  let rawTotal = 0
-  let optionenTotal = 0
-
-  leistungen.forEach(pos => {
-    const isInfo = (!pos.menge && pos.menge !== 0) && (!pos.einzelpreis && pos.einzelpreis !== 0)
-    const isOption = pos.optional === true
-
-    if (!isInfo) {
-      const posTotal = (parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0)
-      if (isOption) {
-        optionenTotal += posTotal
-      } else {
-        rawTotal += posTotal
-      }
-    }
-  })
-
+  // Totals calculations using central calculations helper
+  const totals = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const rawTotal = totals.rawTotal
+  const optionenTotal = totals.optionenTotal
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
   const mwst = parseFloat(daten.konditionen?.mwst || 0)
+  const rabattBetrag = totals.rabattBetrag
+  const totalNachRabatt = totals.totalNachRabatt
+  const mwstBetrag = totals.mwstBetrag
+  const isPauschal = totals.isPauschal
 
-  const rabattBetrag = rawTotal * (rabatt / 100)
-  const totalNachRabatt = rawTotal - rabattBetrag
-  const mwstBetrag = totalNachRabatt * (mwst / 100)
-  const calculatedTotal = totalNachRabatt + mwstBetrag
-
-  const pauschalpreis = parseFloat(daten.pauschalpreis || 0)
-  const isPauschal = pauschalpreis > 0
-  const baseTotal = isPauschal ? pauschalpreis : calculatedTotal
-  const finalTotal = baseTotal + parseFloat(daten.mahnspesen_total || 0)
+  // Akonto-Rechnung & Mahnspesen
+  const isAkonto = rechnung?.typ === 'akonto' && parseFloat(rechnung?.akonto_prozent || 0) > 0
+  const akontoProzent = parseFloat(rechnung?.akonto_prozent || 0)
+  let effectiveTotal = totals.finalTotal
+  if (isAkonto) {
+    const rawAkonto = totals.finalTotal * (akontoProzent / 100)
+    effectiveTotal = Math.round(rawAkonto * 20) / 20 // 5-Rappen-Rundung
+  } else if (rechnung?.total && !isNaN(parseFloat(rechnung.total))) {
+    effectiveTotal = parseFloat(rechnung.total)
+  }
+  const finalTotal = effectiveTotal + parseFloat(daten.mahnspesen_total || 0)
 
   // Generate Swiss QR-Bill
   useEffect(() => {
     if (!rechnung) return
-    const rawIban = settings?.bankverbindung || settings?.firma_iban || settings?.qr_iban
+    // QR-IBAN hat stets Vorrang für den Schweizer QR-Zahlteil!
+    const rawIban = settings?.qr_iban || settings?.bankverbindung || settings?.firma_iban
     if (settings && rawIban) {
       try {
-        const cleanIban = rawIban.replace(/\s+/g, '')
+        const cleanIban = rawIban.replace(/\s+/g, '').toUpperCase()
         const effectiveKunde = kunde || rechnung?.daten?.kunde || {}
         const isQr = isQrIban(cleanIban)
         const docIdentifier = rechnung.rechnung_nr || rechnung.rechnungsnummer || rechnung.id || ''
 
-        let reference = 'NON'
+        let reference = undefined
         let message = `Rechnung ${docIdentifier}`
 
         if (isQr) {
           reference = generateQrReference(effectiveKunde.id || '0', rechnung.id || '0')
-          message = `Rechnung ${docIdentifier}`
         }
 
         const debtorName = effectiveKunde.firmenname || `${effectiveKunde.vorname || ''} ${effectiveKunde.nachname || ''}`.trim() || effectiveKunde.name || 'Kunde'
@@ -143,7 +137,7 @@ export default function RechnungPrintView({
         const creditorZip = (settings.plz || (settings.plz_ort || '').split(' ')[0] || '0000').trim()
         const creditorCity = (settings.ort || (settings.plz_ort || '').split(' ').slice(1).join(' ') || 'Ort').trim()
 
-        const bill = new SwissQRBill({
+        const billConfig = {
           currency: 'CHF',
           amount: finalTotal,
           creditor: {
@@ -161,10 +155,14 @@ export default function RechnungPrintView({
             city: debtorCity,
             country: 'CH'
           },
-          reference: reference,
           message: message
-        })
+        }
 
+        if (reference) {
+          billConfig.reference = reference
+        }
+
+        const bill = new SwissQRBill(billConfig)
         setQrSvg(bill.toString())
       } catch (err) {
         console.error('Fehler bei der QR-Code Generierung:', err)
@@ -236,25 +234,71 @@ export default function RechnungPrintView({
       const blob = await generatePdf(element, opt, 'blob')
 
       const file = new File([blob], pdfFilename, { type: 'application/pdf' })
-      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+      const filePath = getTenantStoragePath(settings?.tenant_id, pdfFilename, 'rechnungen')
 
       const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
 
-      const { error: dbError } = await supabase.from('dateien').insert([{
-        name: pdfFilename,
+      // Ermittle Versionsnummer für diese Rechnung
+      let version = 1
+      try {
+        const { data: existingFiles } = await supabase
+          .from('dateien')
+          .select('id, version')
+          .eq('kunde_id', kunde?.id)
+          .ilike('name', `%${docNr}%`)
+        if (existingFiles && existingFiles.length > 0) {
+          version = existingFiles.length + 1
+        }
+      } catch (e) {
+        console.warn('Could not check existing version:', e)
+      }
+
+      const finalFilename = version > 1 ? `${pdfFilename.replace(/\.pdf$/i, '')}_v${version}.pdf` : pdfFilename
+
+      const filePayload = {
+        name: finalFilename,
         typ: 'application/pdf',
         url: publicUrl,
         size_bytes: file.size,
-        kunde_id: kunde?.id,
+        kunde_id: kunde?.id || null,
         projekt_id: projekt?.id || null,
-        kategorie: 'Rechnung'
-      }])
-      if (dbError) throw dbError
+        kategorie: 'Rechnung',
+        quelle: 'Rechnung-Export',
+        rechnung_id: rechnung?.id || null,
+        version: version
+      }
 
-      showToast('success', 'PDF wurde erfolgreich im Archiv gespeichert!')
+      try {
+        const { error: dbError } = await supabase.from('dateien').insert([filePayload])
+        if (dbError && dbError.message?.includes('rechnung_id')) {
+          delete filePayload.rechnung_id
+          delete filePayload.version
+          await supabase.from('dateien').insert([filePayload])
+        } else if (dbError) {
+          throw dbError
+        }
+      } catch (err) {
+        delete filePayload.rechnung_id
+        delete filePayload.version
+        await supabase.from('dateien').insert([filePayload])
+      }
+
+      // Aktualisiere Rechnung mit pdf_url und archiviert_am
+      if (rechnung?.id) {
+        try {
+          await supabase.from('rechnungen').update({
+            pdf_url: publicUrl,
+            archiviert_am: new Date().toISOString()
+          }).eq('id', rechnung.id)
+        } catch (rErr) {
+          console.warn('Could not update rechnungen with pdf_url:', rErr)
+        }
+      }
+
+      showToast('success', `PDF wurde erfolgreich als ${finalFilename} im Archiv gespeichert!`)
     } catch (err) {
       console.error('Error saving PDF to archive:', err)
       showToast('error', 'Fehler beim Speichern in den Kunden-Dateien.')
@@ -274,22 +318,66 @@ export default function RechnungPrintView({
 
       // 2. Upload to Supabase storage and archive in dateien
       const file = new File([blob], pdfFilename, { type: 'application/pdf' })
-      const filePath = `uploads/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.pdf`
+      const filePath = getTenantStoragePath(settings?.tenant_id, pdfFilename, 'rechnungen')
 
       const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
       if (uploadError) console.error('Upload warning:', uploadError)
 
       if (!uploadError) {
         const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
-        await supabase.from('dateien').insert([{
-          name: pdfFilename,
+        
+        let version = 1
+        try {
+          const { data: existingFiles } = await supabase
+            .from('dateien')
+            .select('id, version')
+            .eq('kunde_id', kunde?.id)
+            .ilike('name', `%${docNr}%`)
+          if (existingFiles && existingFiles.length > 0) {
+            version = existingFiles.length + 1
+          }
+        } catch (e) {
+          console.warn('Could not check existing version:', e)
+        }
+
+        const finalFilename = version > 1 ? `${pdfFilename.replace(/\.pdf$/i, '')}_v${version}.pdf` : pdfFilename
+
+        const filePayload = {
+          name: finalFilename,
           typ: 'application/pdf',
           url: publicUrl,
           size_bytes: file.size,
-          kunde_id: kunde?.id,
+          kunde_id: kunde?.id || null,
           projekt_id: projekt?.id || null,
-          kategorie: 'Rechnung'
-        }])
+          kategorie: 'Rechnung',
+          quelle: 'Rechnung-Email',
+          rechnung_id: rechnung?.id || null,
+          version: version
+        }
+
+        try {
+          const { error: dbError } = await supabase.from('dateien').insert([filePayload])
+          if (dbError && dbError.message?.includes('rechnung_id')) {
+            delete filePayload.rechnung_id
+            delete filePayload.version
+            await supabase.from('dateien').insert([filePayload])
+          }
+        } catch (err) {
+          delete filePayload.rechnung_id
+          delete filePayload.version
+          await supabase.from('dateien').insert([filePayload])
+        }
+
+        if (rechnung?.id) {
+          try {
+            await supabase.from('rechnungen').update({
+              pdf_url: publicUrl,
+              archiviert_am: new Date().toISOString()
+            }).eq('id', rechnung.id)
+          } catch (rErr) {
+            console.warn('Could not update rechnungen with pdf_url:', rErr)
+          }
+        }
       }
 
       // 3. Trigger local browser download so user has PDF ready to attach
@@ -477,7 +565,7 @@ export default function RechnungPrintView({
             <div className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}>
               <QrBillPage
                 qrSvg={qrSvg}
-                rechnung={rechnung}
+                rechnung={{ ...rechnung, total: finalTotal }}
                 kunde={kunde}
                 settings={settings}
                 pageNum={totalPages}

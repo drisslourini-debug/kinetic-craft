@@ -1,12 +1,26 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import CameraCapture from '../components/CameraCapture'
+import { getTenantStoragePath, extractStoragePath } from '../lib/storageHelper'
+import { formatCurrency } from '../lib/formatters'
 
 const FolderIcon = ({ className = "w-10 h-10 text-amber-400" }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
     <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
   </svg>
 )
+
+const STANDARD_CATEGORIES = ['Offerten', 'Rechnungen', 'Fotos & Pläne', 'Allgemeine Dokumente']
+
+const normalizeCategory = (cat, typ) => {
+  if (!cat) {
+    return typ?.includes('image') ? 'Fotos & Pläne' : 'Allgemeine Dokumente'
+  }
+  if (cat === 'Offerte' || cat === 'Offerten') return 'Offerten'
+  if (cat === 'Rechnung' || cat === 'Rechnungen' || cat === 'Buchhaltung' || cat === 'Beleg') return 'Rechnungen'
+  if (cat === 'Fotos & Pläne' || cat.includes('Foto') || cat.includes('Plan') || typ?.includes('image')) return 'Fotos & Pläne'
+  return 'Allgemeine Dokumente'
+}
 
 const FileIcon = ({ typ, className = "w-10 h-10" }) => {
   if (!typ) return <span className={`text-4xl ${className}`}>📎</span>
@@ -20,7 +34,10 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   const [dateien, setDateien] = useState([])
   const [kunden, setKunden] = useState([])
   const [projekte, setProjekte] = useState([])
+  const [offerten, setOfferten] = useState([])
+  const [rechnungen, setRechnungen] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
   
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
   const [searchTerm, setSearchTerm] = useState('')
@@ -78,10 +95,12 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     if (!supabase) return
     try {
       setIsLoading(true)
-      const [dateienRes, kundenRes, projekteRes] = await Promise.all([
-        supabase.from('dateien').select('*, kunden(name), projekte(name)').order('created_at', { ascending: false }),
+      const [dateienRes, kundenRes, projekteRes, offertenRes, rechnungenRes] = await Promise.all([
+        supabase.from('dateien').select('*, kunden(name, firmenname), projekte(name)').order('created_at', { ascending: false }),
         supabase.from('kunden').select('*').order('name'),
-        supabase.from('projekte').select('*').order('name')
+        supabase.from('projekte').select('*').order('name'),
+        supabase.from('offerten').select('id, offerte_nr, total, status, created_at, pdf_url, kunden_id, projekt_id').order('created_at', { ascending: false }),
+        supabase.from('rechnungen').select('id, rechnung_nr, total, status, created_at, pdf_url, kunden_id, projekt_id').order('created_at', { ascending: false })
       ])
 
       if (dateienRes.error) throw dateienRes.error
@@ -91,6 +110,8 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
       setDateien(dateienRes.data || [])
       setKunden(kundenRes.data || [])
       setProjekte(projekteRes.data || [])
+      setOfferten(offertenRes?.data || [])
+      setRechnungen(rechnungenRes?.data || [])
     } catch (err) {
       console.error('Error fetching data:', err)
       showToast('error', 'Fehler beim Laden der Dateien.')
@@ -113,6 +134,63 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     setCurrentPath([...currentPath, folder])
   }
 
+  const mergeDocumentFiles = (physicalFiles, liveDocs, type) => {
+    const result = []
+    const matchedPhysicalIds = new Set()
+
+    liveDocs.forEach(doc => {
+      const docNr = type === 'offerte' ? doc.offerte_nr : doc.rechnung_nr
+      const matching = physicalFiles.find(d => 
+        (type === 'offerte' && d.offerte_id === doc.id) ||
+        (type === 'rechnung' && d.rechnung_id === doc.id) ||
+        (doc.pdf_url && d.url === doc.pdf_url) ||
+        (docNr && d.name && d.name.includes(docNr))
+      )
+
+      if (matching) {
+        matchedPhysicalIds.add(matching.id)
+        result.push({
+          ...matching,
+          isDocument: true,
+          docType: type,
+          docId: doc.id,
+          docNr: docNr || (type === 'offerte' ? `OFF #${doc.id}` : `RE #${doc.id}`),
+          docStatus: doc.status,
+          docTotal: doc.total,
+          kunde_id: doc.kunden_id || matching.kunde_id,
+          projekt_id: doc.projekt_id || matching.projekt_id,
+        })
+      } else {
+        result.push({
+          id: `live_${type}_${doc.id}`,
+          name: `${type === 'offerte' ? 'Offerte' : 'Rechnung'}_${docNr || doc.id}.pdf`,
+          typ: 'application/pdf',
+          url: doc.pdf_url || null,
+          size_bytes: null,
+          created_at: doc.created_at,
+          kategorie: type === 'offerte' ? 'Offerte' : 'Rechnung',
+          isDocument: true,
+          isLiveOnly: !doc.pdf_url,
+          docType: type,
+          docId: doc.id,
+          docNr: docNr || (type === 'offerte' ? `OFF #${doc.id}` : `RE #${doc.id}`),
+          docStatus: doc.status,
+          docTotal: doc.total,
+          kunde_id: doc.kunden_id,
+          projekt_id: doc.projekt_id,
+        })
+      }
+    })
+
+    physicalFiles.forEach(f => {
+      if (!matchedPhysicalIds.has(f.id)) {
+        result.push(f)
+      }
+    })
+
+    return result
+  }
+
   // Determine contents of current folder
   const currentContents = useMemo(() => {
     let folders = []
@@ -126,17 +204,19 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
         { type: 'system', id: 'buchhaltung_root', name: 'Buchhaltung & Rechnungen' },
         { type: 'system', id: 'intern_root', name: 'Firma Intern' }
       ]
-      files = dateien.filter(d => !d.kunde_id && d.kategorie !== 'Buchhaltung' && d.kategorie !== 'Firma intern' && d.kategorie !== 'Offerte' && d.kategorie !== 'Rechnung')
+      files = dateien.filter(d => !d.kunde_id && !d.projekt_id && d.kategorie !== 'Firma intern' && normalizeCategory(d.kategorie, d.typ) === 'Allgemeine Dokumente')
     } 
     else if (currentFolder.id === 'kunden_root') {
       folders = kunden.map(k => ({ type: 'kunde', id: `kunde_${k.id}`, dbId: k.id, name: k.name || k.firmenname }))
       files = []
     }
     else if (currentFolder.id === 'offerten_root') {
-      files = dateien.filter(d => d.kategorie === 'Offerte')
+      const phys = dateien.filter(d => normalizeCategory(d.kategorie, d.typ) === 'Offerten')
+      files = mergeDocumentFiles(phys, offerten, 'offerte')
     }
     else if (currentFolder.id === 'buchhaltung_root') {
-      files = dateien.filter(d => d.kategorie === 'Buchhaltung' || d.kategorie === 'Rechnung' || d.kategorie === 'Beleg')
+      const phys = dateien.filter(d => normalizeCategory(d.kategorie, d.typ) === 'Rechnungen')
+      files = mergeDocumentFiles(phys, rechnungen, 'rechnung')
     }
     else if (currentFolder.id === 'intern_root') {
       files = dateien.filter(d => d.kategorie === 'Firma intern')
@@ -151,79 +231,75 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     }
     else if (currentFolder.type === 'kunde') {
       const kProjekte = projekte.filter(p => p.kunden_id === currentFolder.dbId).map(p => ({
-        type: 'projekt', id: `proj_${p.id}`, dbId: p.id, name: p.name
+        type: 'projekt', id: `proj_${p.id}`, dbId: p.id, name: p.name, kunden_id: currentFolder.dbId
       }))
       
-      const kundeFiles = dateien.filter(d => d.kunde_id === currentFolder.dbId && !d.projekt_id)
-      
-      const defaultCats = ['Offerten', 'Rechnungen', 'Allgemeine Dateien']
-      const existingCats = kundeFiles.map(d => {
-        if (d.kategorie === 'Offerte') return 'Offerten'
-        if (d.kategorie === 'Rechnung') return 'Rechnungen'
-        return d.kategorie || 'Allgemeine Dateien'
-      })
-      const allCats = [...new Set([...defaultCats, ...existingCats])]
-      
-      const categoryFolders = allCats.map(cat => ({
+      const categoryFolders = STANDARD_CATEGORIES.map(cat => ({
         type: 'kategorie', id: `cat_kunde_${currentFolder.dbId}_${cat}`, name: cat, dbId: currentFolder.dbId, parentType: 'kunde'
       }))
 
       folders = [...kProjekte, ...categoryFolders]
-      files = [] // All files are tucked into the category folders!
+      files = []
     }
     else if (currentFolder.type === 'projekt') {
-      const projFiles = dateien.filter(d => d.projekt_id === currentFolder.dbId)
-      
-      const defaultCats = ['Offerten', 'Rechnungen', 'Fotos & Pläne', 'Allgemein']
-      const existingCats = projFiles.map(d => {
-        if (d.kategorie === 'Offerte') return 'Offerten'
-        if (d.kategorie === 'Rechnung') return 'Rechnungen'
-        if (d.typ?.includes('image')) return 'Fotos & Pläne'
-        return d.kategorie || 'Allgemein'
-      })
-      const allCats = [...new Set([...defaultCats, ...existingCats])]
-      
-      folders = allCats.map(cat => ({
+      const categoryFolders = STANDARD_CATEGORIES.map(cat => ({
         type: 'kategorie', id: `cat_proj_${currentFolder.dbId}_${cat}`, name: cat, dbId: currentFolder.dbId, parentType: 'projekt'
       }))
+      folders = categoryFolders
       files = []
     }
     else if (currentFolder.type === 'kategorie') {
       const cat = currentFolder.name
-      let baseFiles = []
       
       if (currentFolder.parentType === 'projekt') {
-        baseFiles = dateien.filter(d => d.projekt_id === currentFolder.dbId)
-      } else if (currentFolder.parentType === 'kunde') {
-        baseFiles = dateien.filter(d => d.kunde_id === currentFolder.dbId && !d.projekt_id)
-      }
+        const projId = currentFolder.dbId
 
-      files = baseFiles.filter(d => {
-        let mappedCat = d.kategorie || 'Allgemein'
-        if (d.kategorie === 'Offerte') mappedCat = 'Offerten'
-        else if (d.kategorie === 'Rechnung') mappedCat = 'Rechnungen'
-        else if (currentFolder.parentType === 'projekt' && d.typ?.includes('image') && mappedCat !== 'Offerten' && mappedCat !== 'Rechnungen') {
-          mappedCat = 'Fotos & Pläne'
+        if (cat === 'Offerten') {
+          const phys = dateien.filter(d => d.projekt_id === projId && normalizeCategory(d.kategorie, d.typ) === 'Offerten')
+          const live = offerten.filter(o => o.projekt_id === projId)
+          files = mergeDocumentFiles(phys, live, 'offerte')
+        } else if (cat === 'Rechnungen') {
+          const phys = dateien.filter(d => d.projekt_id === projId && normalizeCategory(d.kategorie, d.typ) === 'Rechnungen')
+          const live = rechnungen.filter(r => r.projekt_id === projId)
+          files = mergeDocumentFiles(phys, live, 'rechnung')
+        } else {
+          files = dateien.filter(d => d.projekt_id === projId && normalizeCategory(d.kategorie, d.typ) === cat)
         }
-        else if (currentFolder.parentType === 'kunde' && !d.kategorie) mappedCat = 'Allgemeine Dateien'
-        
-        return mappedCat === cat
-      })
+      } else if (currentFolder.parentType === 'kunde') {
+        const kundeId = currentFolder.dbId
+        const kProjIds = projekte.filter(p => p.kunden_id === kundeId).map(p => p.id)
+
+        if (cat === 'Offerten') {
+          const phys = dateien.filter(d => (d.kunde_id === kundeId || kProjIds.includes(d.projekt_id)) && normalizeCategory(d.kategorie, d.typ) === 'Offerten')
+          const live = offerten.filter(o => o.kunden_id === kundeId || kProjIds.includes(o.projekt_id))
+          files = mergeDocumentFiles(phys, live, 'offerte')
+        } else if (cat === 'Rechnungen') {
+          const phys = dateien.filter(d => (d.kunde_id === kundeId || kProjIds.includes(d.projekt_id)) && normalizeCategory(d.kategorie, d.typ) === 'Rechnungen')
+          const live = rechnungen.filter(r => r.kunden_id === kundeId || kProjIds.includes(r.projekt_id))
+          files = mergeDocumentFiles(phys, live, 'rechnung')
+        } else {
+          files = dateien.filter(d => (d.kunde_id === kundeId || kProjIds.includes(d.projekt_id)) && normalizeCategory(d.kategorie, d.typ) === cat)
+        }
+      }
     }
 
     // Filter by search
     if (searchTerm) {
       const lower = searchTerm.toLowerCase()
       folders = folders.filter(f => f.name.toLowerCase().includes(lower))
-      files = files.filter(f => f.name.toLowerCase().includes(lower))
+      files = files.filter(f => 
+        f.name.toLowerCase().includes(lower) || 
+        (f.docNr && f.docNr.toLowerCase().includes(lower)) ||
+        (f.docStatus && f.docStatus.toLowerCase().includes(lower))
+      )
     }
 
     // Sort
     const sortFn = (a, b) => {
       let valA, valB
       if (sortField === 'name') {
-        valA = a.name.toLowerCase()
-        valB = b.name.toLowerCase()
+        valA = (a.docNr || a.name).toLowerCase()
+        valB = (b.docNr || b.name).toLowerCase()
       } else if (sortField === 'date') {
         valA = new Date(a.created_at || 0).getTime()
         valB = new Date(b.created_at || 0).getTime()
@@ -243,7 +319,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     }
 
     return { folders, files }
-  }, [currentFolder, dateien, kunden, projekte, recentFiles, searchTerm, sortField, sortDirection])
+  }, [currentFolder, dateien, kunden, projekte, offerten, rechnungen, recentFiles, searchTerm, sortField, sortDirection])
 
 
   const handleFileSelect = (e) => {
@@ -296,8 +372,8 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     else if (currentFolder.type === 'kategorie') {
       if (currentFolder.parentType === 'projekt') {
         projekt_id = currentFolder.dbId
-        const kundeFolder = currentPath.find(p => p.type === 'kunde')
-        kunde_id = kundeFolder?.dbId || null
+        const prj = projekte.find(p => p.id === currentFolder.dbId)
+        kunde_id = prj?.kunden_id || null
       } else if (currentFolder.parentType === 'kunde') {
         kunde_id = currentFolder.dbId
       }
@@ -312,8 +388,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
 
     try {
       setIsUploading(true)
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-      const filePath = `uploads/${fileName}`
+      const filePath = getTenantStoragePath(globalSettings?.tenant_id, finalName, 'dateien')
 
       const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
       if (uploadError) throw uploadError
@@ -345,6 +420,10 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   }
 
   const handleOpenRename = (file) => {
+    if (file.isLiveOnly) {
+      showToast('info', 'Live-Belege können in der jeweiligen Belegansicht angepasst werden.')
+      return
+    }
     const fileExt = file.name.split('.').pop()
     const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
     setRenameModal({
@@ -383,6 +462,10 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   }
 
   const handleRequestDelete = (file) => {
+    if (file.isLiveOnly) {
+      showToast('info', 'Live-Belege können in der jeweiligen Modulansicht (Offerten/Rechnungen) verwaltet werden.')
+      return
+    }
     setDeleteModal(file)
   }
 
@@ -390,8 +473,36 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     if (!deleteModal) return
     try {
       setIsDeleting(true)
+
+      // 1. Physische Datei im Storage löschen, falls vorhanden
+      if (deleteModal.url) {
+        const storagePath = extractStoragePath(deleteModal.url)
+        if (storagePath) {
+          try {
+            await supabase.storage.from('anhange').remove([storagePath])
+          } catch (stErr) {
+            console.warn('Storage delete warning:', stErr)
+          }
+        }
+      }
+
+      // 2. Datenbank-Datensatz löschen
       const { error } = await supabase.from('dateien').delete().eq('id', deleteModal.id)
       if (error) throw error
+
+      // 3. Falls die Datei als pdf_url in rechnungen/offerten verlinkt war, Referenz leeren
+      if (deleteModal.rechnung_id) {
+        try {
+          await supabase.from('rechnungen').update({ pdf_url: null, archiviert_am: null }).eq('id', deleteModal.rechnung_id)
+        } catch (_) {}
+        setRechnungen(prev => prev.map(r => r.id === deleteModal.rechnung_id ? { ...r, pdf_url: null, archiviert_am: null } : r))
+      } else if (deleteModal.offerte_id) {
+        try {
+          await supabase.from('offerten').update({ pdf_url: null, archiviert_am: null }).eq('id', deleteModal.offerte_id)
+        } catch (_) {}
+        setOfferten(prev => prev.map(o => o.id === deleteModal.offerte_id ? { ...o, pdf_url: null, archiviert_am: null } : o))
+      }
+
       setDateien(prev => prev.filter(d => d.id !== deleteModal.id))
       showToast('success', `Datei "${deleteModal.name}" wurde gelöscht.`)
       setDeleteModal(null)
@@ -405,14 +516,77 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
 
   const handleJumpToSource = (file) => {
     if (!onNavigate) return
+
+    if (file.docType === 'rechnung' || file.rechnung_id) {
+      const rid = file.docId || file.rechnung_id
+      onNavigate('rechnungen', { rechnungId: rid })
+      return
+    }
+
+    if (file.docType === 'offerte' || file.offerte_id) {
+      const oid = file.docId || file.offerte_id
+      onNavigate('offerten', { offerteId: oid })
+      return
+    }
+
     let activeTab = 'dateien'
-    if (file.kategorie === 'Offerte') activeTab = 'offerten'
-    if (file.kategorie === 'Rechnung') activeTab = 'rechnungen'
+    if (file.kategorie === 'Offerte' || file.kategorie === 'Offerten') activeTab = 'offerten'
+    if (file.kategorie === 'Rechnung' || file.kategorie === 'Rechnungen') activeTab = 'rechnungen'
 
     if (file.projekt_id) {
       onNavigate('projekte', { projektId: file.projekt_id, activeTab })
     } else if (file.kunde_id) {
       onNavigate('kunden', { kundeId: file.kunde_id, activeTab })
+    }
+  }
+
+  const handleSyncArchive = async () => {
+    try {
+      setIsSyncing(true)
+      let syncedCount = 0
+      let normalizedCount = 0
+
+      // 1. Kategorien standardisieren
+      for (const d of dateien) {
+        const norm = normalizeCategory(d.kategorie, d.typ)
+        if (d.kategorie !== norm && ['Upload', 'Projekt', 'Allgemein', 'Allgemeine Dateien'].includes(d.kategorie)) {
+          await supabase.from('dateien').update({ kategorie: norm }).eq('id', d.id)
+          normalizedCount++
+        }
+      }
+
+      // 2. Bestehende Dateien mit Offerten & Rechnungen verknüpfen
+      for (const o of offerten) {
+        const matching = dateien.find(d => !d.offerte_id && ((o.offerte_nr && d.name.includes(o.offerte_nr)) || (o.pdf_url && d.url === o.pdf_url)))
+        if (matching) {
+          try {
+            await supabase.from('dateien').update({ offerte_id: o.id, kategorie: 'Offerte' }).eq('id', matching.id)
+            syncedCount++
+          } catch (e) {
+            // Spalte existiert möglicherweise noch nicht
+          }
+        }
+      }
+
+      for (const r of rechnungen) {
+        const matching = dateien.find(d => !d.rechnung_id && ((r.rechnung_nr && d.name.includes(r.rechnung_nr)) || (r.pdf_url && d.url === r.pdf_url)))
+        if (matching) {
+          try {
+            await supabase.from('dateien').update({ rechnung_id: r.id, kategorie: 'Rechnung' }).eq('id', matching.id)
+            syncedCount++
+          } catch (e) {
+            // Spalte existiert möglicherweise noch nicht
+          }
+        }
+      }
+
+      await fetchData()
+      showToast('success', `Archiv synchronisiert! ${syncedCount} Belege verknüpft, ${normalizedCount} Kategorien standardisiert.`)
+    } catch (err) {
+      console.error('Sync error:', err)
+      showToast('error', 'Fehler bei der Archiv-Synchronisation.')
+    } finally {
+      setIsSyncing(false)
     }
   }
 
@@ -616,6 +790,17 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
               </button>
             </div>
 
+            <button
+              type="button"
+              onClick={handleSyncArchive}
+              disabled={isSyncing}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border text-text-primary text-base sm:text-sm font-semibold rounded-lg hover:bg-gray-100 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+              title="Archiv mit Offerten & Rechnungen synchronisieren"
+            >
+              <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
+              <span className="hidden xl:inline">{isSyncing ? 'Synchronisiert...' : 'Archiv abgleichen'}</span>
+            </button>
+
             {userRole !== 'treuhand' && (
               <button
                 type="button"
@@ -700,27 +885,57 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                   {currentContents.files.map(file => (
                     <div key={file.id} className="group relative flex flex-col items-center p-4 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-primary-600 cursor-pointer" title="Ansehen">
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        </a>
-                        {(file.kunde_id || file.projekt_id) && (
-                          <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-blue-500 cursor-pointer" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        {file.url ? (
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-primary-600 cursor-pointer" title="PDF / Datei ansehen">
+                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </a>
+                        ) : (
+                          <button onClick={() => handleJumpToSource(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-amber-600 hover:text-amber-700 cursor-pointer" title="Beleg öffnen & PDF erstellen">
+                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                           </button>
                         )}
-                        {userRole !== 'treuhand' && (
+                        {(file.kunde_id || file.projekt_id || file.docId) && (
+                          <button onClick={() => handleJumpToSource(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-blue-500 cursor-pointer" title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                            <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          </button>
+                        )}
+                        {userRole !== 'treuhand' && !file.isLiveOnly && (
                           <>
-                            <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            <button onClick={() => handleOpenRename(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
-                            <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            <button onClick={() => handleRequestDelete(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
+                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </>
                         )}
                       </div>
-                      <FileIcon typ={file.typ} className="w-16 h-16 mb-2" />
-                      <span className="text-sm font-medium text-text-primary text-center line-clamp-2 w-full break-words">{file.name}</span>
+                      <div className="relative">
+                        <FileIcon typ={file.typ} className="w-16 h-16 mb-2" />
+                        {file.isDocument && (
+                          <span className={`absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm ${
+                            file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                            file.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                            file.docStatus === 'Überfällig' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {file.docStatus || 'Beleg'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-text-primary text-center line-clamp-2 w-full break-words">
+                        {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                      </span>
+                      {file.docTotal != null && (
+                        <span className="text-xs font-semibold text-text-secondary mt-0.5">
+                          CHF {formatCurrency(file.docTotal)}
+                        </span>
+                      )}
+                      {file.isLiveOnly && (
+                        <span className="text-[10px] text-amber-600 font-medium mt-0.5">
+                          Live-Datensatz
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -740,7 +955,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                         </th>
                         <th className="px-4 py-3 font-semibold text-text-secondary">Typ</th>
                         <th className="px-4 py-3 font-semibold text-text-secondary cursor-pointer hover:text-text-primary" onClick={() => { setSortField('size'); setSortDirection(s => s === 'asc' ? 'desc' : 'asc') }}>
-                          Größe {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          Grösse {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
                         </th>
                         <th className="px-4 py-3"></th>
                       </tr>
@@ -784,28 +999,62 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                         <tr key={file.id} className="border-b border-gray-100 hover:bg-gray-50 group">
                           <td className="px-4 py-3 font-medium text-text-primary flex items-center gap-3">
                             <FileIcon typ={file.typ} className="w-6 h-6" />
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="hover:underline">{file.name}</a>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                {file.url ? (
+                                  <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="hover:underline font-semibold">
+                                    {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                  </a>
+                                ) : (
+                                  <span className="font-semibold text-text-primary">
+                                    {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                  </span>
+                                )}
+                                {file.docStatus && (
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                                    file.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                                    file.docStatus === 'Überfällig' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {file.docStatus}
+                                  </span>
+                                )}
+                                {file.isLiveOnly && (
+                                  <span className="text-[10px] text-amber-600 font-medium">
+                                    (Live-Datensatz)
+                                  </span>
+                                )}
+                              </div>
+                              {file.docTotal != null && (
+                                <span className="text-xs text-text-secondary">
+                                  CHF {formatCurrency(file.docTotal)}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-text-secondary">{new Date(file.created_at).toLocaleString()}</td>
                           <td className="px-4 py-3 text-text-secondary">{file.typ?.split('/')[1]?.toUpperCase() || 'DATEI'}</td>
-                          <td className="px-4 py-3 text-text-secondary">{formatBytes(file.size_bytes)}</td>
+                          <td className="px-4 py-3 text-text-secondary">{file.size_bytes ? formatBytes(file.size_bytes) : '--'}</td>
                           <td className="px-4 py-3 text-right">
                             <div className="opacity-0 group-hover:opacity-100 flex justify-end gap-1 transition-opacity">
-                              <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Ansehen">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              </a>
-                              {(file.kunde_id || file.projekt_id) && (
-                                <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-lg cursor-pointer" title={`Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
-                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                              {file.url ? (
+                                <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Ansehen">
+                                  <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                </a>
+                              ) : null}
+                              {(file.kunde_id || file.projekt_id || file.docId) && (
+                                <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-lg cursor-pointer" title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                                  <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                 </button>
                               )}
-                              {userRole !== 'treuhand' && (
+                              {userRole !== 'treuhand' && !file.isLiveOnly && (
                                 <>
-                                  <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                  <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
+                                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                   </button>
-                                  <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
+                                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                   </button>
                                 </>
                               )}
@@ -966,9 +1215,21 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
               </div>
             </div>
             
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-gray-600 mb-4">
               Möchtest du die Datei <strong className="text-gray-900 font-semibold">"{deleteModal.name}"</strong> wirklich unwiderruflich löschen?
             </p>
+
+            {(deleteModal.docType === 'rechnung' || deleteModal.rechnung_id || deleteModal.kategorie === 'Rechnungen' || deleteModal.name?.toLowerCase().includes('rechnung')) && (
+              <div className="mb-6 p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                <span className="text-xl shrink-0">⚖️</span>
+                <div className="text-xs text-amber-900 leading-relaxed">
+                  <p className="font-semibold mb-0.5">Gesetzliche Aufbewahrungspflicht (Art. 958f OR)</p>
+                  <p className="text-amber-800">
+                    Rechnungen und Buchungsbelege müssen in der Schweiz mindestens <strong>10 Jahre</strong> aufbewahrt werden. Das vorzeitige Löschen kann steuer- und handelsrechtliche Konsequenzen haben.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3">
               <button

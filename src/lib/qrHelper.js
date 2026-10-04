@@ -48,11 +48,9 @@ export function generateQrReference(kundenId, rechnungId) {
   const kIdStr = String(kundenId).replace(/\D/g, '') || '0'
   const rIdStr = String(rechnungId).replace(/\D/g, '') || '0'
   
-  // Format: e.g. Customer ID (10 digits) + Invoice ID (16 digits)
-  // But just zero-padding up to 26 digits is standard practice for simple systems
-  const combined = kIdStr + rIdStr
-  const padded = combined.padStart(26, '0')
+  // Format: Exactly 26 numeric digits, zero-padded, truncated from start if longer
+  const combined = (kIdStr + rIdStr).slice(-26).padStart(26, '0')
   
-  const checksum = calculateModulo10Recursive(padded)
-  return padded + checksum
+  const checksum = calculateModulo10Recursive(combined)
+  return combined + checksum
 }

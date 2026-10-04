@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
-const SCREENSHOT_DIR = 'C:/Users/Amin/.gemini/antigravity/brain/4577931a-b357-42fe-9665-775853cd698d';
+const SCREENSHOT_DIR = 'C:/Users/Amin/.gemini/antigravity/brain/38127b4e-f629-415e-a3bd-a588f4c7c07e';
 const LOCAL_SCREENSHOT_DIR = './scratch/screenshots';
 
 // Ensure directories exist
@@ -28,14 +28,21 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
   // -------------------------------------------------------------
   // 1. Login with Leandro Lüthi's Credentials
   // -------------------------------------------------------------
-  console.log('1. Logging in as leandro@atelier77.ch...');
-  await page.goto('/');
+  console.log('1. Logging in as leandro@atelier-77.ch...');
+  await page.goto('/#login');
   await page.waitForLoadState('networkidle');
+
+  // If still on landing page, click Einloggen
+  const einloggenBtn = page.getByRole('button', { name: /Einloggen/i }).first();
+  if (await einloggenBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await einloggenBtn.click();
+    await page.waitForTimeout(500);
+  }
 
   // Fill login form
   const emailInput = page.locator('input[type="email"]').first();
   await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-  await emailInput.fill('leandro@atelier77.ch');
+  await emailInput.fill('leandro@atelier-77.ch');
 
   const passwordInput = page.locator('input[type="password"]').first();
   await passwordInput.fill('Test1234');

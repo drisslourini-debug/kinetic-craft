@@ -18,7 +18,7 @@ const MONTH_NAMES = [
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
 ];
 
-export default function KalenderView({ onNavigate, viewParams, userRole }) {
+export default function KalenderView({ onNavigate, viewParams, userRole, globalSettings }) {
   // Navigation & Date State
   const [currentDate, setCurrentDate] = useState(() => {
     if (viewParams?.date) return new Date(viewParams.date);
@@ -1027,6 +1027,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole }) {
         onClose={() => setIsSyncModalOpen(false)}
         termine={termine}
         firmenname={firmenname}
+        tenantId={globalSettings?.tenant_id}
       />
     </div>
   );

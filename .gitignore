@@ -26,4 +26,8 @@ dist-ssr
 .env*.local
 scratch/
 .vercel
+.vercel.old
 
+
+.vercel
+.env*
