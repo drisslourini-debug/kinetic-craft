@@ -49,6 +49,48 @@ export async function generateNextRechnungNr(supabase, startnummer = null) {
 }
 
 /**
+ * Generates the next sequential gutschrift number in format GS-YYYY-NNN.
+ * First tries atomic RPC `get_next_document_number`, then falls back to table query.
+ * 
+ * @param {Object} supabase - Supabase client instance
+ * @param {number} [startnummer] - Optional starting number (from settings)
+ * @returns {Promise<string>} Next credit note number (e.g. "GS-2026-001")
+ */
+export async function generateNextGutschriftNr(supabase, startnummer = null) {
+  const year = new Date().getFullYear()
+
+  if (supabase?.rpc) {
+    try {
+      const { data, error } = await supabase.rpc('get_next_document_number', {
+        p_doc_type: 'gutschrift',
+        p_year: year
+      })
+      if (!error && data) {
+        return data
+      }
+    } catch (_) {
+      // Fallback
+    }
+  }
+
+  const { data: existing } = await supabase
+    .from('rechnungen')
+    .select('rechnung_nr')
+    .ilike('rechnung_nr', `GS-${year}-%`)
+    .order('rechnung_nr', { ascending: false })
+    .limit(1)
+
+  let nextNum = startnummer || 1
+  if (existing && existing.length > 0) {
+    const parts = existing[0].rechnung_nr.split('-')
+    const lastNum = parseInt(parts[2]) || 0
+    nextNum = Math.max(nextNum, lastNum + 1)
+  }
+
+  return `GS-${year}-${String(nextNum).padStart(3, '0')}`
+}
+
+/**
  * Generates the next sequential offerte number in format OF-YYYY-NNN.
  * First tries atomic RPC `get_next_document_number`, then falls back to table query.
  * 

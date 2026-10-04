@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 const RechnungPrintView = lazy(() => import('./RechnungPrintView'))
 import { formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
-import { generateNextRechnungNr } from '../lib/documentService'
+import { generateNextRechnungNr, generateNextGutschriftNr } from '../lib/documentService'
 import KatalogDrawer from '../components/KatalogDrawer'
 import TerminModal from '../components/kalender/TerminModal'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
@@ -25,6 +25,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [showRestoreModal, setShowRestoreModal] = useState(false)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [showDiscardModal, setShowDiscardModal] = useState(false)
+  const [showGutschriftModal, setShowGutschriftModal] = useState(false)
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
@@ -48,6 +49,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
   const [paymentAmount, setPaymentAmount] = useState(rechnung.total || 0)
+  const [paymentType, setPaymentType] = useState('skonto') // 'skonto' or 'teil'
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
@@ -254,24 +256,120 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const handlePayment = async () => {
     setIsUpdating(true)
     try {
+      const amount = parseFloat(paymentAmount) || 0
+      const currentPaid = parseFloat(rechnung.bezahlt) || 0
+      const total = parseFloat(rechnung.total) || 0
+      const open = Math.max(0, Math.round((total - currentPaid) * 100) / 100)
+      const diff = Math.round((open - amount) * 100) / 100
+
+      let newStatus = 'Bezahlt'
+      let skontoBetrag = parseFloat(rechnung.daten?.skonto_betrag || 0)
+      const newPaid = currentPaid + amount
+
+      const existingZahlungen = Array.isArray(rechnung.daten?.zahlungen) ? [...rechnung.daten.zahlungen] : []
+
+      if (diff > 0.05 && paymentType === 'teil') {
+        newStatus = 'Teilbezahlt'
+        existingZahlungen.push({
+          datum: paymentDate,
+          betrag: amount,
+          typ: 'Teilzahlung'
+        })
+      } else if (diff > 0.05 && paymentType === 'skonto') {
+        newStatus = 'Bezahlt'
+        skontoBetrag += diff
+        existingZahlungen.push({
+          datum: paymentDate,
+          betrag: amount,
+          typ: 'Zahlung'
+        })
+        existingZahlungen.push({
+          datum: paymentDate,
+          betrag: diff,
+          typ: 'Skonto'
+        })
+      } else {
+        newStatus = 'Bezahlt'
+        existingZahlungen.push({
+          datum: paymentDate,
+          betrag: amount,
+          typ: 'Zahlung'
+        })
+      }
+
+      const updatedDaten = {
+        ...(rechnung.daten || {}),
+        zahlungen: existingZahlungen,
+        skonto_betrag: skontoBetrag > 0 ? skontoBetrag : undefined
+      }
+
       await supabase
         .from('rechnungen')
         .update({ 
-          bezahlt: parseFloat(paymentAmount), 
+          bezahlt: newPaid, 
           bezahlt_am: paymentDate, 
-          status: 'Bezahlt' 
+          status: newStatus,
+          daten: updatedDaten
         })
         .eq('id', rechnung.id)
       
-      setStatus('Bezahlt')
+      setStatus(newStatus)
       setShowPaymentForm(false)
-      rechnung.bezahlt = parseFloat(paymentAmount)
+      rechnung.bezahlt = newPaid
       rechnung.bezahlt_am = paymentDate
-      rechnung.status = 'Bezahlt'
-      showToast('success', 'Zahlung erfolgreich erfasst!')
+      rechnung.status = newStatus
+      rechnung.daten = updatedDaten
+      showToast('success', newStatus === 'Bezahlt' ? (skontoBetrag > 0 ? `Zahlung verbucht & Restbetrag (${diff.toFixed(2)} CHF) als Skonto ausgebucht!` : 'Zahlung erfolgreich erfasst!') : `Teilzahlung erfasst. Restforderung: ${(open - amount).toFixed(2)} CHF`)
     } catch (err) {
       console.error('Fehler beim Erfassen der Zahlung:', err)
       showToast('error', 'Fehler beim Speichern der Zahlung.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleCreateGutschrift = async () => {
+    setIsUpdating(true)
+    try {
+      const newNr = await generateNextGutschriftNr(supabase)
+      const today = new Date().toISOString().split('T')[0]
+
+      const gutschriftDaten = {
+        ...(rechnung.daten || {}),
+        referenz_rechnung_nr: rechnung.rechnung_nr || `RE-${rechnung.id}`,
+        referenz_rechnung_id: rechnung.id,
+        einleitungstext: `Gutschrift zu Rechnung ${rechnung.rechnung_nr || rechnung.id} vom ${formatDate(rechnung.rechnungsdatum || rechnung.created_at)}:`,
+        schlusstext: 'Der Gutschriftsbetrag wird mit künftigen Rechnungen verrechnet oder auf Ihr Bankkonto vergütet.'
+      }
+
+      const { data, error } = await supabase
+        .from('rechnungen')
+        .insert([{
+          rechnung_nr: newNr,
+          kunden_id: rechnung.kunden_id,
+          projekt_id: rechnung.projekt_id,
+          offerte_id: rechnung.offerte_id,
+          typ: 'gutschrift',
+          total: rechnung.total,
+          daten: gutschriftDaten,
+          rechnungsdatum: today,
+          zahlungsfrist_tage: 0,
+          status: 'Entwurf'
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      showToast('success', `Gutschrift ${newNr} erfolgreich angelegt!`)
+      setShowActionMenu(false)
+      setShowGutschriftModal(false)
+      if (onNavigate && data) {
+        onNavigate('rechnungen', { rechnungId: data.id })
+      }
+    } catch (err) {
+      console.error('Fehler beim Erstellen der Gutschrift:', err)
+      showToast('error', 'Fehler beim Erstellen der Gutschrift.')
     } finally {
       setIsUpdating(false)
     }
@@ -517,6 +615,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           >
             <option value="Entwurf" disabled={status === 'Bezahlt' || status === 'Storniert'}>Entwurf {status === 'Bezahlt' || status === 'Storniert' ? '(gesperrt)' : ''}</option>
             <option value="Versendet" disabled={status === 'Bezahlt' || status === 'Storniert'}>Versendet</option>
+            <option value="Teilbezahlt" disabled={status === 'Bezahlt' || status === 'Storniert'}>Teilbezahlt</option>
             <option value="Bezahlt">Bezahlt</option>
             <option value="Überfällig" disabled={status === 'Bezahlt' || status === 'Storniert'}>Überfällig</option>
             <option value="Storniert">Storniert</option>
@@ -578,6 +677,13 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
                       <span className="text-lg">📋</span> Duplizieren
+                    </button>
+                    <button 
+                      onClick={() => { setShowActionMenu(false); setShowGutschriftModal(true); }}
+                      disabled={isDirty || isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <span className="text-lg">↩️</span> Gutschrift erstellen
                     </button>
                     <button 
                       onClick={() => {
@@ -699,13 +805,18 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 </div>
 
                 {/* Payment Action */}
-                {(status === 'Versendet' || status === 'Überfällig') && (
+                {(status === 'Versendet' || status === 'Überfällig' || status === 'Teilbezahlt') && (
                   <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
                     <h3 className="text-lg font-bold text-text-primary">Zahlungseingang</h3>
                     {!showPaymentForm ? (
                       status !== 'Bezahlt' && userRole !== 'treuhand' && (
                         <button 
-                          onClick={() => setShowPaymentForm(true)}
+                          onClick={() => {
+                            const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                            setPaymentAmount(curOpen > 0 ? curOpen.toFixed(2) : (rechnung.total || 0))
+                            setPaymentType('skonto')
+                            setShowPaymentForm(true)
+                          }}
                           disabled={isUpdating}
                           className="w-full py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center"
                         >
@@ -714,6 +825,16 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       )
                     ) : (
                       <div className="space-y-4 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        {parseFloat(rechnung.bezahlt) > 0 && (
+                          <div className="text-xs text-emerald-900 bg-emerald-100/60 p-2.5 rounded-lg space-y-1">
+                            <div className="flex justify-between"><span>Rechnungstotal:</span> <span className="font-semibold">CHF {formatMoney(rechnung.total)}</span></div>
+                            <div className="flex justify-between"><span>Bisher bezahlt:</span> <span className="font-semibold">CHF {formatMoney(rechnung.bezahlt)}</span></div>
+                            <div className="flex justify-between border-t border-emerald-200/60 pt-1 font-bold">
+                              <span>Noch offen:</span> 
+                              <span>CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}</span>
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <label className="text-xs font-bold text-emerald-800 block mb-1">Datum</label>
                           <input 
@@ -730,9 +851,56 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                             step="0.05"
                             value={paymentAmount}
                             onChange={e => setPaymentAmount(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+                            className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 font-semibold"
                           />
                         </div>
+
+                        {/* Skonto / Teilzahlung Option if payment < open amount */}
+                        {(() => {
+                          const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                          const curAmount = parseFloat(paymentAmount) || 0
+                          const diff = Math.round((curOpen - curAmount) * 100) / 100
+                          if (diff > 0.05) {
+                            return (
+                              <div className="p-3 bg-white rounded-lg border border-emerald-200 space-y-2 text-xs">
+                                <div className="font-bold text-gray-800 flex justify-between">
+                                  <span>Differenz zum Rechnungsbetrag:</span>
+                                  <span className="text-amber-700">CHF {diff.toFixed(2)}</span>
+                                </div>
+                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1.5 rounded transition-colors">
+                                  <input 
+                                    type="radio" 
+                                    name="paymentType" 
+                                    value="skonto" 
+                                    checked={paymentType === 'skonto'} 
+                                    onChange={() => setPaymentType('skonto')}
+                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
+                                  />
+                                  <div>
+                                    <span className="font-semibold text-emerald-900 block">Als Skonto / Erlösminderung verbuchen (Konto 3800)</span>
+                                    <span className="text-gray-500">Rechnung gilt als vollständig ausgeglichen (Art. 41 MWSTG).</span>
+                                  </div>
+                                </label>
+                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1.5 rounded transition-colors">
+                                  <input 
+                                    type="radio" 
+                                    name="paymentType" 
+                                    value="teil" 
+                                    checked={paymentType === 'teil'} 
+                                    onChange={() => setPaymentType('teil')}
+                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
+                                  />
+                                  <div>
+                                    <span className="font-semibold text-purple-900 block">Teilzahlung (Restforderung bleibt offen)</span>
+                                    <span className="text-gray-500">Restbetrag von CHF {diff.toFixed(2)} bleibt im OP-Debitorenspiegel.</span>
+                                  </div>
+                                </label>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+
                         <div className="flex gap-2">
                           <button 
                             onClick={handlePayment}
@@ -752,6 +920,20 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   </div>
                 )}
                 
+                {status === 'Teilbezahlt' && (
+                  <div className="bg-purple-50 rounded-2xl border border-purple-200 p-6 shadow-sm space-y-2">
+                    <h3 className="text-lg font-bold text-purple-800 flex items-center gap-2">
+                      <span>⏳</span> Teilweise bezahlt
+                    </h3>
+                    <p className="text-purple-700 text-sm">
+                      Bisher bezahlt: <strong>CHF {formatMoney(rechnung.bezahlt)}</strong> von CHF {formatMoney(rechnung.total)}
+                    </p>
+                    <p className="text-purple-900 font-bold">
+                      Restforderung: CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}
+                    </p>
+                  </div>
+                )}
+
                 {status === 'Bezahlt' && rechnung.bezahlt_am && (
                   <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 shadow-sm space-y-2">
                     <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
@@ -763,6 +945,11 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                     <p className="text-emerald-700 font-bold">
                       Betrag: CHF {formatMoney(rechnung.bezahlt)}
                     </p>
+                    {rechnung.daten?.skonto_betrag > 0 && (
+                      <p className="text-emerald-800 text-xs bg-emerald-100/70 px-2 py-1 rounded inline-block font-semibold">
+                        Inkl. CHF {formatMoney(rechnung.daten.skonto_betrag)} Skonto / Abzug (Konto 3800, Art. 41 MWSTG)
+                      </p>
+                    )}
                   </div>
                 )}
                 
@@ -1507,6 +1694,37 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors cursor-pointer"
               >
                 Änderungen verwerfen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gutschrift Modal (Art. 26 & 41 MWSTG) */}
+      {showGutschriftModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-2xl border border-primary-200">
+            <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center mb-4">
+              <span className="text-2xl">↩️</span>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Gutschrift erstellen?</h3>
+            <p className="text-text-secondary mb-4 text-sm">
+              Es wird eine formelle Gutschrift (Art. 26 & 41 MWSTG) mit neuer Belegnummer für Rechnung <strong className="text-text-primary">{rechnung.rechnung_nr || `#${rechnung.id}`}</strong> über <strong className="text-text-primary">CHF {formatMoney(rechnung.total)}</strong> als Entwurf angelegt.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => setShowGutschriftModal(false)}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={handleCreateGutschrift}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-md"
+              >
+                {isUpdating ? 'Erstelle...' : 'Gutschrift anlegen'}
               </button>
             </div>
           </div>

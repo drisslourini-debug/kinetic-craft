@@ -42,6 +42,8 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
               </div>
             ) : ''} />
             <SettingsRow label="Standard MwSt" value={settings.standard_mwst ? `${settings.standard_mwst}%` : '0%'} />
+            <SettingsRow label="MWST-Methode" value={settings.mwst_methode === 'saldosteuer' ? `Saldosteuersatz (${settings.saldosteuersatz || 5.9}%)` : 'Effektive Methode (mit Vorsteuerabzug)'} />
+            <SettingsRow label="Abrechnungsart (ESTV)" value={settings.mwst_abrechnungsart === 'vereinnahmt' ? 'Vereinnahmt (nach Zahlungseingang / Ist)' : 'Vereinbart (nach Rechnungsdatum / Soll)'} />
             <SettingsRow label="Standard Rabatt" value={settings.standard_rabatt ? `${settings.standard_rabatt}%` : '0%'} />
           </>
         }
@@ -78,16 +80,54 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
           )}
         </div>
 
-        <InputField 
-          label="Standard MwSt (%)" 
-          type="number" 
-          min="0" 
-          max="100" 
-          step="0.1" 
-          value={draft.standard_mwst} 
-          onChange={v => handleDraftChange('standard_mwst', v === '' ? '' : parseFloat(v))} 
-          placeholder="8.1"
-        />
+        <div>
+          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">MWST-Abrechnungsmethode</label>
+          <select
+            value={draft.mwst_methode || 'effektiv'}
+            onChange={e => handleDraftChange('mwst_methode', e.target.value)}
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+          >
+            <option value="effektiv">Effektive Methode (mit Vorsteuerabzug 8.1% / 2.6%)</option>
+            <option value="saldosteuer">Saldosteuersatzmethode (Art. 37 MWSTG)</option>
+          </select>
+        </div>
+
+        {draft.mwst_methode === 'saldosteuer' ? (
+          <InputField 
+            label="Saldosteuersatz (%) z.B. Malergewerbe" 
+            type="number" 
+            min="0" 
+            max="15" 
+            step="0.1" 
+            value={draft.saldosteuersatz ?? 5.9} 
+            onChange={v => handleDraftChange('saldosteuersatz', v === '' ? '' : parseFloat(v))} 
+            placeholder="5.9"
+          />
+        ) : (
+          <InputField 
+            label="Standard MwSt (%)" 
+            type="number" 
+            min="0" 
+            max="100" 
+            step="0.1" 
+            value={draft.standard_mwst} 
+            onChange={v => handleDraftChange('standard_mwst', v === '' ? '' : parseFloat(v))} 
+            placeholder="8.1"
+          />
+        )}
+
+        <div>
+          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Abrechnungsart (Fälligkeit ESTV)</label>
+          <select
+            value={draft.mwst_abrechnungsart || 'vereinbart'}
+            onChange={e => handleDraftChange('mwst_abrechnungsart', e.target.value)}
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+          >
+            <option value="vereinbart">Vereinbart (nach Rechnungsdatum / Soll-Prinzip)</option>
+            <option value="vereinnahmt">Vereinnahmt (nach Zahlungseingang / Ist-Prinzip)</option>
+          </select>
+        </div>
+
         <InputField 
           label="Standard Rabatt (%)" 
           type="number" 
@@ -97,6 +137,57 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
           value={draft.standard_rabatt} 
           onChange={v => handleDraftChange('standard_rabatt', v === '' ? '' : parseFloat(v))} 
           placeholder="0"
+        />
+      </SettingsBlock>
+
+      <SettingsBlock
+        title="Schweizer KMU-Kontenrahmen"
+        description="Standard-Kontonummern für die Finanzbuchhaltung und den Banana-/Treuhand-Export."
+        isEditing={editState === 'kmu_konten'}
+        onEdit={userRole !== 'treuhand' ? () => startEdit('kmu_konten') : undefined}
+        onCancel={cancelEdit}
+        onSave={() => handleSave('kmu_konten')}
+        isSaving={isSaving}
+        readOnlyView={
+          <>
+            <SettingsRow label="Bank / PostFinance" value={settings.konto_bank || '1020'} />
+            <SettingsRow label="Forderungen LL (Debitoren)" value={settings.konto_debitoren || '1100'} />
+            <SettingsRow label="Verbindlichkeiten LL (Kreditoren)" value={settings.konto_kreditoren || '2000'} />
+            <SettingsRow label="Ertrag Handwerk / Ausbau" value={settings.konto_ertrag || '3200'} />
+            <SettingsRow label="Skonti & Erlösminderungen" value={settings.konto_skonto || '3800'} />
+          </>
+        }
+      >
+        <InputField 
+          label="Konto Bank / PostFinance" 
+          value={draft.konto_bank || '1020'} 
+          onChange={v => handleDraftChange('konto_bank', v)} 
+          placeholder="1020"
+        />
+        <InputField 
+          label="Konto Debitoren (FLL)" 
+          value={draft.konto_debitoren || '1100'} 
+          onChange={v => handleDraftChange('konto_debitoren', v)} 
+          placeholder="1100"
+        />
+        <InputField 
+          label="Konto Ertrag Handwerk" 
+          value={draft.konto_ertrag || '3200'} 
+          onChange={v => handleDraftChange('konto_ertrag', v)} 
+          placeholder="3200"
+        />
+        <InputField 
+          label="Konto Skonti & Erlösminderungen" 
+          value={draft.konto_skonto || '3800'} 
+          onChange={v => handleDraftChange('konto_skonto', v)} 
+          placeholder="3800"
+        />
+        <InputField 
+          label="Konto Kreditoren (VLL)" 
+          value={draft.konto_kreditoren || '2000'} 
+          onChange={v => handleDraftChange('konto_kreditoren', v)} 
+          placeholder="2000"
+          fullWidth
         />
       </SettingsBlock>
 

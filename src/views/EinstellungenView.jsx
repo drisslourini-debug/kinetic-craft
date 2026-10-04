@@ -65,6 +65,14 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
     prefix_kunden: 'K-',
     startnummer_projekte: 1000,
     prefix_projekte: 'P-',
+    mwst_methode: 'effektiv',
+    saldosteuersatz: 5.9,
+    mwst_abrechnungsart: 'vereinbart',
+    konto_bank: '1020',
+    konto_debitoren: '1100',
+    konto_kreditoren: '2000',
+    konto_ertrag: '3200',
+    konto_skonto: '3800',
     text_vorlagen: []
   })
   

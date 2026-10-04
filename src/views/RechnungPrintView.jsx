@@ -188,8 +188,10 @@ export default function RechnungPrintView({
   // QR Bill counts as its own clean final page
   const totalPages = qrSvg ? contentPagesCount + 1 : contentPagesCount
 
+  const docTypeLabel = rechnung?.typ === 'gutschrift' ? 'Gutschrift' : (isAkonto ? 'Akonto-Rechnung' : 'Rechnung')
+
   const pdfFilename = generateDocumentFilename({
-    type: 'Rechnung',
+    type: docTypeLabel,
     docNr,
     kunde,
     projekt,
@@ -391,9 +393,9 @@ export default function RechnungPrintView({
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
       // 4. Open mailto link
-      const subject = encodeURIComponent(`Rechnung ${docNr} - ${settings?.firmenname || 'Atelier 77'}`)
+      const subject = encodeURIComponent(`${docTypeLabel} ${docNr} - ${settings?.firmenname || 'Atelier 77'}`)
       const recipientName = kunde?.nachname ? ` ${kunde.nachname}` : (kunde?.firmenname ? ` ${kunde.firmenname}` : '')
-      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die Rechnung ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Atelier 77'}\n${settings?.website || ''}`)
+      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die ${docTypeLabel} ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Atelier 77'}\n${settings?.website || ''}`)
       window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
 
       showToast('success', 'PDF archiviert, heruntergeladen & E-Mail vorbereitet!')
@@ -495,7 +497,7 @@ export default function RechnungPrintView({
                   <DocumentHeader settings={settings} brandColor={gold} />
                 ) : (
                   <ContinuationHeader 
-                    docType="Rechnung" 
+                    docType={docTypeLabel} 
                     docNr={docNr} 
                     projektName={projekt?.name} 
                     date={docDate} 
@@ -509,7 +511,7 @@ export default function RechnungPrintView({
                   <>
                     <AddressWindow kunde={kunde} settings={settings} />
                     <DocumentMeta 
-                      docType="Rechnung" 
+                      docType={docTypeLabel} 
                       docNr={docNr} 
                       date={docDate} 
                       konditionen={{

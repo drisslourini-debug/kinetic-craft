@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   generateNextRechnungNr,
+  generateNextGutschriftNr,
   generateNextOfferteNr,
   parseZahlungsfrist,
   calculateDueDate
@@ -41,6 +42,41 @@ describe('documentService', () => {
 
       const result = await generateNextRechnungNr(mockSupabase);
       expect(result).toBe(`RE-${currentYear}-006`);
+    });
+  });
+
+  describe('generateNextGutschriftNr', () => {
+    it('uses atomic RPC when available', async () => {
+      const mockSupabase = {
+        rpc: vi.fn().mockResolvedValue({
+          data: `GS-${currentYear}-0012`,
+          error: null
+        })
+      };
+
+      const result = await generateNextGutschriftNr(mockSupabase);
+      expect(result).toBe(`GS-${currentYear}-0012`);
+      expect(mockSupabase.rpc).toHaveBeenCalledWith('get_next_document_number', {
+        p_doc_type: 'gutschrift',
+        p_year: currentYear
+      });
+    });
+
+    it('falls back to table query when RPC fails', async () => {
+      const mockSupabase = {
+        rpc: vi.fn().mockRejectedValue(new Error('RPC not found')),
+        from: vi.fn(() => ({
+          select: vi.fn().mockReturnThis(),
+          ilike: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue({
+            data: [{ rechnung_nr: `GS-${currentYear}-0003` }]
+          })
+        }))
+      };
+
+      const result = await generateNextGutschriftNr(mockSupabase);
+      expect(result).toBe(`GS-${currentYear}-004`);
     });
   });
 
