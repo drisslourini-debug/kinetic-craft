@@ -377,118 +377,135 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-row gap-2 items-center">
-        <div className="relative flex-1 w-full">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Offerten suchen..."
-            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-lg leading-none cursor-pointer"
-              title="Suche zurücksetzen"
-            >
-              &times;
-            </button>
-          )}
-        </div>
-
-        {/* Desktop Filters */}
-        <div className="hidden sm:flex flex-row gap-4 w-full md:w-auto items-center">
-          <select 
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="px-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer w-40"
-          >
-            <option value="">Alle Status</option>
-            <option value="Entwurf">Entwurf</option>
-            <option value="Versendet">Versendet</option>
-            <option value="In Überarbeitung">In Überarbeitung</option>
-            <option value="Akzeptiert">Akzeptiert</option>
-            <option value="Abgelehnt">Abgelehnt</option>
-            <option value="Verrechnet">Verrechnet</option>
-          </select>
-
-          <select 
-            value={filterMonth}
-            onChange={e => setFilterMonth(e.target.value)}
-            className="px-4 py-2.5 bg-surface-card border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer w-40"
-          >
-            <option value="">Alle Monate</option>
-            {availableMonths.map(m => (
-              <option key={m} value={m}>{formatMonthYear(m)}</option>
-            ))}
-          </select>
-
-          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0 ml-1">
-            <input 
-              type="checkbox" 
-              checked={showArchived} 
-              onChange={(e) => setShowArchived(e.target.checked)}
-              className="rounded border-border text-primary-600 focus:ring-primary-500"
+      {/* 2026 SaaS Datatable Card */}
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+        
+        {/* Integrated Toolbar */}
+        <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Offerten suchen..."
+              className="w-full pl-10 pr-10 py-2 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
             />
-            Archivierte einblenden
-          </label>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-base leading-none cursor-pointer"
+                title="Suche zurücksetzen"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          {/* Desktop Filters */}
+          <div className="hidden sm:flex flex-row gap-3 items-center">
+            <select 
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="px-3 py-2 bg-surface border border-border rounded-xl text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer w-36"
+            >
+              <option value="">Alle Status</option>
+              <option value="Entwurf">Entwurf</option>
+              <option value="Versendet">Versendet</option>
+              <option value="In Überarbeitung">In Überarbeitung</option>
+              <option value="Akzeptiert">Akzeptiert</option>
+              <option value="Abgelehnt">Abgelehnt</option>
+              <option value="Verrechnet">Verrechnet</option>
+            </select>
+
+            <select 
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+              className="px-3 py-2 bg-surface border border-border rounded-xl text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer w-36"
+            >
+              <option value="">Alle Monate</option>
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{formatMonthYear(m)}</option>
+              ))}
+            </select>
+
+            <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer shrink-0 px-2 py-1.5 rounded-lg hover:bg-surface transition-colors">
+              <input 
+                type="checkbox" 
+                checked={showArchived} 
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="rounded border-border text-primary-600 focus:ring-primary-500"
+              />
+              Archivierte
+            </label>
+
+            <span className="text-xs text-text-secondary font-medium pl-2 border-l border-border">
+              {filteredOfferten.length} {filteredOfferten.length === 1 ? 'Offerte' : 'Offerten'}
+            </span>
+          </div>
+
+          {/* Mobile Filter Button */}
+          <button 
+            type="button"
+            onClick={() => setShowFilterSheet(true)}
+            className="sm:hidden w-full py-2.5 px-3 flex items-center justify-center gap-2 bg-surface border border-border rounded-xl text-xs font-semibold text-text-secondary hover:text-text-primary active:scale-95 transition-all relative shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            <span>Filter</span>
+            {(filterStatus || filterMonth || showArchived) && (
+              <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+            )}
+          </button>
         </div>
 
-        {/* Mobile Filter Button */}
-        <button 
-          onClick={() => setShowFilterSheet(true)}
-          className="sm:hidden w-12 h-12 flex items-center justify-center bg-surface-card border border-border rounded-xl text-text-secondary hover:text-text-primary hover:bg-neutral-50 active:scale-95 transition-all relative shrink-0"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-          {(filterStatus || filterMonth || showArchived) && (
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-primary-500 rounded-full border-2 border-surface-card"></span>
-          )}
-        </button>
-      </div>
-
-      {/* Offerten list */}
-      <div className="w-full">
-        {/* Desktop header */}
-        <div className="hidden lg:grid grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
-          <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('id')}>Nr. <SortIcon columnKey="id" /></span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('projekt')}>Objekt <SortIcon columnKey="projekt" /></span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center">Ausführung</span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center">Gültig bis</span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('total')}>Betrag <SortIcon columnKey="total" /></span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center justify-center" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
-          <span className="cursor-pointer hover:text-text-primary flex items-center justify-end" onClick={() => requestSort('created_at')}>Datum <SortIcon columnKey="created_at" /></span>
+        {/* Integrated Desktop Header inside Card */}
+        <div className="hidden lg:grid grid-cols-[120px_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(110px,1fr)_110px_130px_110px_110px_36px] gap-3 px-5 py-3 bg-surface/60 border-b border-border text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('id')}>Nr. <SortIcon columnKey="id" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('projekt')}>Objekt <SortIcon columnKey="projekt" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1">Ausführung</span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1">Gültig bis</span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center justify-end gap-1" onClick={() => requestSort('total')}>Betrag <SortIcon columnKey="total" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center justify-center gap-1" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center justify-end gap-1" onClick={() => requestSort('created_at')}>Datum <SortIcon columnKey="created_at" /></span>
           <span className="sr-only">Aktionen</span>
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
+          <div className="p-8 space-y-4">
+            <div className="h-6 bg-gray-200/70 rounded w-1/4 animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
+          </div>
         ) : filteredOfferten.length === 0 ? (
-          <div className="text-center py-12 text-text-secondary bg-surface-card rounded-2xl border border-border shadow-sm">Keine Offerten gefunden.</div>
+          <div className="text-center py-16 px-4 text-text-secondary">
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
+              📄
+            </div>
+            <p className="text-sm font-semibold text-text-primary">Keine Offerten gefunden</p>
+            <p className="text-xs text-text-secondary mt-1">Passe deine Filterkriterien an oder erstelle eine neue Offerte.</p>
+          </div>
         ) : (
-          <div ref={parent} className="space-y-4 lg:space-y-0 lg:bg-surface-card lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
+          <div ref={parent} className="divide-y divide-border">
             {filteredOfferten.map((o) => (
             <div
               key={o.id}
               onClick={() => onNavigate ? onNavigate('offerten', { offerteId: o.id }) : setSelectedOfferte(o)}
-              className={`flex flex-col lg:grid lg:grid-cols-[100px_1.5fr_1.5fr_1fr_120px_140px_100px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${getBorderColor(o.status)} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group`}
+              className={`flex flex-col lg:grid lg:grid-cols-[120px_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(110px,1fr)_110px_130px_110px_110px_36px] gap-3 lg:gap-3 p-4 lg:px-5 lg:py-3.5 hover:bg-primary-50/20 transition-colors items-start lg:items-center cursor-pointer border-l-4 ${getBorderColor(o.status)} group`}
             >
               <div className="flex items-center justify-between w-full lg:w-auto">
-                <span className="text-sm font-mono font-bold text-primary-600">
+                <span className="text-xs font-mono font-bold text-primary-600">
                   {o.offerte_nr || `OF-2026-${String(o.id).padStart(3, '0')}`}
                 </span>
                 <span className="lg:hidden text-xs text-text-secondary">{formatDate(o.created_at)}</span>
               </div>
               
-              <div className="flex flex-col">
-                <span className="text-base lg:text-sm font-semibold text-text-primary truncate">{o.kunden?.name || 'Unbekannt'}</span>
-                <span className="text-xs lg:text-sm text-text-secondary truncate mt-0.5 lg:hidden">
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-text-primary truncate">{o.kunden?.name || 'Unbekannt'}</span>
+                <span className="text-xs text-text-secondary truncate mt-0.5 lg:hidden">
                   🏗️ {o.projekte?.name || 'Kein Projekt'}
                   {o.projekte?.adresse && ` - ${o.projekte.adresse.split(',')[0]}`}
                 </span>
@@ -499,31 +516,31 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
                 {o.projekte?.adresse && ` - ${o.projekte.adresse.split(',')[0]}`}
               </span>
               
-              <span className="hidden lg:block text-sm text-text-secondary truncate">{o.daten?.ausfuehrung?.start || '-'}</span>
-              <span className="hidden lg:block text-sm text-text-secondary truncate">{o.daten?.konditionen?.gueltigkeit || '-'}</span>
+              <span className="hidden lg:block text-xs text-text-secondary truncate">{o.daten?.ausfuehrung?.start || '-'}</span>
+              <span className="hidden lg:block text-xs text-text-secondary truncate">{o.daten?.konditionen?.gueltigkeit || '-'}</span>
               
-              <div className="flex items-center justify-between w-full lg:contents mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-300 lg:border-none lg:pt-0">
+              <div className="flex items-center justify-between w-full lg:contents mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-200 lg:border-none lg:pt-0">
                 <span className="text-sm font-bold text-text-primary lg:text-right">
                   {formatCurrency(o.total)}
                 </span>
                 <div className="lg:flex lg:justify-center lg:items-center">
                   {o.is_archived ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                       <span>📁</span> Archiviert
                     </span>
                   ) : (
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
                       {o.status || 'Entwurf'}
                     </span>
                   )}
                 </div>
               </div>
 
-              <span className="hidden lg:block text-sm text-text-secondary lg:text-right">{formatDate(o.created_at)}</span>
+              <span className="hidden lg:block text-xs text-text-secondary lg:text-right">{formatDate(o.created_at)}</span>
 
               {/* Chevron Icon for details (Right Arrow) */}
-              <div className="hidden lg:flex items-center justify-end text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              <div className="hidden lg:flex items-center justify-end text-text-secondary group-hover:text-primary-600 transition-colors">
+                <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
             </div>
             ))}
@@ -597,6 +614,20 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
           </div>
         </div>
       )}
+      {/* Mobile Floating Action Button (FAB) */}
+      {userRole !== 'treuhand' && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 sm:hidden">
+          <button
+            type="button"
+            onClick={() => onNavigate ? onNavigate('offerten', { action: 'create' }) : setShowCreateDrawer(true)}
+            className="w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:scale-90 text-white shadow-xl shadow-primary-600/35 flex items-center justify-center text-2xl font-bold transition-all touch-action-manipulation cursor-pointer"
+            aria-label="Offerte anlegen FAB"
+          >
+            +
+          </button>
+        </div>
+      )}
+
       {/* Create Drawer */}
       {showCreateDrawer && (
         <DocumentCreateModal 

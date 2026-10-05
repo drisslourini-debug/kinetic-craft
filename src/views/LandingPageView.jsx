@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import KineticLogoMark from '../components/KineticLogoMark'
 
 export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
   // Navigation & Mobile Menu
@@ -178,14 +179,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           
           {/* Kinetic Craft Brand Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 flex items-center justify-center text-white shadow-sm shadow-amber-500/25">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 4v16" />
-                <path d="M4 12l9-8" />
-                <path d="M4 12l10 8" />
-                <circle cx="18" cy="6" r="2" fill="currentColor" />
-              </svg>
-            </div>
+            <KineticLogoMark className="w-10 h-10 text-slate-900" />
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">Kinetic</span>

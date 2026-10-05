@@ -4,6 +4,7 @@ import { injectThemeVariables } from '../utils/colors'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 import ZefixAutocomplete from '../components/ZefixAutocomplete'
 import { BRANCHEN, finalizeTenantRegistration } from '../services/onboardingService'
+import KineticLogoMark from '../components/KineticLogoMark'
 
 const COLOR_PRESETS = [
   { name: 'Handwerk Gold (Standard)', value: '#b88a38' },
@@ -348,14 +349,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
         {/* Top Header */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/30 border border-white/20">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 4v16" />
-                <path d="M4 12l9-8" />
-                <path d="M4 12l10 8" />
-                <circle cx="18" cy="6" r="2" fill="currentColor" />
-              </svg>
-            </div>
+            <KineticLogoMark className="w-12 h-12 text-white" />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold tracking-tight text-xl text-white">Kinetic</span>
@@ -453,9 +447,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           <div className="text-center sm:text-left mb-6">
             <div className="flex items-center justify-between gap-4 mb-3">
               <div className="lg:hidden flex items-center gap-2">
-                <div className="h-10 w-10 bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 rounded-xl flex items-center justify-center text-white font-black text-sm">
-                  KC
-                </div>
+                <KineticLogoMark className="h-10 w-10 text-slate-900" />
                 <div className="flex flex-col">
                   <span className="font-extrabold text-base text-text-primary leading-tight">Kinetic Craft</span>
                   <span className="text-[10px] text-gray-400">by Kinetic Schweiz</span>

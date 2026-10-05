@@ -198,53 +198,35 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
         onClick={onClose}
       />
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden pointer-events-auto transform transition-all animate-scale-up">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
+        <div className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
           
-          {/* Left Side: Visual / Premium Panel */}
-          <div className="hidden md:flex flex-col md:w-5/12 bg-primary-900 text-white p-10 relative overflow-hidden">
-            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary-600 rounded-full blur-3xl opacity-50"></div>
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary-500 rounded-full blur-3xl opacity-30"></div>
-            
-            <div className="relative z-10 flex flex-col h-full">
-              <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-3xl mb-8 backdrop-blur-md border border-white/20">
-                {docTypeIcon}
-              </div>
-              
-              <h2 className="text-3xl font-bold mb-4 leading-tight">
-                Neue {docTypeLabel} erstellen
-              </h2>
-              
-              <p className="text-primary-100 text-lg mb-8 leading-relaxed">
-                Lege die Grunddaten fest. Positionen und Details kannst du im nächsten Schritt bequem im Editor hinzufügen.
-              </p>
-              
-              <div className="mt-auto flex items-center gap-3 text-sm text-primary-200 font-medium">
-                <svg className="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                Sekundenschnelle Erstellung
-              </div>
-            </div>
+          {/* Mobile Pull Handle */}
+          <div className="w-full pt-3 pb-1.5 flex justify-center sm:hidden shrink-0 touch-action-manipulation cursor-pointer" onClick={onClose}>
+            <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
           </div>
 
-          {/* Right Side: Form */}
-          <div className="flex-1 flex flex-col max-h-[85vh] md:max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border bg-white sticky top-0 z-10 md:hidden">
-              <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-                {docTypeIcon} Neue {docTypeLabel}
-              </h2>
-              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-full transition-colors cursor-pointer flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-5 border-b border-border bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center font-bold text-xl border border-primary-100">
+                {docTypeIcon}
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-text-primary">Neue {docTypeLabel} erstellen</h2>
+                <p className="text-xs text-text-muted hidden sm:block">Grunddaten festlegen &mdash; Positionen folgen im Editor</p>
+              </div>
             </div>
-            
-            <div className="hidden md:block absolute top-4 right-4 z-20">
-              <button onClick={onClose} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary bg-white hover:bg-neutral-100 rounded-full shadow-sm transition-colors cursor-pointer border border-gray-100 flex items-center justify-center">
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
+            <button 
+              onClick={onClose} 
+              aria-label="Modal schliessen"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
 
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
               {error && (
                 <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 flex items-start gap-3">
                   <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -423,7 +405,6 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                 )}
               </button>
             </div>
-          </div>
         </div>
       </div>
     </>

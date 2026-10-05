@@ -463,46 +463,47 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] bg-surface">
+    <div className="flex min-h-[100dvh] bg-surface overflow-x-hidden w-full">
       {/* Sidebar - hidden during print */}
       <div className="print:hidden">
         <Sidebar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} globalSettings={globalSettings} userName={userName} />
       </div>
 
       {/* Main content area */}
-      <main className="flex-1 min-w-0 pb-20 md:pb-0 print:m-0 print:p-0">
+      <main className="flex-1 min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 print:m-0 print:p-0">
         {/* Top bar - hidden during print */}
-        <header className="sticky top-0 z-20 bg-surface-card/80 backdrop-blur-md border-b border-border px-6 py-4 md:px-8 print:hidden">
+        <header className="sticky top-0 z-20 bg-surface-card/85 backdrop-blur-md border-b border-border px-4 py-3 md:px-8 md:py-4 print:hidden pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
             {/* Logo replacement for header */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {globalSettings?.logo_url ? (
-                <img src={globalSettings.logo_url} alt={globalSettings.firmenname || "Logo"} className="h-10 w-auto object-contain drop-shadow-sm md:hidden" />
+                <img src={globalSettings.logo_url} alt={globalSettings.firmenname || "Logo"} className="h-9 w-auto object-contain drop-shadow-xs md:hidden" />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold shadow-sm md:hidden">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm shadow-xs md:hidden shrink-0">
                   {globalSettings?.firmenname ? globalSettings.firmenname.substring(0,2).toUpperCase() : 'CRM'}
                 </div>
               )}
-              <h1 className="text-xl md:text-2xl font-bold text-text-primary hidden md:block">
-                {viewTitles[activeView]}
+              <h1 className="text-lg md:text-2xl font-bold text-text-primary truncate">
+                <span className="md:hidden">{viewTitles[activeView]?.replace(/^[^\s]+\s/, '')}</span>
+                <span className="hidden md:inline">{viewTitles[activeView]}</span>
               </h1>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               {userRole === 'treuhand' ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold rounded-full">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  Treuhand-Zugang
+                  Treuhand
                 </span>
               ) : (
-                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-text-secondary text-xs font-semibold rounded-full border border-neutral-200/60">
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-text-secondary text-xs font-semibold rounded-full border border-neutral-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                   {globalSettings?.firmenname || 'Atelier 77'}
                 </span>
               )}
               <button 
                 onClick={handleLogout}
-                className="md:hidden px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+                className="md:hidden px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer min-h-[36px] flex items-center"
               >
                 Abmelden
               </button>
@@ -511,7 +512,7 @@ export default function App() {
         </header>
 
         {/* Main View Area */}
-        <div className="p-5 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen print:p-0 print:m-0 print:max-w-none">
+        <div className="p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen print:p-0 print:m-0 print:max-w-none">
           {!tenantInfo && session?.user?.id !== 'test' && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 text-amber-900 shadow-sm animate-fade-in print:hidden">
               <span className="text-2xl leading-none">⚠️</span>
@@ -539,7 +540,7 @@ export default function App() {
 
       {/* Mobile Bottom Navigation */}
       <div className="print:hidden">
-        <MobileTabBar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} />
+        <MobileTabBar activeView={activeView} onNavigate={(view, params) => handleNavigate(view, params)} userRole={userRole} />
       </div>
 
       {/* Unsaved Changes Confirmation Dialog */}

@@ -31,3 +31,6 @@ scratch/
 
 .vercel
 .env*
+
+# UI screenshots
+ui_*.png

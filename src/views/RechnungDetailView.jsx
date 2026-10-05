@@ -520,7 +520,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   // Parse daten safely
   const daten = rechnung.daten || {}
   const leistungen = daten.leistungen || []
-  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal, optionenTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
   const mwst = parseFloat(daten.konditionen?.mwst || 0)
 
@@ -753,577 +753,356 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       
 
       {isLoading ? (
-        <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
+        <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-xs">
+          <div className="h-6 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-20 bg-gray-200 rounded w-full"></div>
+          <div className="h-20 bg-gray-200 rounded w-full"></div>
+        </div>
       ) : (
         <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
-        <div className="space-y-8 animate-fade-in">
-          
-          {/* TAB: STAMMDATEN */}
-          
-          <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'md:grid-cols-2' : ''} gap-6`}>
-              <div className="space-y-6">
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
-                  <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
+          <div className="animate-fade-in">
+            <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-12' : ''} gap-8 items-start`}>
+              
+              {/* ================= LEFT COLUMN: DOKUMENTENFLUSS ================= */}
+              <div className={`${!(showLivePreview && isEditing) ? 'lg:col-span-8' : ''} space-y-6`}>
+                
+                {/* Edit Mode Alert Badge */}
+                {isEditing && (
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shadow-2xs">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                    Bearbeitungsmodus aktiv – Änderungen werden erst beim Speichern übernommen
+                  </div>
+                )}
+
+                {/* Status-Banner: Teilbezahlt */}
+                {status === 'Teilbezahlt' && (
+                  <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs animate-fade-in">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl shrink-0">
+                        ⏳
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-purple-900">Teilweise bezahlt</p>
+                        <p className="text-xs text-purple-700 mt-0.5">
+                          Bisher bezahlt: <strong className="font-semibold">CHF {formatMoney(rechnung.bezahlt)}</strong> von CHF {formatMoney(rechnung.total)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <span className="text-[11px] text-purple-600 block uppercase font-bold tracking-wider">Restforderung</span>
+                      <span className="text-lg font-bold text-purple-900">
+                        CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status-Banner: Bezahlt */}
+                {status === 'Bezahlt' && rechnung.bezahlt_am && (
+                  <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs animate-fade-in">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
+                        ✅
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-emerald-900">Vollständig bezahlt am {formatDate(rechnung.bezahlt_am)}</p>
+                        <p className="text-xs text-emerald-700 mt-0.5">
+                          Eingang: <strong className="font-semibold">CHF {formatMoney(rechnung.bezahlt)}</strong>
+                          {rechnung.daten?.skonto_betrag > 0 && ` (inkl. CHF ${formatMoney(rechnung.daten.skonto_betrag)} Skonto / Art. 41 MWSTG)`}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg self-start sm:self-center">
+                      Ausgeglichen
+                    </span>
+                  </div>
+                )}
+
+                {/* Das Dokument: Einleitung + Leistungsverzeichnis + Konditionen + Schlusstext */}
+                <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
                   
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>👤</span> Kunde</label>
-                    <div 
-                      className="mt-1.5 font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
-                      onClick={() => kunde && onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
-                    >{kunde ? kunde.name : 'Unbekannt'}</div>
-                    {kunde && kunde.ort && <div className="text-sm text-text-secondary">{kunde.ort}</div>}
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>🏗️</span> Projekt / Baustelle</label>
-                    <div 
-                      className="mt-1.5 font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
-                      onClick={() => projekt && onNavigate && onNavigate('projekte', { projektId: projekt.id })}
-                    >{projekt ? projekt.name : 'Kein Projekt zugeordnet'}</div>
-                    {projekt && projekt.adresse && <div className="text-sm text-text-secondary">{projekt.adresse}</div>}
-                  </div>
-
-                  {rechnung.offerte_id && (
-                    <div className="pt-4 border-t border-border">
-                      <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>📄</span> Offerte</label>
-                      <button 
-                        onClick={() => onNavigate && onNavigate('offerten', { offerteId: rechnung.offerte_id })}
-                        className="mt-1.5 text-sm text-primary-600 hover:text-primary-800 underline cursor-pointer"
-                      >
-                        Offerte #{rechnung.offerte_id} ansehen
-                      </button>
+                  {/* Einleitungstext Header */}
+                  {isEditing && (
+                    <div className="p-5 border-b border-border bg-surface/40 space-y-3">
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+                        Einleitungstext (erscheint auf dem PDF)
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: 'Standard', text: 'Wir erlauben uns, für unsere Arbeiten wie folgt Rechnung zu stellen:' },
+                          { label: 'Akonto', text: 'Wir erlauben uns, für das oben genannte Projekt folgende Akontorechnung zu stellen:' },
+                          { label: 'Schlussrechnung', text: 'Wir danken für den geschätzten Auftrag und stellen für die ausgeführten Arbeiten wie folgt Rechnung:' },
+                        ].map((tpl) => (
+                          <button
+                            key={tpl.label}
+                            type="button"
+                            onClick={() => setEditEinleitung(tpl.text)}
+                            className={`px-3 py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                              editEinleitung === tpl.text
+                                ? 'bg-primary-100 border-primary-300 text-primary-700'
+                                : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
+                            }`}
+                          >
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={editEinleitung}
+                        onChange={(e) => setEditEinleitung(e.target.value)}
+                        className="w-full h-24 sm:h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                        placeholder="Wir erlauben uns, für unsere Arbeiten wie folgt Rechnung zu stellen:"
+                      />
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-border">
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>💰</span> Rechnungstyp</label>
-                    <div className="mt-1.5 text-sm text-text-primary capitalize font-medium">
-                      {rechnung.typ || 'gesamt'}
-                      {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+                  {!isEditing && daten.einleitungstext && (
+                    <div className="p-5 border-b border-border bg-surface/20">
+                      <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{daten.einleitungstext}</p>
                     </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Payment Action */}
-                {(status === 'Versendet' || status === 'Überfällig' || status === 'Teilbezahlt') && (
-                  <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-text-primary">Zahlungseingang</h3>
-                    {!showPaymentForm ? (
-                      status !== 'Bezahlt' && userRole !== 'treuhand' && (
-                        <button 
-                          onClick={() => {
-                            const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
-                            setPaymentAmount(curOpen > 0 ? curOpen.toFixed(2) : (rechnung.total || 0))
-                            setPaymentType('skonto')
-                            setShowPaymentForm(true)
-                          }}
-                          disabled={isUpdating}
-                          className="w-full py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center"
+                  {/* Header Leistungsverzeichnis */}
+                  <div className="p-5 border-b border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-text-primary">Leistungsverzeichnis</h3>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        {leistungen.length} {leistungen.length === 1 ? 'Position' : 'Positionen'}
+                      </p>
+                    </div>
+                    {isEditing && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={addPosition}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
                         >
-                          💰 Zahlung erfassen
+                          <span>➕</span> Position hinzufügen
                         </button>
-                      )
-                    ) : (
-                      <div className="space-y-4 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                        {parseFloat(rechnung.bezahlt) > 0 && (
-                          <div className="text-xs text-emerald-900 bg-emerald-100/60 p-2.5 rounded-lg space-y-1">
-                            <div className="flex justify-between"><span>Rechnungstotal:</span> <span className="font-semibold">CHF {formatMoney(rechnung.total)}</span></div>
-                            <div className="flex justify-between"><span>Bisher bezahlt:</span> <span className="font-semibold">CHF {formatMoney(rechnung.bezahlt)}</span></div>
-                            <div className="flex justify-between border-t border-emerald-200/60 pt-1 font-bold">
-                              <span>Noch offen:</span> 
-                              <span>CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}</span>
-                            </div>
-                          </div>
-                        )}
-                        <div>
-                          <label className="text-xs font-bold text-emerald-800 block mb-1">Datum</label>
-                          <input 
-                            type="date"
-                            value={paymentDate}
-                            onChange={e => setPaymentDate(e.target.value)}
-                            className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white border border-emerald-200 rounded-lg text-base sm:text-sm focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-bold text-emerald-800 block mb-1">Betrag (CHF)</label>
-                          <input 
-                            type="number"
-                            step="0.05"
-                            value={paymentAmount}
-                            onChange={e => setPaymentAmount(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 font-semibold"
-                          />
-                        </div>
-
-                        {/* Skonto / Teilzahlung Option if payment < open amount */}
-                        {(() => {
-                          const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
-                          const curAmount = parseFloat(paymentAmount) || 0
-                          const diff = Math.round((curOpen - curAmount) * 100) / 100
-                          if (diff > 0.05) {
-                            return (
-                              <div className="p-3 bg-white rounded-lg border border-emerald-200 space-y-2 text-xs">
-                                <div className="font-bold text-gray-800 flex justify-between">
-                                  <span>Differenz zum Rechnungsbetrag:</span>
-                                  <span className="text-amber-700">CHF {diff.toFixed(2)}</span>
-                                </div>
-                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1.5 rounded transition-colors">
-                                  <input 
-                                    type="radio" 
-                                    name="paymentType" 
-                                    value="skonto" 
-                                    checked={paymentType === 'skonto'} 
-                                    onChange={() => setPaymentType('skonto')}
-                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
-                                  />
-                                  <div>
-                                    <span className="font-semibold text-emerald-900 block">Als Skonto / Erlösminderung verbuchen (Konto 3800)</span>
-                                    <span className="text-gray-500">Rechnung gilt als vollständig ausgeglichen (Art. 41 MWSTG).</span>
-                                  </div>
-                                </label>
-                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1.5 rounded transition-colors">
-                                  <input 
-                                    type="radio" 
-                                    name="paymentType" 
-                                    value="teil" 
-                                    checked={paymentType === 'teil'} 
-                                    onChange={() => setPaymentType('teil')}
-                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
-                                  />
-                                  <div>
-                                    <span className="font-semibold text-purple-900 block">Teilzahlung (Restforderung bleibt offen)</span>
-                                    <span className="text-gray-500">Restbetrag von CHF {diff.toFixed(2)} bleibt im OP-Debitorenspiegel.</span>
-                                  </div>
-                                </label>
-                              </div>
-                            )
-                          }
-                          return null
-                        })()}
-
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={handlePayment}
-                            className="flex-1 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer"
-                          >
-                            Bestätigen
-                          </button>
-                          <button 
-                            onClick={() => setShowPaymentForm(false)}
-                            className="px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-white text-emerald-700 border border-emerald-200 font-bold text-base sm:text-sm rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
-                          >
-                            Abbrechen
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowKatalogDrawer(true)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <span>📖</span> Katalog
+                        </button>
                       </div>
                     )}
                   </div>
-                )}
-                
-                {status === 'Teilbezahlt' && (
-                  <div className="bg-purple-50 rounded-2xl border border-purple-200 p-6 shadow-sm space-y-2">
-                    <h3 className="text-lg font-bold text-purple-800 flex items-center gap-2">
-                      <span>⏳</span> Teilweise bezahlt
-                    </h3>
-                    <p className="text-purple-700 text-sm">
-                      Bisher bezahlt: <strong>CHF {formatMoney(rechnung.bezahlt)}</strong> von CHF {formatMoney(rechnung.total)}
-                    </p>
-                    <p className="text-purple-900 font-bold">
-                      Restforderung: CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}
-                    </p>
-                  </div>
-                )}
 
-                {status === 'Bezahlt' && rechnung.bezahlt_am && (
-                  <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 shadow-sm space-y-2">
-                    <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
-                      <span>✅</span> Vollständig bezahlt
-                    </h3>
-                    <p className="text-emerald-700 text-sm">
-                      Zahlungseingang: {formatDate(rechnung.bezahlt_am)}
-                    </p>
-                    <p className="text-emerald-700 font-bold">
-                      Betrag: CHF {formatMoney(rechnung.bezahlt)}
-                    </p>
-                    {rechnung.daten?.skonto_betrag > 0 && (
-                      <p className="text-emerald-800 text-xs bg-emerald-100/70 px-2 py-1 rounded inline-block font-semibold">
-                        Inkl. CHF {formatMoney(rechnung.daten.skonto_betrag)} Skonto / Abzug (Konto 3800, Art. 41 MWSTG)
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-text-primary mb-4">Interne Notizen</h3>
-                  <textarea 
-                    value={editStammdaten.notizen || ''}
-                    onChange={(e) => handleStammInputChange('notizen', e.target.value)}
-                    disabled={userRole === 'treuhand' || status !== 'Entwurf'}
-                    className="w-full h-32 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none disabled:opacity-50 disabled:bg-gray-50"
-                    placeholder="Absprachen, Zahlungsversprechen, Besonderheiten..."
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
-                  <h3 className="text-lg font-bold text-text-primary">Rechnungsdaten</h3>
-                  
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-2 block">Rechnungsdatum</label>
-                    <input 
-                      type="date"
-                      value={editStammdaten.rechnungsdatum || ''}
-                      onChange={(e) => handleStammInputChange('rechnungsdatum', e.target.value)}
-                      disabled={userRole === 'treuhand' || status !== 'Entwurf'}
-                      className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50 disabled:bg-gray-50"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-2 block">Zahlungsfrist (Tage)</label>
-                    <input 
-                      type="number"
-                      value={editStammdaten.zahlungsfrist_tage || 30}
-                      onChange={(e) => handleStammInputChange('zahlungsfrist_tage', parseInt(e.target.value) || 30)}
-                      disabled={userRole === 'treuhand' || status !== 'Entwurf'}
-                      className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50 disabled:bg-gray-50"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-primary-600 block">Fälligkeitsdatum (automatisch)</label>
-                      {(rechnung.faellig_am || rechnung.daten?.faellig_am) && onNavigate && (
-                        <button
-                          type="button"
-                          onClick={() => onNavigate('kalender', { date: rechnung.faellig_am || rechnung.daten?.faellig_am })}
-                          className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Im Kalender ansehen"
-                        >
-                          <span>📅 Im Kalender ansehen</span>
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                      )}
-                    </div>
-                    <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-secondary bg-gray-50 flex items-center justify-between">
-                      <span>{rechnung.faellig_am || rechnung.daten?.faellig_am ? formatDate(rechnung.faellig_am || rechnung.daten?.faellig_am) : 'Wird beim Speichern berechnet'}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-text-primary mb-4">Bankverbindung</h3>
-                  {settings?.iban ? (
-                    <div className="text-sm space-y-1">
-                      <p className="text-text-secondary">IBAN: <span className="font-medium text-text-primary">{settings.iban}</span></p>
-                      {settings.bank_name && <p className="text-text-secondary">Bank: <span className="font-medium text-text-primary">{settings.bank_name}</span></p>}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-text-secondary italic">Keine Bankverbindung in den Einstellungen hinterlegt.</p>
-                  )}
-                </div>
-
-
-              </div>
-
-              <div className={`flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 ${!(showLivePreview && isEditing) ? 'md:col-span-2' : ''}`}>
-                <div>
-                  {isDirty && userRole !== 'treuhand' && (
-                    <span className="text-sm text-amber-600 font-medium animate-pulse">
-                      Es gibt ungespeicherte Änderungen in den Stammdaten
-                    </span>
-                  )}
-                </div>
-                {userRole !== 'treuhand' && status === 'Entwurf' && (
-                  <button 
-                    onClick={handleSaveStammdaten}
-                    disabled={!isDirty || isUpdating}
-                    className="w-full sm:w-auto px-6 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary-600/20"
-                  >
-                    {isUpdating ? 'Wird gespeichert...' : 'Änderungen speichern'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* TAB: LEISTUNGEN */}
-          <div className="space-y-6 mt-6">
-              {/* Einleitungstext (only in edit mode) */}
-              {isEditing && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2">Einleitungstext (erscheint auf dem PDF)</label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {[
-                      { label: 'Standard', text: 'Wir erlauben uns, für unsere Arbeiten wie folgt Rechnung zu stellen:' },
-                      { label: 'Akonto', text: 'Wir erlauben uns, für das oben genannte Projekt folgende Akontorechnung zu stellen:' },
-                      { label: 'Schlussrechnung', text: 'Wir danken für den geschätzten Auftrag und stellen für die ausgeführten Arbeiten wie folgt Rechnung:' },
-                    ].map((tpl) => (
-                      <button
-                        key={tpl.label}
-                        onClick={() => setEditEinleitung(tpl.text)}
-                        className={`px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 text-sm sm:text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-                          editEinleitung === tpl.text
-                            ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
-                        }`}
-                      >
-                        {tpl.label}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    value={editEinleitung}
-                    onChange={(e) => setEditEinleitung(e.target.value)}
-                    className="w-full h-24 sm:h-20 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Wir erlauben uns, für unsere Arbeiten wie folgt Rechnung zu stellen:"
-                  />
-                </div>
-              )}
-              {/* Show existing einleitungstext in read mode */}
-              {!isEditing && daten.einleitungstext && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2">Einleitungstext</label>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap">{daten.einleitungstext}</p>
-                </div>
-              )}
-
-              <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-3' : ''} gap-6`}>
-
-                {/* ===== LEISTUNGEN TABLE (READ / EDIT) ===== */}
-                <div className={!(showLivePreview && isEditing) ? 'lg:col-span-2' : ''}>
-                  <div className="bg-surface-card rounded-2xl border border-border overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <h3 className="text-lg font-bold text-text-primary">Leistungsverzeichnis</h3>
-                      {isEditing && (
-                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3">
-                          <button
-                            onClick={addPosition}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                          >
-                            ➕ Position
-                          </button>
-                          <button
-                            onClick={() => setShowKatalogDrawer(true)}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                          >
-                            📖 Katalog
-                          </button>
+                  {/* READ MODE: Positionstabelle */}
+                  {!isEditing && (
+                    <>
+                      {leistungen.length === 0 ? (
+                        <div className="p-12 text-center text-text-secondary">
+                          <p className="text-sm">Keine Positionen in dieser Rechnung erfasst.</p>
                         </div>
-                      )}
-                    </div>
-                    
-                    {/* ===== READ MODE ===== */}
-                    {!isEditing && (
-                      <>
-                        {leistungen.length === 0 ? (
-                          <div className="p-8 text-center text-text-secondary">Keine Leistungen gefunden.</div>
-                        ) : (
-                          <div className="divide-y divide-border">
-                            <div className="hidden sm:grid grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 px-5 py-3 bg-surface-card text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                              <span>Pos.</span>
-                              <span>Beschreibung</span>
-                              <span className="text-right">Menge</span>
-                              <span>Einh.</span>
-                              <span className="text-right">Preis</span>
-                              <span className="text-right">Total</span>
-                            </div>
+                      ) : (
+                        <div className="divide-y divide-border">
+                          {/* Desktop Grid Header */}
+                          <div className="hidden sm:grid grid-cols-[50px_1fr_80px_70px_100px_110px] gap-3 px-5 py-3 bg-surface-card text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                            <span>Pos.</span>
+                            <span>Beschreibung</span>
+                            <span className="text-right">Menge</span>
+                            <span>Einh.</span>
+                            <span className="text-right">Preis</span>
+                            <span className="text-right">Total</span>
+                          </div>
+                          
+                          {leistungen.map((pos, idx) => {
+                            const isInfo = (pos.menge === '' || pos.menge === undefined || pos.menge === null) && (pos.einzelpreis === '' || pos.einzelpreis === undefined || pos.einzelpreis === null)
+                            const posTotal = isInfo ? 0 : (parseFloat(pos.menge) * parseFloat(pos.einzelpreis))
+                            const isKategorie = isInfo && pos.beschreibung
                             
-                            {leistungen.map((pos, idx) => {
-                              const isInfo = (pos.menge === '' || pos.menge === undefined || pos.menge === null) && (pos.einzelpreis === '' || pos.einzelpreis === undefined || pos.einzelpreis === null)
-                              const posTotal = isInfo ? 0 : (parseFloat(pos.menge) * parseFloat(pos.einzelpreis))
-                              const isKategorie = isInfo && pos.beschreibung
-                              
-                              return (
-                                <div key={idx} className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-primary-50/50 border-l-3 border-l-primary-400' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
-                                  
-                                  {/* --- MOBILE COMPACT VIEW --- */}
-                                  <div className="sm:hidden flex justify-between items-start w-full gap-3">
-                                    <div className="flex flex-col min-w-0 flex-1">
-                                      <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                                        <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
-                                        {pos.beschreibung}
-                                        {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Option</span>}
-                                      </div>
-                                      {!isInfo && (
-                                        <div className="text-xs text-text-secondary mt-1">
-                                          {pos.menge} {pos.einheit} à CHF {formatMoney(pos.einzelpreis)}
-                                        </div>
-                                      )}
+                            return (
+                              <div key={idx} className={`p-4 sm:px-5 sm:py-3.5 hover:bg-primary-50/20 transition-colors ${isKategorie ? 'bg-primary-50/40 border-l-4 border-l-primary-500' : isInfo ? 'bg-surface/50' : ''} ${pos.optional ? 'opacity-70 bg-amber-50/20' : ''}`}>
+                                
+                                {/* Mobile View */}
+                                <div className="sm:hidden flex justify-between items-start w-full gap-3">
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
+                                      <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
+                                      {pos.beschreibung}
+                                      {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Option</span>}
                                     </div>
                                     {!isInfo && (
-                                      <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
-                                        CHF {formatMoney(posTotal)}
+                                      <div className="text-xs text-text-secondary mt-1">
+                                        {pos.menge} {pos.einheit} à CHF {formatMoney(pos.einzelpreis)}
                                       </div>
                                     )}
                                   </div>
+                                  {!isInfo && (
+                                    <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
+                                      CHF {formatMoney(posTotal)}
+                                    </div>
+                                  )}
+                                </div>
 
-                                  {/* --- DESKTOP TABLE VIEW --- */}
-                                  <div className="hidden sm:grid sm:grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 items-center">
-                                    <div className="text-xs font-bold text-text-secondary">
-                                      {pos.posNr || (idx + 1)}
-                                    </div>
-                                    <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                                      {pos.beschreibung}
-                                      {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
-                                    </div>
-                                    {!isInfo ? (
-                                      <>
-                                        <div className="text-sm text-text-secondary text-right">{pos.menge}</div>
-                                        <div className="text-sm text-text-secondary">{pos.einheit}</div>
-                                        <div className="text-sm text-text-secondary text-right">CHF {formatMoney(pos.einzelpreis)}</div>
-                                        <div className="text-sm font-bold text-text-primary text-right">CHF {formatMoney(posTotal)}</div>
-                                      </>
-                                    ) : (
-                                      <div className="col-span-4"></div>
-                                    )}
+                                {/* Desktop Grid Row */}
+                                <div className="hidden sm:grid sm:grid-cols-[50px_1fr_80px_70px_100px_110px] gap-3 items-center">
+                                  <div className="text-xs font-bold text-text-secondary">
+                                    {pos.posNr || (idx + 1)}
                                   </div>
-
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* ===== EDIT MODE ===== */}
-                    {isEditing && (
-                      <div className="divide-y divide-border">
-                        {editLeistungen.length === 0 ? (
-                          <div className="p-8 text-center text-text-secondary">
-                            Keine Positionen. Klicke auf "Position hinzufügen" um zu starten.
-                          </div>
-                        ) : (
-                          editLeistungen.map((pos, idx) => (
-                            <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
-                              {/* Row 1: Controls + PosNr + Optional + Delete */}
-                              <div className="flex items-center gap-2">
-                                {/* Move */}
-                                <div className="flex flex-col gap-0.5 shrink-0">
-                                  <button
-                                    onClick={() => movePosition(idx, -1)}
-                                    disabled={idx === 0}
-                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                                    title="Nach oben"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                                  </button>
-                                  <button
-                                    onClick={() => movePosition(idx, 1)}
-                                    disabled={idx === editLeistungen.length - 1}
-                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                                    title="Nach unten"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                  </button>
+                                  <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
+                                    {pos.beschreibung}
+                                    {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
+                                  </div>
+                                  {!isInfo ? (
+                                    <>
+                                      <div className="text-sm text-text-secondary text-right font-medium">{pos.menge}</div>
+                                      <div className="text-sm text-text-secondary font-medium">{pos.einheit}</div>
+                                      <div className="text-sm text-text-secondary text-right font-medium">CHF {formatMoney(pos.einzelpreis)}</div>
+                                      <div className="text-sm font-bold text-text-primary text-right">CHF {formatMoney(posTotal)}</div>
+                                    </>
+                                  ) : (
+                                    <div className="col-span-4"></div>
+                                  )}
                                 </div>
 
-                                {/* Position Number (free text) */}
-                                <div className="shrink-0 w-14">
-                                  <input
-                                    type="text"
-                                    value={pos.posNr || ''}
-                                    onChange={(e) => updatePosition(pos._id, 'posNr', e.target.value)}
-                                    className="w-full px-2 py-2 min-h-[40px] bg-surface border border-border rounded-lg text-xs font-bold text-center focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                    placeholder="1.0"
-                                    title="Positionsnummer"
-                                  />
-                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
 
-                                {/* Preview text */}
-                                <div className="flex-1 text-sm font-medium text-text-primary truncate">{pos.beschreibung || <span className="text-text-secondary italic">Beschreibung...</span>}</div>
-
-                                {/* Optional Toggle */}
-                                <label className="flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[44px] px-2" title="Optionale Position">
-                                  <input
-                                    type="checkbox"
-                                    checked={pos.optional || false}
-                                    onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
-                                    className="accent-amber-500 w-4 h-4"
-                                  />
-                                  <span className="text-xs text-text-secondary font-medium hidden sm:inline">Optional</span>
-                                </label>
-
-                                {/* Delete */}
+                  {/* EDIT MODE: Positionen Editor */}
+                  {isEditing && (
+                    <div className="divide-y divide-border">
+                      {editLeistungen.length === 0 ? (
+                        <div className="p-12 text-center text-text-secondary">
+                          Keine Positionen. Klicke auf "Position hinzufügen" um zu starten.
+                        </div>
+                      ) : (
+                        editLeistungen.map((pos, idx) => (
+                          <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
+                            {/* Row 1: Controls + PosNr + Preview + Optional + Delete */}
+                            <div className="flex items-center gap-2">
+                              {/* Move */}
+                              <div className="flex flex-col gap-0.5 shrink-0">
                                 <button
-                                  onClick={() => deletePosition(pos._id)}
-                                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0"
-                                  title="Position löschen"
+                                  type="button"
+                                  onClick={() => movePosition(idx, -1)}
+                                  disabled={idx === 0}
+                                  className="p-1 min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                  title="Nach oben"
                                 >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => movePosition(idx, 1)}
+                                  disabled={idx === editLeistungen.length - 1}
+                                  className="p-1 min-w-[32px] min-h-[32px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                  title="Nach unten"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                 </button>
                               </div>
 
-                              {/* Row 2: Full-width Description Field */}
-                              <div className="pl-2 sm:pl-10">
-                                <textarea
-                                  value={pos.beschreibung}
-                                  onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
-                                  rows={1}
-                                  onFocus={(e) => { e.target.rows = Math.max(2, Math.ceil(e.target.value.length / 40)); }}
-                                  onBlur={(e) => { e.target.rows = 1; }}
-                                  className="w-full px-3 py-2.5 min-h-[44px] bg-surface border border-border rounded-lg text-base sm:text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none transition-all"
-                                  placeholder="Beschreibung / Kategorie-Titel..."
+                              {/* PosNr */}
+                              <div className="shrink-0 w-14">
+                                <input
+                                  type="text"
+                                  value={pos.posNr || ''}
+                                  onChange={(e) => updatePosition(pos._id, 'posNr', e.target.value)}
+                                  className="w-full px-2 py-1.5 min-h-[36px] bg-surface border border-border rounded-lg text-xs font-bold text-center focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="1.0"
+                                  title="Positionsnummer"
                                 />
                               </div>
 
-                              {/* Row: Menge, Einheit, Preis, Total */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pl-14">
-                                <div>
-                                  <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
-                                  <input
-                                    type="number"
-                                    step="any"
-                                    value={pos.menge}
-                                    onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
-                                  <input
-                                    type="text"
-                                    value={pos.einheit || ''}
-                                    onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                    placeholder="m², Stk, h..."
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-text-secondary font-semibold block mb-1">Einzelpreis (CHF)</label>
-                                  <input
-                                    type="number"
-                                    step="0.05"
-                                    value={pos.einzelpreis}
-                                    onChange={(e) => updatePosition(pos._id, 'einzelpreis', e.target.value)}
-                                    className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                    placeholder="0.00"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
-                                  <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary">
-                                    CHF {formatMoney((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
-                                  </div>
+                              {/* Preview text */}
+                              <div className="flex-1 text-sm font-medium text-text-primary truncate">{pos.beschreibung || <span className="text-text-secondary italic">Beschreibung...</span>}</div>
+
+                              {/* Optional Toggle */}
+                              <label className="flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[36px] px-2" title="Optionale Position">
+                                <input
+                                  type="checkbox"
+                                  checked={pos.optional || false}
+                                  onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
+                                  className="accent-amber-500 w-4 h-4"
+                                />
+                                <span className="text-xs text-text-secondary font-medium hidden sm:inline">Optional</span>
+                              </label>
+
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() => deletePosition(pos._id)}
+                                className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0"
+                                title="Position löschen"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
+
+                            {/* Row 2: Full-width Description Field */}
+                            <div className="pl-2 sm:pl-10">
+                              <textarea
+                                value={pos.beschreibung}
+                                onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
+                                rows={1}
+                                onFocus={(e) => { e.target.rows = Math.max(2, Math.ceil(e.target.value.length / 40)); }}
+                                onBlur={(e) => { e.target.rows = 1; }}
+                                className="w-full px-3 py-2 min-h-[40px] bg-surface border border-border rounded-lg text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none transition-all"
+                                placeholder="Beschreibung / Kategorie-Titel..."
+                              />
+                            </div>
+
+                            {/* Row 3: Menge, Einheit, Preis, Total */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pl-2 sm:pl-10">
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={pos.menge}
+                                  onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
+                                <input
+                                  type="text"
+                                  value={pos.einheit || ''}
+                                  onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="m², Stk, h..."
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einzelpreis (CHF)</label>
+                                <input
+                                  type="number"
+                                  step="0.05"
+                                  value={pos.einzelpreis}
+                                  onChange={(e) => updatePosition(pos._id, 'einzelpreis', e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
+                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary">
+                                  CHF {formatMoney((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
                                 </div>
                               </div>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
 
-                {/* ===== KALKULATION SIDEBAR ===== */}
-                <div>
-                  {/* Edit mode: Konditionen + Pauschal */}
+                  {/* Edit-Mode Konditionen & Pauschalpreis inside the Document Card */}
                   {isEditing && (
-                    <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm mb-4 space-y-4">
-                      <h3 className="text-sm font-bold text-text-primary">Konditionen</h3>
-                      <div className="grid grid-cols-2 gap-3">
+                    <div className="p-5 border-t border-border bg-surface/30 space-y-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary">Konditionen & Steuern</h4>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-xs text-text-secondary font-semibold block mb-1">Rabatt (%)</label>
                           <input
@@ -1349,8 +1128,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                         </div>
                       </div>
 
-                      {/* Pauschalpreis Toggle */}
-                      <div className="pt-3 border-t border-border">
+                      <div className="pt-2 border-t border-border/60">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
@@ -1380,87 +1158,431 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                     </div>
                   )}
 
-                  {/* Kalkulation Summary Box */}
-                  <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-2xl p-6 shadow-md text-white sticky top-6">
-                    <h3 className="text-primary-100 text-sm font-semibold mb-6">Kalkulation {isEditing && '(Live)'}</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-primary-100">Zwischensumme</span>
-                        <span>CHF {formatMoney(isEditing ? editRawTotal : rawTotal)}</span>
+                  {/* Schlusstext */}
+                  {(isEditing || daten.schlusstext) && (
+                    <div className="p-5 border-t border-border bg-surface/20 space-y-3">
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+                        Schlusstext
+                      </label>
+                      {isEditing ? (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: 'Standard', text: 'Wir bitten um Überweisung des Betrags auf unser Konto innerhalb der Zahlungsfrist.' },
+                              { label: 'Dank', text: 'Wir danken Ihnen für den geschätzten Auftrag und bitten um Überweisung auf untenstehendes Konto.' },
+                            ].map((tpl) => (
+                              <button
+                                key={tpl.label}
+                                type="button"
+                                onClick={() => setEditSchluss(tpl.text)}
+                                className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                                  editSchluss === tpl.text
+                                    ? 'bg-primary-100 border-primary-300 text-primary-700'
+                                    : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
+                                }`}
+                              >
+                                {tpl.label}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={editSchluss}
+                            onChange={(e) => setEditSchluss(e.target.value)}
+                            className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                            placeholder="Wir bitten um Überweisung des Betrags auf unser Konto innerhalb der Zahlungsfrist."
+                          />
+                        </>
+                      ) : (
+                        <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{daten.schlusstext}</p>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+
+              {/* ================= RIGHT COLUMN: STICKY BENTO SIDEBAR ================= */}
+              <div className={`${!(showLivePreview && isEditing) ? 'lg:col-span-4 lg:sticky lg:top-24' : ''} space-y-5`}>
+                
+                {/* 1. Live Kalkulation Card */}
+                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                      <span>💰</span> Kalkulation {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
+                    </h3>
+                    <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 font-medium rounded-full">
+                      CHF
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex justify-between items-center text-text-secondary">
+                      <span>Zwischensumme</span>
+                      <span className="font-semibold text-text-primary">
+                        CHF {formatMoney(isEditing ? editRawTotal : rawTotal)}
+                      </span>
+                    </div>
+
+                    {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
+                      <div className="flex justify-between items-center text-red-600 font-medium">
+                        <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
+                        <span>- CHF {formatMoney(isEditing ? editRabattBetrag : rabattBetrag)}</span>
                       </div>
-                      {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
-                        <div className="flex justify-between text-sm text-red-300 font-medium">
-                          <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
-                          <span>- CHF {formatMoney(isEditing ? editRabattBetrag : rabattBetrag)}</span>
-                        </div>
-                      )}
-                      {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-primary-100">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
-                          <span>CHF {formatMoney(isEditing ? editMwstBetrag : mwstBetrag)}</span>
-                        </div>
-                      )}
-                      {isEditing && isPauschal && editPauschalpreis && (
-                        <div className="flex justify-between text-sm text-amber-300 font-medium">
-                          <span>⚡ Pauschalpreis</span>
-                          <span>aktiv</span>
-                        </div>
-                      )}
-                      <div className="pt-4 mt-4 border-t border-white/20 flex justify-between items-center">
-                        <span className="font-bold text-lg">Total</span>
-                        <span className="font-bold text-2xl tracking-tight">CHF {formatMoney(isEditing ? editFinalTotal : finalTotal)}</span>
+                    )}
+
+                    {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
+                      <div className="flex justify-between items-center text-text-secondary">
+                        <span>MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
+                        <span className="font-medium text-text-primary">
+                          CHF {formatMoney(isEditing ? editMwstBetrag : mwstBetrag)}
+                        </span>
                       </div>
-                      {isEditing && editOptionalTotal > 0 && (
-                        <div className="pt-3 mt-1 border-t border-white/10 flex justify-between text-xs text-primary-200">
-                          <span>Optionale Positionen</span>
-                          <span>CHF {formatMoney(editOptionalTotal)}</span>
+                    )}
+
+                    {isEditing && isPauschal && editPauschalpreis && (
+                      <div className="flex justify-between items-center text-amber-700 font-medium text-xs bg-amber-50 px-2 py-1 rounded-md">
+                        <span>⚡ Pauschalpreis fixiert</span>
+                        <span>aktiv</span>
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-border flex justify-between items-baseline">
+                      <span className="text-base font-bold text-text-primary">Total</span>
+                      <div className="text-right">
+                        <span className="text-2xl font-bold text-text-primary tracking-tight block">
+                          CHF {formatMoney(isEditing ? editFinalTotal : finalTotal)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(isEditing ? editOptionalTotal : optionenTotal) > 0 && (
+                      <div className="pt-2 border-t border-dashed border-border flex justify-between text-xs text-text-secondary">
+                        <span>Zzgl. Optionen</span>
+                        <span className="font-medium">
+                          CHF {formatMoney(isEditing ? editOptionalTotal : optionenTotal)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Zahlungseingang & OP-Spiegel Card (für Versendet, Überfällig, Teilbezahlt) */}
+                {(status === 'Versendet' || status === 'Überfällig' || status === 'Teilbezahlt') && (
+                  <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                        <span>💳</span> Zahlungseingang
+                      </h3>
+                      {parseFloat(rechnung.bezahlt) > 0 && (
+                        <span className="text-xs text-purple-700 bg-purple-50 font-bold px-2 py-0.5 rounded-full border border-purple-200">
+                          Teilbezahlt
+                        </span>
+                      )}
+                    </div>
+
+                    {!showPaymentForm ? (
+                      status !== 'Bezahlt' && userRole !== 'treuhand' && (
+                        <div className="space-y-3">
+                          <div className="p-3 bg-surface rounded-xl border border-border/70 space-y-1.5 text-xs">
+                            <div className="flex justify-between text-text-secondary">
+                              <span>Rechnungsbetrag:</span>
+                              <span className="font-semibold text-text-primary">CHF {formatMoney(rechnung.total)}</span>
+                            </div>
+                            {parseFloat(rechnung.bezahlt) > 0 && (
+                              <div className="flex justify-between text-text-secondary">
+                                <span>Bisher bezahlt:</span>
+                                <span className="font-semibold text-emerald-600">CHF {formatMoney(rechnung.bezahlt)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between border-t border-border pt-1.5 font-bold">
+                              <span>Noch offen:</span>
+                              <span className="text-amber-700">
+                                CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                              setPaymentAmount(curOpen > 0 ? curOpen.toFixed(2) : (rechnung.total || 0))
+                              setPaymentType('skonto')
+                              setShowPaymentForm(true)
+                            }}
+                            disabled={isUpdating}
+                            className="w-full py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
+                          >
+                            <span>💰</span> Zahlung erfassen
+                          </button>
                         </div>
+                      )
+                    ) : (
+                      <div className="space-y-3 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200">
+                        {parseFloat(rechnung.bezahlt) > 0 && (
+                          <div className="text-xs text-emerald-900 bg-white/80 p-2.5 rounded-lg space-y-1 border border-emerald-100">
+                            <div className="flex justify-between"><span>Total:</span> <span className="font-semibold">CHF {formatMoney(rechnung.total)}</span></div>
+                            <div className="flex justify-between"><span>Bezahlt:</span> <span className="font-semibold">CHF {formatMoney(rechnung.bezahlt)}</span></div>
+                            <div className="flex justify-between border-t border-emerald-200/60 pt-1 font-bold">
+                              <span>Noch offen:</span> 
+                              <span>CHF {formatMoney(Math.max(0, (parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)))}</span>
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-xs font-bold text-emerald-800 block mb-1">Datum</label>
+                          <input 
+                            type="date"
+                            value={paymentDate}
+                            onChange={e => setPaymentDate(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-emerald-800 block mb-1">Betrag (CHF)</label>
+                          <input 
+                            type="number"
+                            step="0.05"
+                            value={paymentAmount}
+                            onChange={e => setPaymentAmount(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500 font-semibold"
+                          />
+                        </div>
+
+                        {/* Skonto / Teilzahlung Option if payment < open amount */}
+                        {(() => {
+                          const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                          const curAmount = parseFloat(paymentAmount) || 0
+                          const diff = Math.round((curOpen - curAmount) * 100) / 100
+                          if (diff > 0.05) {
+                            return (
+                              <div className="p-2.5 bg-white rounded-lg border border-emerald-200 space-y-2 text-xs">
+                                <div className="font-bold text-gray-800 flex justify-between">
+                                  <span>Differenz:</span>
+                                  <span className="text-amber-700 font-semibold">CHF {diff.toFixed(2)}</span>
+                                </div>
+                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1 rounded transition-colors">
+                                  <input 
+                                    type="radio" 
+                                    name="paymentType" 
+                                    value="skonto" 
+                                    checked={paymentType === 'skonto'} 
+                                    onChange={() => setPaymentType('skonto')}
+                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
+                                  />
+                                  <div>
+                                    <span className="font-semibold text-emerald-900 block">Skonto (Konto 3800)</span>
+                                    <span className="text-gray-500 text-[11px]">Rechnung gilt als vollständig ausgeglichen (Art. 41 MWSTG).</span>
+                                  </div>
+                                </label>
+                                <label className="flex items-start gap-2 cursor-pointer text-gray-700 hover:bg-gray-50 p-1 rounded transition-colors">
+                                  <input 
+                                    type="radio" 
+                                    name="paymentType" 
+                                    value="teil" 
+                                    checked={paymentType === 'teil'} 
+                                    onChange={() => setPaymentType('teil')}
+                                    className="mt-0.5 text-emerald-600 focus:ring-emerald-500" 
+                                  />
+                                  <div>
+                                    <span className="font-semibold text-purple-900 block">Teilzahlung</span>
+                                    <span className="text-gray-500 text-[11px]">Restbetrag von CHF {diff.toFixed(2)} bleibt offen.</span>
+                                  </div>
+                                </label>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+
+                        <div className="flex gap-2 pt-1">
+                          <button 
+                            type="button"
+                            onClick={handlePayment}
+                            className="flex-1 py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer"
+                          >
+                            Bestätigen
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setShowPaymentForm(false)}
+                            className="px-3 py-2 bg-white text-emerald-700 border border-emerald-200 font-bold text-xs rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Rechnungsdaten & Fristen Card */}
+                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>📅</span> Fristen & Rechnungsdaten
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-text-secondary font-semibold block mb-1">Rechnungsdatum</label>
+                      {status === 'Entwurf' && userRole !== 'treuhand' ? (
+                        <input 
+                          type="date"
+                          value={editStammdaten.rechnungsdatum || ''}
+                          onChange={(e) => handleStammInputChange('rechnungsdatum', e.target.value)}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold text-text-primary px-3 py-2 bg-surface rounded-xl border border-border/60">
+                          {formatDate(editStammdaten.rechnungsdatum || rechnung.rechnungsdatum)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-text-secondary font-semibold block mb-1">Zahlungsfrist (Tage)</label>
+                      {status === 'Entwurf' && userRole !== 'treuhand' ? (
+                        <input 
+                          type="number"
+                          value={editStammdaten.zahlungsfrist_tage || 30}
+                          onChange={(e) => handleStammInputChange('zahlungsfrist_tage', parseInt(e.target.value) || 30)}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                        />
+                      ) : (
+                        <div className="text-sm font-semibold text-text-primary px-3 py-2 bg-surface rounded-xl border border-border/60">
+                          {editStammdaten.zahlungsfrist_tage || rechnung.zahlungsfrist_tage || 30} Tage
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-text-secondary font-semibold block">Fälligkeitsdatum</label>
+                        {(rechnung.faellig_am || rechnung.daten?.faellig_am) && onNavigate && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate('kalender', { date: rechnung.faellig_am || rechnung.daten?.faellig_am })}
+                            className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Im Kalender ansehen"
+                          >
+                            <span>📅 Im Kalender ansehen</span>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        )}
+                      </div>
+                      <div className="px-3 py-2 bg-surface rounded-xl border border-border/60 text-sm font-semibold text-text-primary flex items-center justify-between">
+                        <span>{rechnung.faellig_am || rechnung.daten?.faellig_am ? formatDate(rechnung.faellig_am || rechnung.daten?.faellig_am) : 'Wird automatisch berechnet'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Stammdaten (Kunde, Projekt, Bankverbindung) */}
+                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>🏢</span> Stammdaten & Zuweisung
+                  </h3>
+
+                  <div className="space-y-3 text-sm">
+                    {/* Kunde */}
+                    <div className="p-3 bg-surface rounded-xl border border-border/60 space-y-0.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Kunde</span>
+                      <button 
+                        type="button"
+                        onClick={() => kunde && onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
+                        className="font-semibold text-primary-600 hover:text-primary-800 transition-colors text-left truncate block w-full cursor-pointer"
+                      >
+                        {kunde ? kunde.name : 'Unbekannter Kunde'}
+                      </button>
+                      {kunde?.ort && <p className="text-xs text-text-secondary truncate">{kunde.ort}</p>}
+                    </div>
+
+                    {/* Projekt */}
+                    <div className="p-3 bg-surface rounded-xl border border-border/60 space-y-0.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Projekt / Baustelle</span>
+                      <button 
+                        type="button"
+                        onClick={() => projekt && onNavigate && onNavigate('projekte', { projektId: projekt.id })}
+                        className="font-semibold text-primary-600 hover:text-primary-800 transition-colors text-left truncate block w-full cursor-pointer"
+                      >
+                        {projekt ? projekt.name : 'Kein Projekt zugeordnet'}
+                      </button>
+                      {projekt?.adresse && <p className="text-xs text-text-secondary truncate">{projekt.adresse}</p>}
+                    </div>
+
+                    {/* Offerte Link */}
+                    {rechnung.offerte_id && (
+                      <div className="p-3 bg-surface rounded-xl border border-border/60 space-y-0.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Ursprungs-Offerte</span>
+                        <button 
+                          type="button"
+                          onClick={() => onNavigate && onNavigate('offerten', { offerteId: rechnung.offerte_id })}
+                          className="font-semibold text-primary-600 hover:text-primary-800 transition-colors text-left truncate block w-full underline cursor-pointer"
+                        >
+                          Offerte #{rechnung.offerte_id} öffnen
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Rechnungstyp */}
+                    <div className="p-3 bg-surface rounded-xl border border-border/60 flex items-center justify-between text-xs">
+                      <span className="text-text-secondary font-medium">Rechnungstyp:</span>
+                      <span className="font-bold text-text-primary capitalize">
+                        {rechnung.typ || 'gesamt'}
+                        {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+                      </span>
+                    </div>
+
+                    {/* Bankverbindung */}
+                    <div className="p-3 bg-surface rounded-xl border border-border/60 text-xs space-y-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Zahlungsverbindung</span>
+                      {settings?.iban ? (
+                        <>
+                          <p className="text-text-primary font-mono text-[11px]">{settings.iban}</p>
+                          {settings.bank_name && <p className="text-text-secondary">{settings.bank_name}</p>}
+                        </>
+                      ) : (
+                        <p className="text-text-secondary italic">Keine IBAN in den Einstellungen hinterlegt.</p>
                       )}
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Schlusstext (only in edit mode) */}
-              {isEditing && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2">Schlusstext (erscheint auf dem PDF)</label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {[
-                      { label: 'Standard', text: 'Wir bitten um Überweisung des Betrags auf unser Konto innerhalb der Zahlungsfrist.' },
-                      { label: 'Dank', text: 'Wir danken Ihnen für den geschätzten Auftrag und bitten um Überweisung auf untenstehendes Konto.' },
-                    ].map((tpl) => (
-                      <button
-                        key={tpl.label}
-                        onClick={() => setEditSchluss(tpl.text)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-                          editSchluss === tpl.text
-                            ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
-                        }`}
-                      >
-                        {tpl.label}
-                      </button>
-                    ))}
+                {/* 5. Interne Notizen Card */}
+                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                      <span>📝</span> Interne Notizen
+                    </h3>
                   </div>
-                  <textarea
-                    value={editSchluss}
-                    onChange={(e) => setEditSchluss(e.target.value)}
-                    className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Wir bitten um Überweisung des Betrags auf unser Konto innerhalb der Zahlungsfrist."
+                  <textarea 
+                    value={editStammdaten.notizen || ''}
+                    onChange={(e) => handleStammInputChange('notizen', e.target.value)}
+                    disabled={userRole === 'treuhand' || status !== 'Entwurf'}
+                    className="w-full h-24 px-3 py-2 bg-surface border border-border rounded-xl text-xs focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none disabled:opacity-50 disabled:bg-gray-50"
+                    placeholder="Absprachen, Zahlungsversprechen, Besonderheiten..."
                   />
                 </div>
-              )}
-              {!isEditing && daten.schlusstext && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2">Schlusstext</label>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap">{daten.schlusstext}</p>
-                </div>
-              )}
-            </div>
-            {/* Action Buttons removed from bottom - now in top menu */}
-        </div>
 
+                {/* Stammdaten Save Action */}
+                {isDirty && userRole !== 'treuhand' && status === 'Entwurf' && (
+                  <div className="pt-2 animate-fade-in">
+                    <button 
+                      type="button"
+                      onClick={handleSaveStammdaten}
+                      disabled={isUpdating}
+                      className="w-full py-2.5 bg-primary-600 text-white font-bold text-sm rounded-xl hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    >
+                      {isUpdating ? 'Wird gespeichert...' : 'Stammdaten speichern'}
+                    </button>
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+          </div>
         {showLivePreview && isEditing && (
           <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
             <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
@@ -1470,7 +1592,6 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         )}
       </div>
       )}
-
 
       {isEditing && (
         <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 animate-slide-up">

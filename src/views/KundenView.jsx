@@ -260,45 +260,53 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="relative flex-1">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Kunden suchen nach Name, Nr (z.B. K-1001), Firma, Ort..."
-            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-text-secondary hover:text-text-primary rounded-lg transition-colors cursor-pointer"
-              title="Suche zurücksetzen"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
-          <input 
-            type="checkbox" 
-            checked={showArchived} 
-            onChange={(e) => setShowArchived(e.target.checked)}
-            className="rounded border-border text-primary-600 focus:ring-primary-500"
-          />
-          Archivierte einblenden
-        </label>
-      </div>
+      {/* 2026 SaaS Datatable Card */}
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+        
+        {/* Integrated Toolbar */}
+        <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Kunden suchen nach Name, Nr (z.B. K-1001), Firma, Ort..."
+              className="w-full pl-10 pr-10 py-2 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-base leading-none cursor-pointer"
+                title="Suche zurücksetzen"
+              >
+                &times;
+              </button>
+            )}
+          </div>
 
-      {/* Table / Card list */}
-      <div className="w-full">
-        <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer shrink-0 px-2 py-1.5 rounded-lg hover:bg-surface transition-colors">
+              <input 
+                type="checkbox" 
+                checked={showArchived} 
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="rounded border-border text-primary-600 focus:ring-primary-500"
+              />
+              Archivierte einblenden
+            </label>
+
+            <span className="text-xs text-text-secondary font-medium pl-2 border-l border-border">
+              {filteredKunden.length} {filteredKunden.length === 1 ? 'Kunde' : 'Kunden'}
+            </span>
+          </div>
+        </div>
+
+        {/* Integrated Desktop Header */}
+        <div className="hidden lg:grid grid-cols-[minmax(220px,1.4fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_140px_110px_100px_40px] gap-3 px-5 py-3 bg-surface/60 border-b border-border text-[11px] font-bold text-text-secondary uppercase tracking-wider">
           <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-text-primary transition-colors cursor-pointer group text-left">
             Kunde {getSortIcon('name')}
           </button>
@@ -319,195 +327,197 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
           </button>
           <span className="sr-only">Aktionen</span>
         </div>
-        
+
         {isLoading && (
-          <div className="p-8 text-center text-text-secondary bg-surface-card rounded-2xl border border-border shadow-sm">
-            <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
+          <div className="p-8 space-y-4">
+            <div className="h-6 bg-gray-200/70 rounded w-1/4 animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
           </div>
         )}
 
         {error && (
-          <div className="p-8 text-center text-red-500 bg-surface-card rounded-2xl border border-border shadow-sm">
+          <div className="p-8 text-center text-red-500">
             <p>{error}</p>
           </div>
         )}
 
         {!isLoading && !error && filteredKunden.length === 0 && (
-          <div className="p-8 text-center text-text-secondary bg-surface-card rounded-2xl border border-border shadow-sm">
-            <p>Keine Kunden gefunden.</p>
+          <div className="text-center py-16 px-4 text-text-secondary">
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
+              👥
+            </div>
+            <p className="text-sm font-semibold text-text-primary">Keine Kunden gefunden</p>
+            <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder lege einen neuen Kunden an.</p>
           </div>
         )}
 
-        <div ref={parent} className="space-y-4 lg:space-y-0 lg:bg-surface-card lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
-        {filteredKunden.map((kunde) => {
-          const displayName = kunde.firmenname 
-            ? `${kunde.firmenname} ${kunde.vorname || ''} ${kunde.nachname || ''}`.trim()
-            : `${kunde.vorname || ''} ${kunde.nachname || ''}`.trim() || kunde.name;
+        <div ref={parent} className="divide-y divide-border">
+          {filteredKunden.map((kunde) => {
+            const displayName = kunde.firmenname 
+              ? `${kunde.firmenname} ${kunde.vorname || ''} ${kunde.nachname || ''}`.trim()
+              : `${kunde.vorname || ''} ${kunde.nachname || ''}`.trim() || kunde.name;
 
-          return (
+            return (
               <div
                 key={kunde.id}
                 onClick={() => onNavigate ? onNavigate('kunden', { kundeId: kunde.id }) : setSelectedKunde(kunde)}
-                className="flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1.5fr_140px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 items-start lg:items-center cursor-pointer active:scale-[0.99] lg:active:scale-100 relative group"
+                className="flex flex-col lg:grid lg:grid-cols-[minmax(220px,1.4fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_140px_110px_100px_40px] gap-3 lg:gap-3 p-4 lg:px-5 lg:py-3.5 hover:bg-primary-50/20 active:bg-neutral-50 transition-colors items-start lg:items-center cursor-pointer border-l-4 border-l-primary-500 relative group touch-action-manipulation"
               >
-              {/* Primary Info */}
-              <div className="flex items-center gap-3 w-full lg:w-auto pr-16 lg:pr-0">
-                <div className={`w-12 h-12 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-inner ${kunde.firmenname ? 'rounded-xl' : 'rounded-full'}`}>
-                  {displayName.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-base lg:text-sm text-text-primary truncate">{displayName}</span>
-                    {kunde.kundennummer && (
-                      <span className="font-mono text-[11px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-200 shrink-0">
-                        {kunde.kundennummer}
-                      </span>
-                    )}
+                {/* Primary Info */}
+                <div className="flex items-center gap-3.5 w-full lg:w-auto pr-16 lg:pr-0 min-w-0">
+                  <div className={`w-11 h-11 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-base font-bold shrink-0 shadow-xs ${kunde.firmenname ? 'rounded-2xl' : 'rounded-full'}`}>
+                    {displayName.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-xs lg:hidden text-text-secondary truncate mt-0.5">
-                    📍 {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
-                  </span>
-                  
-                  {/* Floating Action Buttons Desktop/Mobile integration */}
-                  <div className="flex gap-2 mt-2 lg:hidden">
-                    {kunde.telefon && (
-                      <a 
-                        href={`tel:${kunde.telefon}`} 
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 active:scale-95 transition-all border border-emerald-100"
-                        title="Anrufen"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                      </a>
-                    )}
-                    {kunde.email && (
-                      <a 
-                        href={`mailto:${kunde.email}`} 
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 active:scale-95 transition-all border border-blue-100"
-                        title="E-Mail senden"
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                      </a>
-                    )}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-base sm:text-sm text-text-primary truncate">{displayName}</span>
+                      {kunde.kundennummer && (
+                        <span className="font-mono text-[10px] font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded-full border border-primary-200 shrink-0">
+                          {kunde.kundennummer}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs lg:hidden text-text-secondary truncate mt-0.5 flex items-center gap-1">
+                      <span>📍</span>
+                      <span>{kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}</span>
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Adresse (Desktop) */}
-              <div className="hidden lg:block text-sm text-text-secondary truncate">
-                {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
-              </div>
-
-              {/* Desktop E-Mail */}
-              <div className="hidden lg:block text-sm text-text-secondary truncate">
-                {kunde.email ? (
-                  <a href={`mailto:${kunde.email}`} onClick={e => e.stopPropagation()} className="hover:text-blue-600 transition-colors">{kunde.email}</a>
-                ) : '-'}
-              </div>
-
-              {/* Desktop Telefon */}
-              <div className="hidden lg:block text-sm text-text-secondary truncate">
-                {kunde.telefon ? (
-                  <a href={`tel:${kunde.telefon}`} onClick={e => e.stopPropagation()} className="hover:text-emerald-600 transition-colors">{kunde.telefon}</a>
-                ) : '-'}
-              </div>
-
-              {/* Erstellt am (Desktop) */}
-              <div className="hidden lg:block text-sm text-text-secondary truncate">
-                {kunde.created_at ? formatDate(kunde.created_at) : '-'}
-              </div>
-
-              {/* Status */}
-              <div className="absolute top-4 right-14 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
-                {kunde.is_archived ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800">
-                    <span>📁</span> Archiviert
-                  </span>
-                ) : (
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                    kunde.status === 'Aktiv'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {kunde.status || 'Aktiv'}
-                  </span>
-                )}
-              </div>
-
-              {/* Quick Actions (3-dot Menu) */}
-              <div className="absolute top-2 right-2 lg:relative lg:top-0 lg:right-0 flex items-center justify-end">
-                <div className="relative">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === kunde.id ? null : kunde.id); }}
-                    className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
-                  </button>
-                  
-                  {activeMenuId === kunde.id && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
-                      <div className="absolute right-0 mt-1 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-1">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedKunde(kunde); }} 
-                            className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                          >
-                            <svg className="w-5 h-5 sm:w-4 sm:h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                            Details anzeigen
-                          </button>
-                          
-                          {kunde.telefon && (
-                            <a 
-                              href={`tel:${kunde.telefon}`}
-                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                            >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                              Anrufen
-                            </a>
-                          )}
-                          
-                          {kunde.email && (
-                            <a 
-                              href={`mailto:${kunde.email}`}
-                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                            >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                              E-Mail senden
-                            </a>
-                          )}
-                          
-                          <div className="my-1 border-t border-border"></div>
-                          
-                          {kunde.is_archived ? (
-                            <button 
-                              onClick={(e) => handleRestoreKunde(kunde.id, e)} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-medium"
-                            >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                              Wiederherstellen
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmKunde(kunde); }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                            >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Archivieren
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </>
+                {/* Quick Action Buttons Mobile (min 44px touch targets) */}
+                <div className="flex items-center gap-2 w-full pt-1 lg:hidden">
+                  {kunde.telefon && (
+                    <a 
+                      href={`tel:${kunde.telefon}`} 
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-semibold text-xs flex items-center justify-center gap-1.5 border border-emerald-200 active:scale-95 transition-all touch-action-manipulation"
+                      title="Anrufen"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                      <span>Anrufen</span>
+                    </a>
+                  )}
+                  {kunde.email && (
+                    <a 
+                      href={`mailto:${kunde.email}`} 
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-h-[44px] px-3 py-2 rounded-xl bg-blue-50 text-blue-800 font-semibold text-xs flex items-center justify-center gap-1.5 border border-blue-200 active:scale-95 transition-all touch-action-manipulation"
+                      title="E-Mail senden"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      <span>E-Mail</span>
+                    </a>
                   )}
                 </div>
+
+                {/* Adresse (Desktop) */}
+                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                  {kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}
+                </div>
+
+                {/* Desktop E-Mail */}
+                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                  {kunde.email ? (
+                    <a href={`mailto:${kunde.email}`} onClick={e => e.stopPropagation()} className="hover:text-blue-600 transition-colors">{kunde.email}</a>
+                  ) : '-'}
+                </div>
+
+                {/* Desktop Telefon */}
+                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                  {kunde.telefon ? (
+                    <a href={`tel:${kunde.telefon}`} onClick={e => e.stopPropagation()} className="hover:text-emerald-600 transition-colors">{kunde.telefon}</a>
+                  ) : '-'}
+                </div>
+
+                {/* Erstellt am (Desktop) */}
+                <div className="hidden lg:block text-xs text-text-secondary truncate">
+                  {kunde.created_at ? formatDate(kunde.created_at) : '-'}
+                </div>
+
+                {/* Status */}
+                <div className="absolute top-4 right-14 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
+                  {kunde.is_archived ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span>📁</span> Archiv
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                      kunde.status === 'Aktiv'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {kunde.status || 'Aktiv'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick Actions (3-dot Menu) */}
+                <div className="absolute top-2 right-2 lg:relative lg:top-0 lg:right-0 flex items-center justify-end">
+                  <div className="relative">
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === kunde.id ? null : kunde.id); }}
+                      className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                    </button>
+
+                    {activeMenuId === kunde.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                        <div className="absolute right-0 mt-1 w-52 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                          <div className="p-1">
+                            <button 
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedKunde(kunde); }} 
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              Details anzeigen
+                            </button>
+
+                            {userRole !== 'treuhand' && (
+                              <>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setEditingKunde(kunde); }} 
+                                  className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                >
+                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  Bearbeiten
+                                </button>
+
+                                {kunde.is_archived ? (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => handleRestoreKunde(kunde.id, e)} 
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    Wiederherstellen
+                                  </button>
+                                ) : (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmKunde(kunde); }} 
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                    Archivieren
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            )
+          })}
         </div>
       </div>
 
@@ -561,6 +571,20 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
             showToast('success', 'Kunde erfolgreich erstellt.')
           }}
         />
+      )}
+
+      {/* Mobile Floating Action Button (FAB) */}
+      {userRole !== 'treuhand' && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 lg:hidden">
+          <button
+            type="button"
+            onClick={() => onNavigate ? onNavigate('kunden', { action: 'create' }) : setIsCreateModalOpen(true)}
+            className="w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:scale-90 text-white shadow-xl shadow-primary-600/35 flex items-center justify-center text-2xl font-bold transition-all touch-action-manipulation cursor-pointer"
+            aria-label="Neuen Kunden anlegen"
+          >
+            +
+          </button>
+        </div>
       )}
 
       {/* Feedback Toast */}

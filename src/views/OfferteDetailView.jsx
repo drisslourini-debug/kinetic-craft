@@ -9,6 +9,7 @@ const OffertePrintView = lazy(() => import('./OffertePrintView'))
 import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 import TerminModal from '../components/kalender/TerminModal'
+import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
 
 export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams, userRole }) {
   const [kunde, setKunde] = useState(null)
@@ -49,10 +50,13 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [katalogList, setKatalogList] = useState([])
 
   useUnsavedChanges(isEditing)
   useModalHistory(showPrintView, () => setShowPrintView(false), 'print_offerte')
   useModalHistory(showKatalogDrawer, () => setShowKatalogDrawer(false), 'katalog_drawer')
+  useModalHistory(showVoiceModal, () => setShowVoiceModal(false), 'voice_modal')
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
@@ -123,6 +127,45 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       }
     }
   }, [viewParams, isLoading, isEditing, status, startEditing])
+
+  useEffect(() => {
+    async function loadKatalogData() {
+      try {
+        const { data: katData } = await supabase.from('katalog_leistungen').select('id, titel, beschreibung, einheit, preis').order('titel')
+        if (katData) setKatalogList(katData)
+      } catch (e) {
+        console.warn('Katalog konnte nicht geladen werden:', e)
+      }
+    }
+    loadKatalogData()
+  }, [])
+
+  const handleVoicePositionsExtracted = (data) => {
+    if (!isEditing) {
+      startEditing()
+    }
+    if (data.einleitung && !editEinleitung) {
+      setEditEinleitung(data.einleitung)
+    }
+    if (data.schluss && !editSchluss) {
+      setEditSchluss(data.schluss)
+    }
+
+    if (Array.isArray(data.positionen) && data.positionen.length > 0) {
+      const formatted = data.positionen.map((pos, idx) => ({
+        _id: Date.now() + idx,
+        type: pos.type === 'title' ? 'title' : 'position',
+        beschreibung: pos.beschreibung || '',
+        menge: pos.menge !== undefined && pos.menge !== null ? String(pos.menge) : '',
+        einheit: pos.einheit || 'm²',
+        einzelpreis: pos.einzelpreis !== undefined && pos.einzelpreis !== null ? String(pos.einzelpreis) : '',
+        optional: !!pos.optional
+      }))
+
+      setEditLeistungen(prev => recalculatePositions([...prev, ...formatted]))
+      showToast('success', `✨ ${formatted.length} Positionen per Sprache kalkuliert und eingefügt!`)
+    }
+  }
 
   // Lade Kunden und Projekte wenn im Bearbeitungsmodus
   useEffect(() => {
@@ -653,7 +696,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   // Parse daten safely
   const daten = offerte.daten || {}
   const leistungen = daten.leistungen || []
-  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
+  const { rawTotal, rabattBetrag, mwstBetrag, finalTotal, optionenTotal } = calculateDocumentTotals(leistungen, daten.konditionen, daten.pauschalpreis)
   const rabatt = parseFloat(daten.konditionen?.rabatt || 0)
   const mwst = parseFloat(daten.konditionen?.mwst || 0)
 
@@ -762,6 +805,16 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               title="Split-Screen Live-Vorschau (nur Desktop)"
             >
               {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+            </button>
+          )}
+          {userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
+            <button
+              onClick={() => setShowVoiceModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer"
+              title="Offerte per Sprache diktieren & durch KI berechnen"
+            >
+              <span>🎙️</span>
+              <span>Sprach-Diktat (KI)</span>
             </button>
           )}
           {!isEditing && userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
@@ -919,20 +972,713 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         <div className="p-8 text-center text-text-secondary">Lade Daten...</div>
       ) : (
         <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
-        <div className="space-y-8 animate-fade-in">
-          
-          {/* STAMMDATEN & INFO */}
-          <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'md:grid-cols-2' : ''} gap-6`}>
-              <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-6">
-                <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
+        <div className="animate-fade-in">
+          <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-12' : ''} gap-8 items-start`}>
+            
+            {/* ================= LEFT COLUMN: DOKUMENTENFLUSS ================= */}
+            <div className={`${!(showLivePreview && isEditing) ? 'lg:col-span-8' : ''} space-y-6`}>
+              
+              {/* Edit Mode Alert Badge */}
+              {isEditing && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold shadow-2xs">
+                  <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                  Bearbeitungsmodus aktiv – Änderungen werden erst beim Speichern übernommen
+                </div>
+              )}
+
+              {/* Das Dokument: Einleitung + Leistungsverzeichnis + Konditionen */}
+              <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
                 
+                {/* Einleitungstext Header */}
+                {isEditing && (
+                  <div className="p-5 border-b border-border bg-surface/40 space-y-3">
+                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+                      Einleitungstext (erscheint auf dem PDF)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: 'Standard', text: 'Gerne unterbreiten wir Ihnen folgende Offerte:' },
+                        { label: 'Förmlich', text: 'Bezugnehmend auf unsere Besichtigung vor Ort erlauben wir uns, Ihnen folgende Offerte zu unterbreiten:' },
+                        { label: 'Persönlich', text: 'Vielen Dank für Ihre Anfrage und das entgegengebrachte Vertrauen. Gerne offerieren wir Ihnen die gewünschten Arbeiten wie folgt:' },
+                      ].map((tpl) => (
+                        <button
+                          key={tpl.label}
+                          onClick={() => setEditEinleitung(tpl.text)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                            editEinleitung === tpl.text
+                              ? 'bg-primary-100 border-primary-300 text-primary-700'
+                              : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
+                          }`}
+                        >
+                          {tpl.label}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={editEinleitung}
+                      onChange={(e) => setEditEinleitung(e.target.value)}
+                      className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                      placeholder="Gerne unterbreiten wir Ihnen folgende Offerte:"
+                    />
+                  </div>
+                )}
+                {!isEditing && daten.einleitungstext && (
+                  <div className="p-5 border-b border-border bg-surface/30">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block mb-1">Einleitung</span>
+                    <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{daten.einleitungstext}</p>
+                  </div>
+                )}
+
+                {/* Table Header Bar */}
+                <div className="p-5 border-b border-border bg-surface/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-text-primary">Leistungsverzeichnis</h3>
+                    <p className="text-xs text-text-secondary">Positionen, Mengen und Einheitspreise der Offerte</p>
+                  </div>
+                  {isEditing && (
+                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
+                      <button
+                        onClick={addTitle}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface text-text-primary border border-border font-semibold text-xs rounded-lg hover:bg-surface-card transition-colors cursor-pointer shadow-2xs"
+                      >
+                        ➕ Titel
+                      </button>
+                      <button
+                        onClick={() => {
+                          const pos = {
+                            _id: Date.now(),
+                            type: 'position',
+                            posNr: '',
+                            beschreibung: '',
+                            menge: '',
+                            einheit: 'Stück (Stk)',
+                            einzelpreis: '',
+                            optional: false,
+                          };
+                          setEditLeistungen(prev => [...prev, pos]);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface text-text-primary border border-border font-semibold text-xs rounded-lg hover:bg-surface-card transition-colors cursor-pointer shadow-2xs"
+                      >
+                        ➕ Leere Pos.
+                      </button>
+                      <button
+                        onClick={() => setShowNewPositionForm(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        ➕ Position
+                      </button>
+                      <button
+                        onClick={() => setShowKatalogDrawer(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        📖 Katalog
+                      </button>
+                      <button
+                        onClick={() => setShowVoiceModal(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
+                        title="Positionen per Sprache diktieren & durch KI berechnen"
+                      >
+                        <span>🎙️</span>
+                        <span>Sprache (KI)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* ===== READ MODE ===== */}
+                {!isEditing && (
+                  <>
+                    {leistungen.length === 0 ? (
+                      <div className="p-8 text-center text-text-secondary">Keine Leistungen gefunden.</div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        <div className="hidden sm:grid grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 px-5 py-3 bg-surface/50 text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                          <span>Pos.</span>
+                          <span>Beschreibung</span>
+                          <span className="text-right">Menge</span>
+                          <span>Einh.</span>
+                          <span className="text-right">Preis</span>
+                          <span className="text-right">Total</span>
+                        </div>
+                        
+                        {leistungen.map((pos, idx) => {
+                          const isKategorie = pos.type === 'title'
+                          const posTotal = isKategorie ? 0 : ((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))
+                          const isInfo = isKategorie || ((pos.menge === '' || pos.menge === undefined || pos.menge === null) && (pos.einzelpreis === '' || pos.einzelpreis === undefined || pos.einzelpreis === null))
+                          
+                          return (
+                            <div key={idx} className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/20 transition-colors ${isKategorie ? 'bg-surface/60 border-b-2 border-border/50 font-bold' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
+                              
+                              {/* --- MOBILE COMPACT VIEW --- */}
+                              <div className="sm:hidden flex justify-between items-start w-full gap-3">
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base text-primary-900' : 'font-medium'}`}>
+                                    <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
+                                    {pos.beschreibung}
+                                    {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Option</span>}
+                                  </div>
+                                  {!isInfo && (
+                                    <div className="text-xs text-text-secondary mt-1">
+                                      {pos.menge} {pos.einheit} à {formatCurrency(parseFloat(pos.einzelpreis) || 0)}
+                                    </div>
+                                  )}
+                                </div>
+                                {!isInfo && (
+                                  <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
+                                    {formatCurrency(posTotal)}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* --- DESKTOP TABLE VIEW --- */}
+                              <div className="hidden sm:grid sm:grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 items-center">
+                                <div className="text-xs font-bold text-text-secondary">
+                                  {pos.posNr || (idx + 1)}
+                                </div>
+                                <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base text-primary-900' : 'font-medium'}`}>
+                                  {pos.beschreibung}
+                                  {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
+                                </div>
+                                {!isInfo ? (
+                                  <>
+                                    <div className="text-sm text-text-secondary text-right">{pos.menge}</div>
+                                    <div className="text-sm text-text-secondary">{pos.einheit}</div>
+                                    <div className="text-sm text-text-secondary text-right">{formatCurrency(parseFloat(pos.einzelpreis) || 0)}</div>
+                                    <div className="text-sm font-bold text-text-primary text-right">{formatCurrency(posTotal)}</div>
+                                  </>
+                                ) : (
+                                  <div className="col-span-4"></div>
+                                )}
+                              </div>
+
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* ===== EDIT MODE ===== */}
+                {isEditing && (
+                  <div className="divide-y divide-border">
+                    {editLeistungen.length === 0 ? (
+                      <div className="p-8 text-center text-text-secondary">
+                        Keine Positionen. Klicke auf "Position hinzufügen" um zu starten.
+                      </div>
+                    ) : (
+                      editLeistungen.map((pos, idx) => (
+                        <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
+                          {/* Row 1: Controls + PosNr + Optional + Delete */}
+                          <div className="flex items-center gap-2">
+                            {/* Move */}
+                            <div className="flex flex-col gap-0.5 shrink-0">
+                              <button
+                                onClick={() => movePosition(idx, -1)}
+                                disabled={idx === 0}
+                                className="p-1 min-w-[28px] min-h-[28px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                title="Nach oben"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                              </button>
+                              <button
+                                onClick={() => movePosition(idx, 1)}
+                                disabled={idx === editLeistungen.length - 1}
+                                className="p-1 min-w-[28px] min-h-[28px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                title="Nach unten"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                              </button>
+                            </div>
+
+                            {/* Position Number */}
+                            <div className="shrink-0 w-8 text-center">
+                              <span className="text-xs font-bold text-text-secondary">{pos.posNr}</span>
+                            </div>
+
+                            {/* Spacer */}
+                            <div className="flex-1 text-sm font-medium text-text-primary truncate">{pos.beschreibung || <span className="text-text-secondary italic">Keine Beschreibung</span>}</div>
+
+                            {/* Optional Toggle */}
+                            <label className="flex items-center gap-1.5 cursor-pointer shrink-0 px-2" title="Als optionale Position markieren">
+                              <input
+                                type="checkbox"
+                                checked={pos.optional || false}
+                                onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
+                                className="accent-amber-500 w-4 h-4"
+                              />
+                              <span className="text-xs text-text-secondary font-medium hidden sm:inline">Optional</span>
+                            </label>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => deletePosition(pos._id)}
+                              className="p-1.5 min-w-[32px] min-h-[32px] flex items-center justify-center rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0"
+                              title="Position löschen"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+
+                          {/* Row 2: Description */}
+                          <div className="pl-2 sm:pl-10">
+                            <textarea
+                              value={pos.beschreibung}
+                              onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
+                              rows={1}
+                              onFocus={(e) => { e.target.rows = Math.max(2, Math.ceil(e.target.value.length / 40)); }}
+                              onBlur={(e) => { e.target.rows = 1; }}
+                              className={`w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none transition-all ${pos.type === 'title' ? 'font-bold text-base' : 'font-medium'}`}
+                              placeholder={pos.type === 'title' ? 'Titel (z.B. Gipserarbeiten)' : 'Beschreibung / Leistung...'}
+                            />
+                          </div>
+
+                          {/* Row: Menge, Einheit, Preis, Total */}
+                          {pos.type !== 'title' && (
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pl-2 sm:pl-10">
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={pos.menge}
+                                  onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
+                                <input
+                                  type="text"
+                                  value={pos.einheit || ''}
+                                  onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="m², Stk, h..."
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Netto (CHF)</label>
+                                <input
+                                  type="number"
+                                  step="0.05"
+                                  value={pos.einzelpreis}
+                                  onChange={(e) => {
+                                    const netto = parseFloat(e.target.value);
+                                    updatePosition(pos._id, 'einzelpreis', e.target.value);
+                                    if (!isNaN(netto)) {
+                                      const mwstRate = editKonditionen.mwst || 0;
+                                      updatePosition(pos._id, 'bruttopreis', (netto * (1 + mwstRate / 100)).toFixed(2));
+                                    } else {
+                                      updatePosition(pos._id, 'bruttopreis', '');
+                                    }
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Brutto (CHF)</label>
+                                <input
+                                  type="number"
+                                  step="0.05"
+                                  value={pos.bruttopreis || ''}
+                                  onChange={(e) => {
+                                    const brutto = parseFloat(e.target.value);
+                                    updatePosition(pos._id, 'bruttopreis', e.target.value);
+                                    if (!isNaN(brutto)) {
+                                      const mwstRate = editKonditionen.mwst || 0;
+                                      updatePosition(pos._id, 'einzelpreis', (brutto / (1 + mwstRate / 100)).toFixed(2));
+                                    } else {
+                                      updatePosition(pos._id, 'einzelpreis', '');
+                                    }
+                                  }}
+                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
+                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary flex items-center h-[38px]">
+                                  {formatCurrency((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                    
+                    {/* THE NEW AD-HOC FORM */}
+                    {showNewPositionForm && (
+                      <div className="p-5 border-t border-border bg-primary-50/30 animate-fade-in space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-primary-700">Neuer Artikel</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4">
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Name / Beschreibung</label>
+                            <input
+                              type="text"
+                              value={newPosData.beschreibung}
+                              onChange={(e) => setNewPosData(prev => ({ ...prev, beschreibung: e.target.value }))}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                              placeholder="z.B. Decke streichen"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Typ</label>
+                            <select 
+                              value={newPosData.kategorie}
+                              onChange={(e) => setNewPosData(prev => ({ ...prev, kategorie: e.target.value }))}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                            >
+                              <option value="Waren">Waren</option>
+                              <option value="Dienstleistungen">Dienstleistungen</option>
+                              <option value="Zusätzliches Einkommen">Zusätzliches Einkommen</option>
+                              <option value="Andere">Andere</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
+                            <select 
+                              value={newPosData.einheit}
+                              onChange={(e) => setNewPosData(prev => ({ ...prev, einheit: e.target.value }))}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                            >
+                              <option value="Stück (Stk)">Stück (Stk)</option>
+                              <option value="Stunde (h)">Stunde (h)</option>
+                              <option value="Tag (d)">Tag (d)</option>
+                              <option value="Monat (mo)">Monat (mo)</option>
+                              <option value="Pauschalpreis">Pauschalpreis</option>
+                              <option value="Kilogramm (kg)">Kilogramm (kg)</option>
+                              <option value="Quadratmeter (m²)">Quadratmeter (m²)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={newPosData.menge}
+                              onChange={(e) => setNewPosData(prev => ({ ...prev, menge: e.target.value }))}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">MwSt.-Kategorie</label>
+                            <select className="w-full px-3 py-2 bg-gray-50 border border-border rounded-lg text-sm text-text-secondary cursor-not-allowed" disabled>
+                              <option>Normaler Satz {editKonditionen.mwst || 0}%</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Nettopreis CHF</label>
+                            <input
+                              type="number"
+                              step="0.05"
+                              value={newPosData.einzelpreis}
+                              onChange={(e) => handleNettoChange(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-text-secondary font-semibold block mb-1">Bruttopreis CHF</label>
+                            <input
+                              type="number"
+                              step="0.05"
+                              value={newPosData.bruttopreis}
+                              onChange={(e) => handleBruttoChange(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={newPosData.saveToKatalog}
+                              onChange={(e) => setNewPosData(prev => ({ ...prev, saveToKatalog: e.target.checked }))}
+                              className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                            />
+                            <span className="text-sm font-semibold text-text-primary">Artikel in Artikelliste speichern</span>
+                          </label>
+                          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <button 
+                              onClick={() => setShowNewPositionForm(false)}
+                              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-text-secondary bg-surface border border-border rounded-xl hover:bg-surface-card transition-colors cursor-pointer"
+                            >
+                              Abbrechen
+                            </button>
+                            <button 
+                              onClick={handleAddNewPosition}
+                              className="w-full sm:w-auto px-6 py-2 text-sm font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 shadow-sm transition-colors cursor-pointer"
+                            >
+                              Hinzufügen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Edit-Mode Konditionen & Pauschalpreis inside the Document Card */}
+                {isEditing && (
+                  <div className="p-5 border-t border-border bg-surface/30 space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary">Konditionen & Steuern</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-text-secondary font-semibold block mb-1">Rabatt (%)</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max="100"
+                          value={editKonditionen.rabatt}
+                          onChange={(e) => setEditKonditionen(prev => ({ ...prev, rabatt: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-text-secondary font-semibold block mb-1">MwSt (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={editKonditionen.mwst}
+                          onChange={(e) => setEditKonditionen(prev => ({ ...prev, mwst: parseFloat(e.target.value) || 0 }))}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-border/60">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isPauschal}
+                          onChange={(e) => {
+                            setIsPauschal(e.target.checked)
+                            if (!e.target.checked) setEditPauschalpreis(null)
+                          }}
+                          className="accent-primary-600"
+                        />
+                        <span className="text-sm font-semibold text-text-primary">Pauschalpreis verwenden</span>
+                      </label>
+                      {isPauschal && (
+                        <div className="mt-2">
+                          <label className="text-xs text-text-secondary font-semibold block mb-1">Pauschalpreis (CHF)</label>
+                          <input
+                            type="number"
+                            step="0.05"
+                            value={editPauschalpreis || ''}
+                            onChange={(e) => setEditPauschalpreis(e.target.value)}
+                            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                            placeholder="z.B. 15000"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Schlusstext Card */}
+              {(isEditing || daten.schlusstext) && (
+                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-3">
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+                    Schlusstext {isEditing ? '(erscheint auf dem PDF)' : ''}
+                  </label>
+                  {isEditing ? (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-1">
+                        {[
+                          { label: 'Standard', text: 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
+                          { label: 'Mit Gültigkeit', text: 'Diese Offerte ist 30 Tage gültig. Materialpreisänderungen bleiben vorbehalten. Wir danken Ihnen für das Vertrauen und freuen uns auf Ihren Auftrag.' },
+                          { label: 'Ausführlich', text: 'Die Offerte versteht sich exkl. allfälliger Gerüstkosten und bauseitiger Vorleistungen. Materialpreisänderungen bleiben vorbehalten. Nicht offerierte Arbeiten werden nach Aufwand verrechnet. Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
+                        ].map((tpl) => (
+                          <button
+                            key={tpl.label}
+                            onClick={() => setEditSchluss(tpl.text)}
+                            className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                              editSchluss === tpl.text
+                                ? 'bg-primary-100 border-primary-300 text-primary-700'
+                                : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
+                            }`}
+                          >
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={editSchluss}
+                        onChange={(e) => setEditSchluss(e.target.value)}
+                        className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                        placeholder="Wir danken Ihnen für das Vertrauen..."
+                      />
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{daten.schlusstext}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Anhänge Card */}
+              <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+                      Anhänge & Beilagen
+                    </label>
+                    <p className="text-xs text-text-secondary mt-0.5">z.B. AGB, Skizzen oder Pläne</p>
+                  </div>
+                  {isEditing && userRole !== 'treuhand' && (
+                    <div>
+                      <input 
+                        type="file" 
+                        id="file-upload" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                        disabled={isUploading}
+                      />
+                      <label 
+                        htmlFor="file-upload"
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                          isUploading ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
+                        }`}
+                      >
+                        {isUploading ? 'Lädt hoch...' : '📎 Datei hochladen'}
+                      </label>
+                    </div>
+                  )}
+                </div>
+                
+                {(isEditing ? editAnhange : (daten.anhange || [])).length > 0 ? (
+                  <div className="space-y-2">
+                    {(isEditing ? editAnhange : (daten.anhange || [])).map((anhang, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-surface rounded-xl border border-border">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <span className="text-lg">📄</span>
+                          <div className="truncate">
+                            <a href={anhang.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary-600 hover:underline truncate block">
+                              {anhang.name}
+                            </a>
+                            <span className="text-xs text-text-secondary">
+                              {(anhang.size / 1024).toFixed(1)} KB
+                            </span>
+                          </div>
+                        </div>
+                        {isEditing && userRole !== 'treuhand' && (
+                          <button
+                            onClick={() => deleteAttachment(anhang.path)}
+                            className="p-1.5 text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Anhang löschen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary py-2 italic">Keine Anhänge vorhanden.</p>
+                )}
+              </div>
+
+            </div>
+
+            {/* ================= RIGHT COLUMN: STICKY BENTO SIDEBAR ================= */}
+            <div className={`${!(showLivePreview && isEditing) ? 'lg:col-span-4 lg:sticky lg:top-24' : ''} space-y-5`}>
+              
+              {/* 1. Live Kalkulation Card */}
+              <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>💰</span> Kalkulation {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
+                  </h3>
+                  <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 font-medium rounded-full">
+                    CHF
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-secondary">Zwischensumme</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(isEditing ? editRawTotal : rawTotal)}</span>
+                  </div>
+                  
+                  {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
+                    <div className="flex justify-between text-sm text-red-600 font-medium">
+                      <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
+                      <span>- {formatCurrency(isEditing ? editRabattBetrag : rabattBetrag)}</span>
+                    </div>
+                  )}
+                  
+                  {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-secondary">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
+                      <span className="font-medium text-text-primary">{formatCurrency(isEditing ? editMwstBetrag : mwstBetrag)}</span>
+                    </div>
+                  )}
+                  
+                  {isEditing && isPauschal && editPauschalpreis && (
+                    <div className="flex justify-between text-sm text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded-lg">
+                      <span>⚡ Pauschalpreis</span>
+                      <span>aktiv</span>
+                    </div>
+                  )}
+                  
+                  <div className="pt-3.5 mt-2 border-t border-border flex justify-between items-baseline">
+                    <span className="font-bold text-lg text-text-primary">Total</span>
+                    <span className="font-black text-2xl sm:text-3xl tracking-tight text-primary-700">
+                      {formatCurrency(isEditing ? editFinalTotal : finalTotal)}
+                    </span>
+                  </div>
+                  
+                  {(isEditing ? editOptionalTotal : optionenTotal) > 0 && (
+                    <div className="pt-2 border-t border-border/50 flex justify-between text-xs text-text-secondary">
+                      <span>Optionale Positionen</span>
+                      <span className="font-medium">{formatCurrency(isEditing ? editOptionalTotal : optionenTotal)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Stammdaten Card */}
+              <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>📋</span> Stammdaten
+                  </h3>
+                  {kunde && (
+                    <span className="text-[11px] font-mono font-medium text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100">
+                      {kunde.kundennummer || `K-${kunde.id}`}
+                    </span>
+                  )}
+                </div>
+
+                {/* Kunde */}
                 <div>
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>👤</span> Kunde</label>
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1.5">
+                    <span>👤</span> Kunde
+                  </label>
                   {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
                     <select
                       value={editKundeId}
                       onChange={(e) => setEditKundeId(e.target.value)}
-                      className="mt-1.5 w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                     >
                       <option value="">Bitte wählen...</option>
                       {kundenList.map(k => (
@@ -940,21 +1686,25 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                       ))}
                     </select>
                   ) : (
-                    <>
-                      <div className="mt-1.5 font-medium text-text-primary">{kunde ? kunde.name : (offerte.kunden_name || 'Unbekannt')}</div>
-                      {kunde && kunde.ort && <div className="text-sm text-text-secondary">{kunde.ort}</div>}
-                    </>
+                    <div className="bg-surface/60 rounded-xl p-3 border border-border/60">
+                      <div className="font-semibold text-text-primary text-sm">{kunde ? kunde.name : (offerte.kunden_name || 'Unbekannt')}</div>
+                      {kunde && kunde.ort && <div className="text-xs text-text-secondary mt-0.5">📍 {kunde.ort}</div>}
+                      {kunde && kunde.email && <div className="text-xs text-text-secondary mt-0.5">✉️ {kunde.email}</div>}
+                    </div>
                   )}
                 </div>
 
-                <div className="pt-4 border-t border-border">
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>🏗️</span> Projekt / Baustelle</label>
+                {/* Projekt */}
+                <div>
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1.5">
+                    <span>🏗️</span> Projekt / Baustelle
+                  </label>
                   {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
                     <select
                       value={editProjektId}
                       onChange={(e) => setEditProjektId(e.target.value)}
                       disabled={!editKundeId}
-                      className="mt-1.5 w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm font-medium focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:opacity-50"
                     >
                       <option value="">Kein Projekt zugeordnet</option>
                       {projekteList.map(p => (
@@ -962,802 +1712,147 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                       ))}
                     </select>
                   ) : (
-                    <>
-                      <div className="mt-1.5 font-medium text-text-primary">{projekt ? projekt.name : 'Kein Projekt zugeordnet'}</div>
-                      {projekt && projekt.adresse && <div className="text-sm text-text-secondary">{projekt.adresse}</div>}
-                    </>
+                    <div className="bg-surface/60 rounded-xl p-3 border border-border/60">
+                      <div className="font-semibold text-text-primary text-sm">{projekt ? projekt.name : 'Kein Projekt zugeordnet'}</div>
+                      {projekt && projekt.adresse && <div className="text-xs text-text-secondary mt-0.5">📍 {projekt.adresse}</div>}
+                    </div>
                   )}
                 </div>
 
-                {/* Editable Ausfuehrung inline inside Stammdaten grid block */}
+                {/* Ausführung */}
                 {isEditing ? (
-                  <div className="pt-4 border-t border-border space-y-3">
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="pt-2 border-t border-border/60 space-y-2">
+                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1">
+                      <span>📅</span> Geplante Ausführung
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-text-secondary uppercase">Start</label>
+                        <label className="text-[10px] text-text-secondary uppercase font-medium">Start</label>
                         <input
                           type="text"
                           value={editAusfuehrung.start}
                           onChange={(e) => setEditAusfuehrung({ ...editAusfuehrung, start: e.target.value })}
-                          className="w-full px-3 py-3 sm:px-2 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm"
+                          className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs"
                           placeholder="z.B. Nächste Woche"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-text-secondary uppercase">Dauer</label>
+                        <label className="text-[10px] text-text-secondary uppercase font-medium">Dauer</label>
                         <input
                           type="text"
                           value={editAusfuehrung.dauer}
                           onChange={(e) => setEditAusfuehrung({ ...editAusfuehrung, dauer: e.target.value })}
-                          className="w-full px-3 py-3 sm:px-2 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm"
-                          placeholder="z.B. 1-2 Tage"
+                          className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs"
+                          placeholder="z.B. 2-3 Tage"
                         />
                       </div>
                     </div>
                   </div>
                 ) : (
                   (daten.ausfuehrung?.start || daten.ausfuehrung?.dauer) && (
-                    <div className="pt-4 border-t border-border">
-                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
-                      <div className="mt-1.5 text-sm text-text-primary">
-                        {daten.ausfuehrung.start && <>Start: <span className="font-medium">{daten.ausfuehrung.start}</span><br /></>}
-                        {daten.ausfuehrung.dauer && <>Dauer: <span className="font-medium">{daten.ausfuehrung.dauer}</span></>}
+                    <div className="pt-2 border-t border-border/60">
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1">
+                        <span>📅</span> Ausführung
+                      </label>
+                      <div className="text-xs text-text-primary bg-surface/60 p-2.5 rounded-lg border border-border/60 space-y-0.5">
+                        {daten.ausfuehrung.start && <div>Start: <span className="font-medium">{daten.ausfuehrung.start}</span></div>}
+                        {daten.ausfuehrung.dauer && <div>Dauer: <span className="font-medium">{daten.ausfuehrung.dauer}</span></div>}
                       </div>
                     </div>
                   )
                 )}
-                
-                <div className="pt-4 border-t border-border">
-                  <h3 className="text-lg font-bold text-text-primary mb-4">Interne Notizen</h3>
-                  <textarea 
-                    defaultValue={offerte.notizen || ''}
-                    onBlur={(e) => handleUpdate('notizen', e.target.value)}
-                    className="w-full h-32 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Absprachen, Rückrufe, Besonderheiten zur Offerte..."
-                  />
-                </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
-                  <h3 className="text-lg font-bold text-text-primary mb-2">Fristen</h3>
-                  
-                  {isEditing ? (
-                    <>
-                      <div>
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1.5">Gültigkeit Offerte</label>
-                        <select 
-                          value={editKonditionen.gueltigkeit}
-                          onChange={(e) => setEditKonditionen({ ...editKonditionen, gueltigkeit: e.target.value })}
-                          className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                        >
-                          <option value="10 Tage">10 Tage</option>
-                          <option value="14 Tage">14 Tage</option>
-                          <option value="30 Tage">30 Tage</option>
-                          <option value="60 Tage">60 Tage</option>
-                          <option value="90 Tage">90 Tage</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1.5">Zahlungsfrist (Rechnung)</label>
-                        <select 
-                          value={editKonditionen.zahlungsfrist}
-                          onChange={(e) => setEditKonditionen({ ...editKonditionen, zahlungsfrist: e.target.value })}
-                          className="w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                        >
-                          <option value="10 Tage Netto">10 Tage Netto</option>
-                          <option value="14 Tage Netto">14 Tage Netto</option>
-                          <option value="30 Tage Netto">30 Tage Netto</option>
-                          <option value="14 Tage 2% Skonto, 30 Tage Netto">14 Tage 2% Skonto, 30 Tage Netto</option>
-                          <option value="Vorauskasse">Vorauskasse</option>
-                          <option value="Barzahlung bei Abschluss">Barzahlung bei Abschluss</option>
-                        </select>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Gültigkeit</label>
-                          {(offerte.gueltig_bis || daten.gueltig_bis) && onNavigate && (
-                            <button
-                              type="button"
-                              onClick={() => onNavigate('kalender', { date: offerte.gueltig_bis || daten.gueltig_bis })}
-                              className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
-                              title="Im Kalender ansehen"
-                            >
-                              <span>📅 Im Kalender ansehen</span>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                            </button>
-                          )}
-                        </div>
-                        <div className="text-sm font-medium text-text-primary flex items-center gap-2">
-                          <span>{daten.konditionen?.gueltigkeit || '30 Tage'}</span>
-                          {(offerte.gueltig_bis || daten.gueltig_bis) && (
-                            <span className="text-xs text-text-secondary">
-                              (bis {formatDate(offerte.gueltig_bis || daten.gueltig_bis)})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Zahlungsfrist</label>
-                        <div className="text-sm font-medium text-text-primary">{daten.konditionen?.zahlungsfrist || '30 Tage Netto'}</div>
-                      </div>
-                    </div>
-                  )}
+              {/* 3. Fristen & Gültigkeit Card */}
+              <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>⏱️</span> Fristen
+                  </h3>
                 </div>
-              </div>
-            </div>
-
-          {/* LEISTUNGEN & KALKULATION */}
-          <div className="space-y-6">
-              
-              {/* Edit-Mode Toggle */}
-              {isEditing && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold">
-                      <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                      Bearbeitungsmodus
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Einleitungstext (only in edit mode) */}
-              {isEditing && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Einleitungstext (erscheint auf dem PDF)</label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {[
-                      { label: 'Standard', text: 'Gerne unterbreiten wir Ihnen folgende Offerte:' },
-                      { label: 'Förmlich', text: 'Bezugnehmend auf unsere Besichtigung vor Ort erlauben wir uns, Ihnen folgende Offerte zu unterbreiten:' },
-                      { label: 'Persönlich', text: 'Vielen Dank für Ihre Anfrage und das entgegengebrachte Vertrauen. Gerne offerieren wir Ihnen die gewünschten Arbeiten wie folgt:' },
-                    ].map((tpl) => (
-                      <button
-                        key={tpl.label}
-                        onClick={() => setEditEinleitung(tpl.text)}
-                        className={`px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 text-sm sm:text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-                          editEinleitung === tpl.text
-                            ? 'bg-primary-100 border-primary-300 text-primary-700'
-                            : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
-                        }`}
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Gültigkeit Offerte</label>
+                      <select 
+                        value={editKonditionen.gueltigkeit}
+                        onChange={(e) => setEditKonditionen({ ...editKonditionen, gueltigkeit: e.target.value })}
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                       >
-                        {tpl.label}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    value={editEinleitung}
-                    onChange={(e) => setEditEinleitung(e.target.value)}
-                    className="w-full h-24 sm:h-20 px-3 py-3 sm:py-2 bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                    placeholder="Gerne unterbreiten wir Ihnen folgende Offerte:"
-                  />
-                </div>
-              )}
-              {/* Show existing einleitungstext in read mode */}
-              {!isEditing && daten.einleitungstext && (
-                <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Einleitungstext</label>
-                  <p className="text-sm text-text-primary whitespace-pre-wrap">{daten.einleitungstext}</p>
-                </div>
-              )}
-
-              <div className="w-full space-y-8">
-
-                {/* ===== LEISTUNGEN TABLE (READ / EDIT) ===== */}
-                <div className="w-full">
-                  <div className="bg-surface-card rounded-2xl border border-border overflow-hidden shadow-sm">
-                    <div className="p-5 border-b border-border bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <h3 className="text-lg font-bold text-text-primary">Leistungsverzeichnis</h3>
-                      {isEditing && (
-                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3">
-                          <button
-                            onClick={addTitle}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-surface-card text-text-primary border border-border font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-surface transition-colors cursor-pointer"
-                          >
-                            ➕ Titel
-                          </button>
-                          <button
-                            onClick={() => {
-                              const pos = {
-                                _id: Date.now(),
-                                type: 'position',
-                                posNr: '',
-                                beschreibung: '',
-                                menge: '',
-                                einheit: 'Stück (Stk)',
-                                einzelpreis: '',
-                                optional: false,
-                              };
-                              setEditLeistungen(prev => [...prev, pos]);
-                            }}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-surface-card text-text-primary border border-border font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-surface transition-colors cursor-pointer"
-                          >
-                            ➕ Leere Pos.
-                          </button>
-                          <button
-                            onClick={() => setShowNewPositionForm(true)}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                          >
-                            ➕ Position
-                          </button>
-                          <button
-                            onClick={() => setShowKatalogDrawer(true)}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
-                          >
-                            📖 Katalog
-                          </button>
-                        </div>
-                      )}
+                        <option value="10 Tage">10 Tage</option>
+                        <option value="14 Tage">14 Tage</option>
+                        <option value="30 Tage">30 Tage</option>
+                        <option value="60 Tage">60 Tage</option>
+                        <option value="90 Tage">90 Tage</option>
+                      </select>
                     </div>
-                    
-                    {/* ===== READ MODE ===== */}
-                    {!isEditing && (
-                      <>
-                        {leistungen.length === 0 ? (
-                          <div className="p-8 text-center text-text-secondary">Keine Leistungen gefunden.</div>
-                        ) : (
-                          <div className="divide-y divide-border">
-                            <div className="hidden sm:grid grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 px-5 py-3 bg-surface-card text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                              <span>Pos.</span>
-                              <span>Beschreibung</span>
-                              <span className="text-right">Menge</span>
-                              <span>Einh.</span>
-                              <span className="text-right">Preis</span>
-                              <span className="text-right">Total</span>
-                            </div>
-                            
-                            {leistungen.map((pos, idx) => {
-                              const isKategorie = pos.type === 'title'
-                              const posTotal = isKategorie ? 0 : ((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))
-                              const isInfo = isKategorie || ((pos.menge === '' || pos.menge === undefined || pos.menge === null) && (pos.einzelpreis === '' || pos.einzelpreis === undefined || pos.einzelpreis === null))
-                              
-                              return (
-                                <div key={idx} className={`p-4 sm:px-5 sm:py-3 hover:bg-primary-50/30 transition-colors ${isKategorie ? 'bg-surface-card border-b-2 border-border/50 shadow-sm mt-2' : isInfo ? 'bg-surface' : ''} ${pos.optional ? 'opacity-60' : ''}`}>
-                                  
-                                  {/* --- MOBILE COMPACT VIEW --- */}
-                                  <div className="sm:hidden flex justify-between items-start w-full gap-3">
-                                    <div className="flex flex-col min-w-0 flex-1">
-                                      <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                                        <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
-                                        {pos.beschreibung}
-                                        {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Option</span>}
-                                      </div>
-                                      {!isInfo && (
-                                        <div className="text-xs text-text-secondary mt-1">
-                                          {pos.menge} {pos.einheit} à {formatCurrency(parseFloat(pos.einzelpreis) || 0)}
-                                        </div>
-                                      )}
-                                    </div>
-                                    {!isInfo && (
-                                      <div className="text-sm font-bold text-text-primary shrink-0 pt-0.5 whitespace-nowrap">
-                                        {formatCurrency(posTotal)}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* --- DESKTOP TABLE VIEW --- */}
-                                  <div className="hidden sm:grid sm:grid-cols-[60px_1fr_80px_80px_100px_120px] gap-4 items-center">
-                                    <div className="text-xs font-bold text-text-secondary">
-                                      {pos.posNr || (idx + 1)}
-                                    </div>
-                                    <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                                      {pos.beschreibung}
-                                      {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
-                                    </div>
-                                    {!isInfo ? (
-                                      <>
-                                        <div className="text-sm text-text-secondary text-right">{pos.menge}</div>
-                                        <div className="text-sm text-text-secondary">{pos.einheit}</div>
-                                        <div className="text-sm text-text-secondary text-right">{formatCurrency(parseFloat(pos.einzelpreis) || 0)}</div>
-                                        <div className="text-sm font-bold text-text-primary text-right">{formatCurrency(posTotal)}</div>
-                                      </>
-                                    ) : (
-                                      <div className="col-span-4"></div>
-                                    )}
-                                  </div>
-
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* ===== EDIT MODE ===== */}
-                    {isEditing && (
-                      <div className="divide-y divide-border">
-                        {editLeistungen.length === 0 ? (
-                          <div className="p-8 text-center text-text-secondary">
-                            Keine Positionen. Klicke auf "Position hinzufügen" um zu starten.
-                          </div>
-                        ) : (
-                          editLeistungen.map((pos, idx) => (
-                            <div key={pos._id} className={`p-4 space-y-3 ${pos.optional ? 'bg-amber-50/30' : ''}`}>
-                              {/* Row 1: Controls + PosNr + Optional + Delete */}
-                              <div className="flex items-center gap-2">
-                                {/* Move */}
-                                <div className="flex flex-col gap-0.5 shrink-0">
-                                  <button
-                                    onClick={() => movePosition(idx, -1)}
-                                    disabled={idx === 0}
-                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                                    title="Nach oben"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                                  </button>
-                                  <button
-                                    onClick={() => movePosition(idx, 1)}
-                                    disabled={idx === editLeistungen.length - 1}
-                                    className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
-                                    title="Nach unten"
-                                  >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                  </button>
-                                </div>
-
-                                {/* Position Number */}
-                                <div className="shrink-0 w-10 text-center">
-                                  <span className="text-xs font-bold text-text-secondary">{pos.posNr}</span>
-                                </div>
-
-                                {/* Spacer */}
-                                <div className="flex-1 text-sm font-medium text-text-primary truncate">{pos.beschreibung || <span className="text-text-secondary italic">Keine Beschreibung</span>}</div>
-
-                                {/* Optional Toggle */}
-                                <label className="flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[44px] px-2" title="Als optionale Position markieren">
-                                  <input
-                                    type="checkbox"
-                                    checked={pos.optional || false}
-                                    onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
-                                    className="accent-amber-500 w-4 h-4"
-                                  />
-                                  <span className="text-xs text-text-secondary font-medium hidden sm:inline">Optional</span>
-                                </label>
-
-                                {/* Delete */}
-                                <button
-                                  onClick={() => deletePosition(pos._id)}
-                                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 text-text-secondary hover:text-red-600 transition-colors cursor-pointer shrink-0"
-                                  title="Position löschen"
-                                >
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              </div>
-
-                              {/* Row 2: Full-width Description Field */}
-                              <div className="pl-2 sm:pl-10">
-                                <textarea
-                                  value={pos.beschreibung}
-                                  onChange={(e) => updatePosition(pos._id, 'beschreibung', e.target.value)}
-                                  rows={1}
-                                  onFocus={(e) => { e.target.rows = Math.max(2, Math.ceil(e.target.value.length / 40)); }}
-                                  onBlur={(e) => { e.target.rows = 1; }}
-                                  className={`w-full px-3 py-2.5 min-h-[44px] bg-surface border border-border rounded-lg text-base sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none transition-all ${pos.type === 'title' ? 'font-bold text-base' : 'font-medium'}`}
-                                  placeholder={pos.type === 'title' ? 'Titel (z.B. Gipserarbeiten)' : 'Beschreibung / Leistung...'}
-                                />
-                              </div>
-
-                                {/* Row: Menge, Einheit, Preis, Total (only if not title) */}
-                                {pos.type !== 'title' && (
-                                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pl-10">
-                                    <div>
-                                      <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
-                                      <input
-                                        type="number"
-                                        step="any"
-                                        value={pos.menge}
-                                        onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                                        className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
-                                      <input
-                                        type="text"
-                                        value={pos.einheit || ''}
-                                        onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
-                                        className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                        placeholder="m², Stk, h..."
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-text-secondary font-semibold block mb-1">Netto (CHF)</label>
-                                      <input
-                                        type="number"
-                                        step="0.05"
-                                        value={pos.einzelpreis}
-                                        onChange={(e) => {
-                                          const netto = parseFloat(e.target.value);
-                                          updatePosition(pos._id, 'einzelpreis', e.target.value);
-                                          if (!isNaN(netto)) {
-                                            const mwst = editKonditionen.mwst || 0;
-                                            updatePosition(pos._id, 'bruttopreis', (netto * (1 + mwst / 100)).toFixed(2));
-                                          } else {
-                                            updatePosition(pos._id, 'bruttopreis', '');
-                                          }
-                                        }}
-                                        className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-text-secondary font-semibold block mb-1">Brutto (CHF)</label>
-                                      <input
-                                        type="number"
-                                        step="0.05"
-                                        value={pos.bruttopreis || ''}
-                                        onChange={(e) => {
-                                          const brutto = parseFloat(e.target.value);
-                                          updatePosition(pos._id, 'bruttopreis', e.target.value);
-                                          if (!isNaN(brutto)) {
-                                            const mwst = editKonditionen.mwst || 0;
-                                            updatePosition(pos._id, 'einzelpreis', (brutto / (1 + mwst / 100)).toFixed(2));
-                                          } else {
-                                            updatePosition(pos._id, 'einzelpreis', '');
-                                          }
-                                        }}
-                                        className="w-full px-3 py-2 bg-transparent border border-transparent hover:border-border focus:bg-surface focus:border-primary-400 rounded-lg text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
-                                      <div className="px-3 py-2 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary">
-                                        {formatCurrency((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                          ))
-                        )}
-                        
-                        {/* THE NEW AD-HOC FORM */}
-                        {showNewPositionForm && (
-                          <div className="p-5 border-t border-border bg-primary-50/30 animate-fade-in space-y-4">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-bold text-primary-700">Neuer Artikel</h4>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 gap-4">
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Name / Beschreibung</label>
-                                <input
-                                  type="text"
-                                  value={newPosData.beschreibung}
-                                  onChange={(e) => setNewPosData(prev => ({ ...prev, beschreibung: e.target.value }))}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                  placeholder="z.B. Decke streichen"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Typ</label>
-                                <select 
-                                  value={newPosData.kategorie}
-                                  onChange={(e) => setNewPosData(prev => ({ ...prev, kategorie: e.target.value }))}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                >
-                                  <option value="Waren">Waren</option>
-                                  <option value="Dienstleistungen">Dienstleistungen</option>
-                                  <option value="Zusätzliches Einkommen">Zusätzliches Einkommen</option>
-                                  <option value="Andere">Andere</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
-                                <select 
-                                  value={newPosData.einheit}
-                                  onChange={(e) => setNewPosData(prev => ({ ...prev, einheit: e.target.value }))}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                >
-                                  <option value="Stück (Stk)">Stück (Stk)</option>
-                                  <option value="Stunde (h)">Stunde (h)</option>
-                                  <option value="Tag (d)">Tag (d)</option>
-                                  <option value="Monat (mo)">Monat (mo)</option>
-                                  <option value="Pauschalpreis">Pauschalpreis</option>
-                                  <option value="Kilogramm (kg)">Kilogramm (kg)</option>
-                                  <option value="Quadratmeter (m²)">Quadratmeter (m²)</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={newPosData.menge}
-                                  onChange={(e) => setNewPosData(prev => ({ ...prev, menge: e.target.value }))}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                  placeholder="0"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">MwSt.-Kategorie</label>
-                                <select className="w-full px-3 py-2 bg-gray-50 border border-border rounded-lg text-sm text-text-secondary cursor-not-allowed" disabled>
-                                  <option>Normaler Satz {editKonditionen.mwst || 0}%</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Nettopreis CHF</label>
-                                <input
-                                  type="number"
-                                  step="0.05"
-                                  value={newPosData.einzelpreis}
-                                  onChange={(e) => handleNettoChange(e.target.value)}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Bruttopreis CHF</label>
-                                <input
-                                  type="number"
-                                  step="0.05"
-                                  value={newPosData.bruttopreis}
-                                  onChange={(e) => handleBruttoChange(e.target.value)}
-                                  className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
-                                  placeholder="0.00"
-                                />
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={newPosData.saveToKatalog}
-                                  onChange={(e) => setNewPosData(prev => ({ ...prev, saveToKatalog: e.target.checked }))}
-                                  className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-                                />
-                                <span className="text-sm font-semibold text-text-primary">Artikel in Artikelliste speichern</span>
-                              </label>
-                              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                <button 
-                                  onClick={() => setShowNewPositionForm(false)}
-                                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 text-base sm:text-sm font-semibold text-text-secondary bg-surface border border-border rounded-xl hover:bg-surface-card transition-colors cursor-pointer"
-                                >
-                                  Abbrechen
-                                </button>
-                                <button 
-                                  onClick={handleAddNewPosition}
-                                  className="w-full sm:w-auto min-h-[48px] px-6 py-3 text-base sm:text-sm font-bold text-white bg-primary-600 rounded-xl hover:bg-primary-700 shadow-sm transition-colors cursor-pointer"
-                                >
-                                  Hinzufügen
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                    <div>
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Zahlungsfrist (Rechnung)</label>
+                      <select 
+                        value={editKonditionen.zahlungsfrist}
+                        onChange={(e) => setEditKonditionen({ ...editKonditionen, zahlungsfrist: e.target.value })}
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                      >
+                        <option value="10 Tage Netto">10 Tage Netto</option>
+                        <option value="14 Tage Netto">14 Tage Netto</option>
+                        <option value="30 Tage Netto">30 Tage Netto</option>
+                        <option value="60 Tage Netto">60 Tage Netto</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-text-secondary uppercase tracking-wider font-semibold">Gültigkeit</span>
+                        {(offerte.gueltig_bis || daten.gueltig_bis) && onNavigate && (
+                          <button
+                            type="button"
+                            onClick={() => onNavigate('kalender', { date: offerte.gueltig_bis || daten.gueltig_bis })}
+                            className="text-[11px] font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Im Kalender ansehen"
+                          >
+                            <span>📅 Im Kalender ansehen</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                          </button>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ===== FUSSBEREICH: KONDITIONEN, TEXTE & KALKULATION ===== */}
-                <div className={`grid grid-cols-1 ${!showLivePreview ? 'lg:grid-cols-2' : ''} gap-6 pt-4`}>
-                  
-                  {/* Left Column: Konditionen & Schlusstext */}
-                  <div className="space-y-6">
-                    {/* Konditionen */}
-                    {isEditing && (
-                      <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm space-y-4">
-                        <h3 className="text-sm font-bold text-text-primary">Konditionen</h3>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-text-secondary font-semibold block mb-1">Rabatt (%)</label>
-                            <input
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              max="100"
-                              value={editKonditionen.rabatt}
-                              onChange={(e) => setEditKonditionen(prev => ({ ...prev, rabatt: parseFloat(e.target.value) || 0 }))}
-                              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-text-secondary font-semibold block mb-1">MwSt (%)</label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              value={editKonditionen.mwst}
-                              onChange={(e) => setEditKonditionen(prev => ({ ...prev, mwst: parseFloat(e.target.value) || 0 }))}
-                              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Pauschalpreis Toggle */}
-                        <div className="pt-3 border-t border-border">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isPauschal}
-                              onChange={(e) => {
-                                setIsPauschal(e.target.checked)
-                                if (!e.target.checked) setEditPauschalpreis(null)
-                              }}
-                              className="accent-primary-600"
-                            />
-                            <span className="text-sm font-semibold text-text-primary">Pauschalpreis verwenden</span>
-                          </label>
-                          {isPauschal && (
-                            <div className="mt-2">
-                              <label className="text-xs text-text-secondary font-semibold block mb-1">Pauschalpreis (CHF)</label>
-                              <input
-                                type="number"
-                                step="0.05"
-                                value={editPauschalpreis || ''}
-                                onChange={(e) => setEditPauschalpreis(e.target.value)}
-                                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                placeholder="z.B. 15000"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    </div>
-                  
-                  {/* Right Column: Kalkulation Summary Box */}
-                  <div>
-                    <div className="bg-surface-card rounded-2xl p-6 shadow-sm border border-border sticky top-6">
-                      <h3 className="text-text-secondary text-sm font-semibold mb-6">Kalkulation {isEditing && '(Live)'}</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-text-secondary">Zwischensumme</span>
-                          <span className="text-text-primary">{formatCurrency(isEditing ? editRawTotal : rawTotal)}</span>
-                        </div>
-                        {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
-                          <div className="flex justify-between text-sm text-red-600 font-medium">
-                            <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
-                            <span>- {formatCurrency(isEditing ? editRabattBetrag : rabattBetrag)}</span>
-                          </div>
-                        )}
-                        {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-text-secondary">MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
-                            <span className="text-text-primary">{formatCurrency(isEditing ? editMwstBetrag : mwstBetrag)}</span>
-                          </div>
-                        )}
-                        {isEditing && isPauschal && editPauschalpreis && (
-                          <div className="flex justify-between text-sm text-amber-600 font-medium">
-                            <span>⚡ Pauschalpreis</span>
-                            <span>aktiv</span>
-                          </div>
-                        )}
-                        <div className="pt-4 mt-4 border-t border-border flex justify-between items-center">
-                          <span className="font-bold text-xl text-text-primary">Total</span>
-                          <span className="font-black text-3xl tracking-tight text-text-primary">{formatCurrency(isEditing ? editFinalTotal : finalTotal)}</span>
-                        </div>
-                        {isEditing && editOptionalTotal > 0 && (
-                          <div className="pt-3 mt-1 border-t border-border/50 flex justify-between text-xs text-text-secondary">
-                            <span>Optionale Positionen</span>
-                            <span>{formatCurrency(editOptionalTotal)}</span>
-                          </div>
+                      <div className="font-medium text-text-primary flex items-center gap-2">
+                        <span>{daten.konditionen?.gueltigkeit || '30 Tage'}</span>
+                        {(offerte.gueltig_bis || daten.gueltig_bis) && (
+                          <span className="text-xs text-text-secondary">
+                            (bis {formatDate(offerte.gueltig_bis || daten.gueltig_bis)})
+                          </span>
                         )}
                       </div>
                     </div>
+                    <div className="pt-2 border-t border-border/50">
+                      <span className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-0.5">Zahlungsfrist</span>
+                      <span className="font-medium text-text-primary">{daten.konditionen?.zahlungsfrist || '30 Tage Netto'}</span>
+                    </div>
                   </div>
-                  
-                </div>
+                )}
               </div>
+
+              {/* 4. Interne Notizen Card */}
+              <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b border-border/60">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                    <span>📝</span> Interne Notizen
+                  </h3>
+                  <span className="text-[10px] text-text-secondary font-medium">Auto-Save</span>
+                </div>
+                <textarea 
+                  defaultValue={offerte.notizen || ''}
+                  onBlur={(e) => handleUpdate('notizen', e.target.value)}
+                  className="w-full h-24 px-3 py-2 bg-surface border border-border rounded-xl text-xs sm:text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
+                  placeholder="Interne Absprachen, Notizen zur Offerte..."
+                />
+              </div>
+
             </div>
 
-          
-
-          {/* Full Width Schlusstext & Anhänge */}
-          <div className="space-y-6 pt-6">
-            {/* Schlusstext */}
-                    {isEditing && (
-                      <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Schlusstext (erscheint auf dem PDF)</label>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {[
-                            { label: 'Standard', text: 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
-                            { label: 'Mit Gültigkeit', text: 'Diese Offerte ist 30 Tage gültig. Materialpreisänderungen bleiben vorbehalten. Wir danken Ihnen für das Vertrauen und freuen uns auf Ihren Auftrag.' },
-                            { label: 'Ausführlich', text: 'Die Offerte versteht sich exkl. allfälliger Gerüstkosten und bauseitiger Vorleistungen. Materialpreisänderungen bleiben vorbehalten. Nicht offerierte Arbeiten werden nach Aufwand verrechnet. Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
-                          ].map((tpl) => (
-                            <button
-                              key={tpl.label}
-                              onClick={() => setEditSchluss(tpl.text)}
-                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
-                                editSchluss === tpl.text
-                                  ? 'bg-primary-100 border-primary-300 text-primary-700'
-                                  : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
-                              }`}
-                            >
-                              {tpl.label}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea
-                          value={editSchluss}
-                          onChange={(e) => setEditSchluss(e.target.value)}
-                          className="w-full h-20 px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-none"
-                          placeholder="Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung."
-                        />
-                      </div>
-                    )}
-                    {!isEditing && daten.schlusstext && (
-                      <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm">
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Schlusstext</label>
-                        <p className="text-sm text-text-primary whitespace-pre-wrap">{daten.schlusstext}</p>
-                      </div>
-                    )}
-
-                    {/* Anhänge */}
-                    <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-sm space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">Anhänge (z.B. AGBs, Pläne)</label>
-                        {isEditing && userRole !== 'treuhand' && (
-                          <div>
-                            <input 
-                              type="file" 
-                              id="file-upload" 
-                              className="hidden" 
-                              onChange={handleFileUpload}
-                              disabled={isUploading}
-                            />
-                            <label 
-                              htmlFor="file-upload"
-                              className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
-                                isUploading ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
-                              }`}
-                            >
-                              {isUploading ? 'Lädt hoch...' : '📎 Datei hochladen'}
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {(isEditing ? editAnhange : (daten.anhange || [])).length > 0 ? (
-                        <div className="space-y-2">
-                          {(isEditing ? editAnhange : (daten.anhange || [])).map((anhang, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-surface rounded-xl border border-border">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <span className="text-lg">📄</span>
-                                <div className="truncate">
-                                  <a href={anhang.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary-600 hover:underline truncate block">
-                                    {anhang.name}
-                                  </a>
-                                  <span className="text-xs text-text-secondary">
-                                    {(anhang.size / 1024).toFixed(1)} KB
-                                  </span>
-                                </div>
-                              </div>
-                              {isEditing && userRole !== 'treuhand' && (
-                                <button
-                                  onClick={() => deleteAttachment(anhang.path)}
-                                  className="p-1.5 text-text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
-                                  title="Anhang löschen"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-text-secondary text-center py-4">Keine Anhänge vorhanden.</p>
-                      )}
-                    </div>
           </div>
-
-          {/* Action Buttons removed from bottom - now in top menu */}
         </div>
 
         {showLivePreview && isEditing && (
@@ -1794,6 +1889,16 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           onInsert={handleInsertFromKatalog}
         />
       )}
+
+      <VoiceWaveformModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onSuccess={handleVoicePositionsExtracted}
+        title="Offerte per Sprache kalkulieren"
+        subtitle="Diktieren Sie Ausmasse, Leistungen und Mengen auf Schweizerdeutsch oder Hochdeutsch (z.B. 'Böden mit Vlies abdecken 65m2, Wände schleifen und 2-mal weiss streichen ca. 180m2')."
+        mode="offerte"
+        contextData={{ katalog: katalogList }}
+      />
 
       {showDuplicateModal && (
         <DocumentDuplicateModal

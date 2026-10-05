@@ -18,6 +18,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [autoTriggerScan, setAutoTriggerScan] = useState(false)
   const [editingAusgabe, setEditingAusgabe] = useState(null)
   const [activeTab, setActiveTab] = useState('ausgaben') // 'ausgaben', 'op_liste', 'estv_mwst'
   const [bananaMenuOpen, setBananaMenuOpen] = useState(false)
@@ -493,6 +494,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
   const handleCloseModal = () => {
     setEditingAusgabe(null)
     setIsCreateModalOpen(false)
+    setAutoTriggerScan(false)
   }
 
   const handleSaveModal = () => {
@@ -562,16 +564,31 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
           </div>
 
           {userRole !== 'treuhand' && (
-            <button 
-              onClick={() => {
-                setEditingAusgabe(null)
-                setIsCreateModalOpen(true)
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
-            >
-              <span className="text-lg">+</span>
-              Ausgabe erfassen
-            </button>
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+              <button 
+                onClick={() => {
+                  setEditingAusgabe(null)
+                  setAutoTriggerScan(true)
+                  setIsCreateModalOpen(true)
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl active:scale-[0.97] transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+                title="Beleg mit Google Gemini KI automatisch auslesen"
+              >
+                <span>✨</span>
+                <span>Beleg scannen</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setEditingAusgabe(null)
+                  setAutoTriggerScan(false)
+                  setIsCreateModalOpen(true)
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+              >
+                <span className="text-lg">+</span>
+                Ausgabe erfassen
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1227,6 +1244,7 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
       <AusgabeCreateModal 
         isOpen={isCreateModalOpen} 
         editData={editingAusgabe}
+        autoTriggerScan={autoTriggerScan}
         onClose={handleCloseModal} 
         onSave={handleSaveModal} 
       />

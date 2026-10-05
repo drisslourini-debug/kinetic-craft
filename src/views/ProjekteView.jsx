@@ -13,6 +13,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedProjekt, setSelectedProjekt] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
@@ -100,6 +101,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
 
   let filteredProjekte = projekte.filter(p => {
     if (!showArchived && p.is_archived) return false;
+    if (filterStatus && p.status !== filterStatus) return false;
     const term = searchTerm.toLowerCase()
     return (
       (p.name || '').toLowerCase().includes(term) ||
@@ -187,13 +189,23 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
           <p className="text-text-secondary mt-1">Alle Baustellen und Projekte auf einen Blick.</p>
         </div>
         {userRole !== 'treuhand' && (
-          <button 
-            onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
-          >
-            <span className="text-lg">+</span>
-            Neues Projekt
-          </button>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+            <button 
+              onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl active:scale-[0.97] transition-all shadow-md shadow-amber-500/20 cursor-pointer"
+              title="Projekt per Spracheingabe einsprechen"
+            >
+              <span>🎙️</span>
+              <span>Per Sprache (KI)</span>
+            </button>
+            <button 
+              onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
+            >
+              <span className="text-lg">+</span>
+              Neues Projekt
+            </button>
+          </div>
         )}
       </div>
 
@@ -227,89 +239,119 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         />
       </div>
 
-      {/* Stats Pills (Mobile) */}
-      <div className="flex sm:hidden items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        <div className="flex items-center gap-2 bg-surface-card rounded-full border border-border px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-text-secondary text-sm">Alle Projekte:</span>
-          <span className="text-sm font-bold text-text-primary">{stats.total}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-emerald-50 rounded-full border border-emerald-100 px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-emerald-700 text-sm">In Arbeit:</span>
-          <span className="text-sm font-bold text-emerald-800">{stats.inArbeit}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-blue-50 rounded-full border border-blue-100 px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-blue-700 text-sm">Abgeschlossen:</span>
-          <span className="text-sm font-bold text-blue-800">{stats.abgeschlossen}</span>
-        </div>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="relative flex-1">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Projekte suchen nach Name, Adresse oder Kunde..."
-            className="w-full pl-10 pr-10 py-3 sm:py-2.5 min-h-[48px] bg-surface-card border border-border rounded-xl text-base sm:text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
-          />
-          {searchTerm && (
+      {/* Mobile Segmented Control für Pipeline-Stufen */}
+      <div className="flex sm:hidden p-1 bg-neutral-100/90 rounded-2xl border border-border mb-3 touch-action-manipulation">
+        {[
+          { id: '', label: 'Alle', count: stats.total },
+          { id: 'In Arbeit', label: 'In Arbeit', count: stats.inArbeit },
+          { id: 'Abgeschlossen', label: 'Fertig', count: stats.abgeschlossen },
+        ].map((tab) => {
+          const isSelected = (filterStatus || '') === tab.id;
+          return (
             <button
+              key={tab.id}
               type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-lg leading-none cursor-pointer"
-              title="Suche zurücksetzen"
+              onClick={() => setFilterStatus(tab.id)}
+              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer ${
+                isSelected 
+                  ? 'bg-surface-card text-primary-700 shadow-xs' 
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
             >
-              &times;
+              <span>{tab.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-primary-100 text-primary-800 font-bold' : 'bg-neutral-200 text-text-secondary'}`}>
+                {tab.count}
+              </span>
             </button>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer shrink-0">
-          <input 
-            type="checkbox" 
-            checked={showArchived} 
-            onChange={(e) => setShowArchived(e.target.checked)}
-            className="rounded border-border text-primary-600 focus:ring-primary-500"
-          />
-          Archivierte einblenden
-        </label>
+          );
+        })}
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
-      ) : filteredProjekte.length === 0 ? (
-        <div className="bg-surface-card rounded-2xl border border-border p-12 text-center">
-          <p className="text-text-secondary mb-4">Keine Projekte gefunden.</p>
-        </div>
-      ) : (
-        <div className="w-full">
-          <div className="hidden lg:grid grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-4 px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
-            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('name')}>Projektname <SortIcon columnKey="name" /></span>
-            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
-            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('kategorie')}>Kategorie <SortIcon columnKey="kategorie" /></span>
-            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('startdatum')}>Startdatum <SortIcon columnKey="startdatum" /></span>
-            <span className="cursor-pointer hover:text-text-primary flex items-center" onClick={() => requestSort('enddatum')}>Enddatum <SortIcon columnKey="enddatum" /></span>
-            <span className="cursor-pointer hover:text-text-primary flex items-center justify-center" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
-            <span className="sr-only">Aktionen</span>
+      {/* 2026 SaaS Datatable Card */}
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+        
+        {/* Integrated Toolbar */}
+        <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Projekte suchen nach Name, Adresse oder Kunde..."
+              className="w-full pl-10 pr-10 py-2 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-base leading-none cursor-pointer"
+                title="Suche zurücksetzen"
+              >
+                &times;
+              </button>
+            )}
           </div>
 
-          <div ref={parent} className="space-y-4 sm:space-y-0 sm:bg-surface-card sm:rounded-2xl sm:border sm:border-border sm:shadow-sm">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer shrink-0 px-2 py-1.5 rounded-lg hover:bg-surface transition-colors">
+              <input 
+                type="checkbox" 
+                checked={showArchived} 
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="rounded border-border text-primary-600 focus:ring-primary-500"
+              />
+              Archivierte einblenden
+            </label>
+
+            <span className="text-xs text-text-secondary font-medium pl-2 border-l border-border">
+              {filteredProjekte.length} {filteredProjekte.length === 1 ? 'Projekt' : 'Projekte'}
+            </span>
+          </div>
+        </div>
+
+        {/* Integrated Desktop Header */}
+        <div className="hidden lg:grid grid-cols-[minmax(220px,1.4fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_110px_110px_110px_40px] gap-3 px-5 py-3 bg-surface/60 border-b border-border text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('name')}>Projektname <SortIcon columnKey="name" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('kunde')}>Kunde <SortIcon columnKey="kunde" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('kategorie')}>Kategorie <SortIcon columnKey="kategorie" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('startdatum')}>Startdatum <SortIcon columnKey="startdatum" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center gap-1" onClick={() => requestSort('enddatum')}>Enddatum <SortIcon columnKey="enddatum" /></span>
+          <span className="cursor-pointer hover:text-text-primary flex items-center justify-center gap-1" onClick={() => requestSort('status')}>Status <SortIcon columnKey="status" /></span>
+          <span className="sr-only">Aktionen</span>
+        </div>
+
+        {isLoading ? (
+          <div className="p-8 space-y-4">
+            <div className="h-6 bg-gray-200/70 rounded w-1/4 animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
+            <div className="h-12 bg-gray-200/50 rounded w-full animate-pulse"></div>
+          </div>
+        ) : filteredProjekte.length === 0 ? (
+          <div className="text-center py-16 px-4 text-text-secondary">
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
+              🏗️
+            </div>
+            <p className="text-sm font-semibold text-text-primary">Keine Projekte gefunden</p>
+            <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder lege ein neues Projekt an.</p>
+          </div>
+        ) : (
+          <div ref={parent} className="divide-y divide-border">
             {filteredProjekte.map((p) => {
               const statusColorClass = p.status === 'In Arbeit' ? 'border-l-emerald-500' : p.status === 'Abgeschlossen' ? 'border-l-blue-500' : 'border-l-primary-500';
               return (
               <div
                 key={p.id}
                 onClick={() => onNavigate ? onNavigate('projekte', { projektId: p.id }) : setSelectedProjekt(p)}
-                className={`flex flex-col lg:grid lg:grid-cols-[1.5fr_1.5fr_1fr_120px_120px_100px_40px] gap-3 lg:gap-4 p-4 lg:px-5 lg:py-3.5 bg-surface-card lg:bg-transparent rounded-2xl lg:rounded-none border border-dashed lg:border-solid border-border lg:border-x-0 lg:border-t-0 lg:border-b lg:last:border-b-0 border-l-[6px] lg:border-l-[3px] ${statusColorClass} hover:-translate-y-1 lg:hover:-translate-y-[1px] hover:shadow-xl lg:hover:shadow-md lg:hover:bg-neutral-50/80 transition-all duration-200 cursor-pointer items-start lg:items-center relative group`}
+                className={`flex flex-col lg:grid lg:grid-cols-[minmax(220px,1.4fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_110px_110px_110px_40px] gap-3 lg:gap-3 p-4 lg:px-5 lg:py-3.5 hover:bg-primary-50/20 transition-colors cursor-pointer items-start lg:items-center border-l-4 ${statusColorClass} relative group`}
               >
                 {/* Primary Info */}
                 <div className="min-w-0 w-full flex flex-col justify-center">
                   {p.adresse ? (
                     <>
-                      <div className="flex items-center gap-1.5 text-base lg:text-sm font-bold text-text-primary truncate">
+                      <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
                         <span className="lg:hidden text-primary-500">📍</span> {p.adresse}
                       </div>
                       <div className="text-xs text-text-secondary truncate mt-0.5 font-medium">
@@ -317,13 +359,13 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                       </div>
                     </>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-base lg:text-sm font-bold text-text-primary truncate">
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
                       <span className="lg:hidden text-primary-500">🏗️</span> {p.name}
                     </div>
                   )}
                 </div>
 
-                {/* Mobile Kunde (shown below title) / Desktop Kunde */}
+                {/* Mobile Kunde / Desktop Kunde */}
                 <div className="text-sm text-text-secondary truncate flex items-center gap-1 mt-1 lg:mt-0">
                   <span className="lg:hidden">👤</span> {p.kunden?.name || '-'}
                 </div>
@@ -334,7 +376,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                 </div>
 
                 {/* Mobile Startdatum / Desktop Startdatum */}
-                <div className="text-sm text-text-secondary truncate flex items-center gap-2 mt-1 lg:mt-0">
+                <div className="text-xs text-text-secondary truncate flex items-center gap-2 mt-1 lg:mt-0">
                   <div className="w-8 h-1 bg-gray-200 rounded-full overflow-hidden relative shrink-0 lg:hidden">
                     <div className={`absolute left-0 top-0 h-full ${p.status === 'In Arbeit' ? 'w-1/2 bg-emerald-500 animate-pulse' : p.status === 'Abgeschlossen' ? 'w-full bg-emerald-500' : 'w-1/4 bg-blue-500'}`}></div>
                   </div>
@@ -342,18 +384,18 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                 </div>
 
                 {/* Enddatum (Desktop) */}
-                <div className="hidden lg:block text-sm text-text-secondary truncate">
+                <div className="hidden lg:block text-xs text-text-secondary truncate">
                   {p.enddatum ? formatDate(p.enddatum) : '-'}
                 </div>
 
                 {/* Status */}
                 <div className="absolute bottom-4 right-4 lg:relative lg:bottom-0 lg:right-0 lg:flex lg:items-center lg:justify-center">
                   {p.is_archived ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                      <span>📁</span> Archiviert
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span>📁</span> Archiv
                     </span>
                   ) : (
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
                       {p.status === 'In Arbeit' && (
                         <span className="relative flex h-2 w-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -369,84 +411,84 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                 <div className="absolute top-2 right-2 lg:relative lg:top-0 lg:right-0 flex items-center justify-end">
                   <div className="relative">
                     <button 
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
-                      className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+                      className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                     </button>
                     
                     {activeMenuId === p.id && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
-                        <div className="absolute right-0 mt-1 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute right-0 mt-1 w-52 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
                           <div className="p-1">
                             <button 
+                              type="button"
                               onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedProjekt(p); }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <svg className="w-5 h-5 sm:w-4 sm:h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                               Details anzeigen
                             </button>
 
                             <button 
+                              type="button"
                               onClick={(e) => { 
                                 e.stopPropagation(); 
                                 setActiveMenuId(null); 
                                 if (onNavigate) onNavigate('kalender', { date: p.startdatum || undefined, projektId: p.id }); 
                               }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <span className="text-base sm:text-sm">📅</span>
+                              <span className="text-xs">📅</span>
                               Im Kalender anzeigen
                             </button>
 
                             <button 
+                              type="button"
                               onClick={(e) => { 
                                 e.stopPropagation(); 
                                 setActiveMenuId(null); 
                                 if (onNavigate) onNavigate('kalender', { action: 'create', projektId: p.id, date: p.startdatum || new Date().toISOString().split('T')[0] }); 
                               }} 
-                              className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <span className="text-base sm:text-sm">➕</span>
+                              <span className="text-xs">⏱️</span>
                               Termin erfassen
                             </button>
-                            
-                            {p.adresse && (
-                              <a 
-                                href={`https://maps.google.com/?q=${encodeURIComponent(p.adresse)}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }}
-                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <svg className="w-5 h-5 sm:w-4 sm:h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-                                Auf Karte zeigen
-                              </a>
-                            )}
-                            
-                            <div className="my-1 border-t border-border"></div>
-                            
-                            {p.is_archived ? (
-                              <button 
-                                onClick={(e) => handleRestoreProjekt(p.id, e)} 
-                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                Wiederherstellen
-                              </button>
-                            ) : (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  setArchiveConfirmProjekt(p);
-                                }} 
-                                className="w-full text-left px-4 py-3 sm:py-2 text-base sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                Archivieren
-                              </button>
+
+                            {userRole !== 'treuhand' && (
+                              <>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setEditingProjekt(p); }} 
+                                  className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                >
+                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  Bearbeiten
+                                </button>
+
+                                {p.is_archived ? (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => handleRestoreProjekt(p.id, e)} 
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    Wiederherstellen
+                                  </button>
+                                ) : (
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmProjekt(p); }} 
+                                    className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                    Archivieren
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -457,8 +499,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
               </div>
             )})}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Archive Confirmation Modal */}
       {archiveConfirmProjekt && (
@@ -511,6 +553,20 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
             showToast('success', 'Projekt erfolgreich erstellt.')
           }}
         />
+      )}
+
+      {/* Mobile Floating Action Button (FAB) */}
+      {userRole !== 'treuhand' && (
+        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 sm:hidden">
+          <button
+            type="button"
+            onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+            className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-90 text-white shadow-xl shadow-emerald-600/35 flex items-center justify-center text-2xl font-bold transition-all touch-action-manipulation cursor-pointer"
+            aria-label="Neues Projekt anlegen"
+          >
+            +
+          </button>
+        </div>
       )}
 
       {/* Feedback Toast */}
