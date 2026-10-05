@@ -84,5 +84,37 @@ describe('Vercel Serverless AI Endpoints', () => {
       expect(res.headers['Content-Type']).toBe('application/json');
       expect(res.end).toHaveBeenCalledWith(JSON.stringify({ created: true }));
     });
+
+    it('callGemini retries with gemini-3.8-flash if model returns 404', async () => {
+      const { callGemini } = await import('../_helpers.js');
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          text: async () => 'Model not found',
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: '{"result":"fallback_ok"}' }] } }],
+          }),
+        });
+
+      vi.stubGlobal('fetch', fetchMock);
+
+      const res = await callGemini({
+        apiKey: 'test-key',
+        model: 'gemini-2.5-flash',
+        contents: [{ parts: [{ text: 'test' }] }],
+      });
+
+      expect(res).toEqual({ result: 'fallback_ok' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[0][0]).toContain('gemini-2.5-flash');
+      expect(fetchMock.mock.calls[1][0]).toContain('gemini-3.8-flash');
+      vi.unstubAllGlobals();
+    });
   });
 });
+

@@ -66,42 +66,50 @@ export function sendJson(res, statusCode, data) {
   }
 }
 
-export async function callGemini({ apiKey, contents, systemInstruction, responseSchema, model = process.env.GEMINI_MODEL || 'gemini-2.5-flash' }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+export async function callGemini({ apiKey, contents, systemInstruction, responseSchema, model = process.env.GEMINI_MODEL || 'gemini-3.8-flash' }) {
+  const tryModel = async (selectedModel) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
 
-  const payload = {
-    contents,
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-      ...(responseSchema ? { responseSchema } : {}),
-    },
+    const payload = {
+      contents,
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+        ...(responseSchema ? { responseSchema } : {}),
+      },
+    };
+
+    if (systemInstruction) {
+      payload.systemInstruction = {
+        parts: [{ text: systemInstruction }],
+      };
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 404 && selectedModel !== 'gemini-3.8-flash') {
+        console.warn(`Model ${selectedModel} returned 404, falling back to gemini-3.8-flash...`);
+        return tryModel('gemini-3.8-flash');
+      }
+      throw new Error(`Gemini API Error (${response.status}): ${errorText}`);
+    }
+
+    const result = await response.json();
+    const textOutput = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textOutput) {
+      throw new Error('Keine Antwort von Gemini erhalten.');
+    }
+
+    return JSON.parse(textOutput);
   };
 
-  if (systemInstruction) {
-    payload.systemInstruction = {
-      parts: [{ text: systemInstruction }],
-    };
-  }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API Error (${response.status}): ${errorText}`);
-  }
-
-  const result = await response.json();
-  const textOutput = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textOutput) {
-    throw new Error('Keine Antwort von Gemini erhalten.');
-  }
-
-  return JSON.parse(textOutput);
+  return tryModel(model);
 }
