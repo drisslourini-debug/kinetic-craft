@@ -246,12 +246,12 @@ export default function LandingPageView({
   ]
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900">
+    <div className="min-h-screen w-full overflow-x-hidden bg-white text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900">
       
       {/* ========================================================================= */}
       {/* 1. TOP ANNOUNCEMENT BANNER */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-600/10 border-b border-amber-200/80 px-4 py-2 text-center text-xs sm:text-sm font-medium text-slate-900 flex items-center justify-center gap-2">
+      <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-600/10 border-b border-amber-200/80 px-4 py-1.5 text-center text-xs sm:text-sm font-medium text-slate-900 flex items-center justify-center gap-2">
         <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
         <span>
           <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> mit Gemini AI Beleg-Scanner & 100% Swiss QR-Rechnung.
@@ -268,15 +268,15 @@ export default function LandingPageView({
       {/* 2. HEADER / NAVIGATION */}
       {/* ========================================================================= */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Kinetic Craft Brand Logo */}
           <div className="flex items-center gap-3">
-            <KineticLogoMark className="w-10 h-10 text-slate-900" />
+            <KineticLogoMark className="w-9 h-9 sm:w-10 sm:h-10 text-slate-900 shrink-0" />
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900">Kinetic</span>
-                <span className="font-bold text-lg sm:text-xl tracking-tight text-amber-600">Craft</span>
+                <span className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900">Kinetic</span>
+                <span className="font-bold text-base sm:text-lg tracking-tight text-amber-600">Craft</span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
                   CRM
                 </span>
@@ -288,7 +288,7 @@ export default function LandingPageView({
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-600">
+          <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 text-xs xl:text-sm font-medium text-slate-600">
             <a href="#funktionen" className="hover:text-amber-600 transition-colors">Funktionen</a>
             <a href="#ki-superpowers" className="hover:text-amber-600 transition-colors flex items-center gap-1">
               <span>Gemini KI</span>
@@ -303,16 +303,16 @@ export default function LandingPageView({
           </nav>
 
           {/* Desktop Action CTAs */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2.5">
             <button
               onClick={onGoToLogin}
-              className="px-4 py-2.5 text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
             >
               Einloggen
             </button>
             <button
               onClick={onGoToRegistration}
-              className="px-5 py-2.5 text-sm font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-xl shadow-sm shadow-amber-900/20 hover:shadow-md hover:shadow-amber-900/30 transition-all cursor-pointer flex items-center gap-2"
+              className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-xl shadow-sm shadow-amber-900/20 hover:shadow-md hover:shadow-amber-900/30 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <span>14 Tage testen</span>
               <span className="text-amber-100">→</span>
@@ -373,21 +373,21 @@ export default function LandingPageView({
       {/* ========================================================================= */}
       {/* 3. NEXT-GEN HERO SECTION (Bento Dashboard + Gemini AI + Swiss Weather) */}
       {/* ========================================================================= */}
-      <section className="relative pt-12 pb-16 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-amber-50/25 to-white">
+      <section className="relative pt-6 pb-12 sm:pt-10 sm:pb-16 md:pt-12 md:pb-20 overflow-hidden bg-gradient-to-b from-white via-amber-50/25 to-white">
         
         {/* Soft Decorative Ambient Glows */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[700px] h-[340px] bg-gradient-to-r from-amber-200/40 via-yellow-200/30 to-orange-200/20 blur-3xl -z-10 rounded-full pointer-events-none" />
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-[650px] h-[300px] bg-gradient-to-r from-amber-200/40 via-yellow-200/30 to-orange-200/20 blur-3xl -z-10 rounded-full pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           
           {/* Eyebrow Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-amber-300 text-amber-950 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-amber-300 text-amber-950 text-xs sm:text-sm font-semibold mb-4 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
             <span>Handwerk 2.0: Schweizer Präzision trifft Gemini AI · 100% Swiss QR-Bill</span>
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] max-w-4xl mx-auto">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] max-w-4xl mx-auto">
             Das Handwerker-CRM, <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-amber-600 via-amber-700 to-yellow-700 bg-clip-text text-transparent">
               das mitdenkt.
@@ -395,22 +395,22 @@ export default function LandingPageView({
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
+          <p className="mt-4 sm:mt-5 text-base sm:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
             Schluss mit Zettelwirtschaft am Feierabend: <strong>Belege per Gemini KI scannen</strong>, Offerten per Spracheingabe auf der Baustelle erfassen und Rechnungen mit <strong>Schweizer QR-Code in unter 60 Sekunden</strong> drucken oder versenden.
           </p>
 
           {/* Action CTAs */}
-          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
             <button
               onClick={onGoToRegistration}
-              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-2xl shadow-lg shadow-amber-900/20 hover:shadow-xl hover:shadow-amber-900/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
+              className="w-full sm:w-auto px-8 py-3.5 text-base font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-2xl shadow-lg shadow-amber-900/20 hover:shadow-xl hover:shadow-amber-900/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
             >
               <span>14 Tage kostenlos testen</span>
               <span className="text-amber-100 font-normal">→</span>
             </button>
             <a
               href="#einblicke"
-              className="w-full sm:w-auto px-7 py-4 text-base font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-7 py-3.5 text-base font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2"
             >
               <span>Screenshots & Einblicke</span>
               <span className="text-slate-400">↓</span>
@@ -418,7 +418,7 @@ export default function LandingPageView({
           </div>
 
           {/* Micro Trust Proof */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-xs sm:text-sm text-slate-500 font-medium">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs sm:text-sm text-slate-500 font-medium">
             <div className="flex items-center gap-1.5">
               <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Keine Kreditkarte erforderlich</span>
@@ -437,11 +437,11 @@ export default function LandingPageView({
         {/* ========================================================================= */}
         {/* 4. HERO DESKTOP REAL BENTO SCREENSHOT */}
         {/* ========================================================================= */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 sm:mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 sm:mt-12">
           <div className="relative rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden bg-white ring-1 ring-black/5">
             
             {/* macOS Browser Header */}
-            <div className="bg-slate-50/90 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+            <div className="bg-slate-50/90 border-b border-slate-200 px-4 py-2.5 sm:py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-red-400"></span>
                 <span className="w-3 h-3 rounded-full bg-amber-400"></span>
@@ -462,7 +462,7 @@ export default function LandingPageView({
               <img 
                 src="/screenshots/01_hero_dashboard.png" 
                 alt="Kinetic Craft Dashboard Übersicht" 
-                className="w-full h-auto object-cover object-top max-h-[640px] transition-transform duration-300 group-hover:scale-[1.008]"
+                className="w-full h-auto block transition-transform duration-300 group-hover:scale-[1.005]"
               />
               
               {/* Subtle hover overlay hint */}
@@ -472,22 +472,51 @@ export default function LandingPageView({
                   Klicken für Vollbild-Vorschau
                 </span>
               </div>
+            </div>
 
-              {/* Floating Feature Badges over screenshot */}
-              <div className="absolute top-4 left-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
-                <IconSun className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Live-Wetter Baustelle: Bern 18°C sonnig</span>
+          </div>
+
+          {/* Clean Feature Highlight Ribbon directly under mockup */}
+          <div className="mt-4 sm:mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-left">
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                <IconSun className="w-4 h-4 text-amber-600" />
               </div>
-              <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-amber-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-900">
-                <IconSparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Gemini 3.8 Flash AI Inside</span>
-              </div>
-              <div className="absolute bottom-4 left-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
-                <IconSwissFlag className="w-4 h-4 rounded shrink-0" />
-                <span>100% Swiss QR-Bill nach ISO 20022</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">Baustellen-Wetter</p>
+                <p className="text-[11px] text-slate-500 truncate">Live-Forecast für Bern & Region</p>
               </div>
             </div>
 
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                <IconSparkles className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">Gemini 3.8 Flash</p>
+                <p className="text-[11px] text-slate-500 truncate">KI-Belegscan in 1,2 Sekunden</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+              <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                <IconSwissFlag className="w-4 h-4 rounded shrink-0" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">Swiss QR-Bill</p>
+                <p className="text-[11px] text-slate-500 truncate">ISO 20022 & QR-Referenz</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 shadow-xs">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                <IconDatenschutz className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">Zefix & DSG</p>
+                <p className="text-[11px] text-slate-500 truncate">100% Swiss Hosted & UID</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1144,7 +1173,7 @@ export default function LandingPageView({
             </p>
           </div>
 
-          <div className="bg-slate-900/90 p-8 sm:p-12 rounded-3xl border border-slate-800 shadow-2xl">
+          <div className="bg-slate-900/90 p-5 sm:p-8 md:p-12 rounded-3xl border border-slate-800 shadow-2xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
               
               {/* Sliders */}
@@ -1204,7 +1233,7 @@ export default function LandingPageView({
               </div>
 
               {/* Live Calculated Output */}
-              <div className="bg-gradient-to-br from-amber-500/20 via-slate-800/80 to-slate-900 p-8 rounded-2xl border border-amber-400/30 text-center space-y-6">
+              <div className="bg-gradient-to-br from-amber-500/20 via-slate-800/80 to-slate-900 p-5 sm:p-8 rounded-2xl border border-amber-400/30 text-center space-y-6">
                 <div>
                   <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
                     Ihre monatliche Bürozeit-Ersparnis
@@ -1363,12 +1392,12 @@ export default function LandingPageView({
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
             
             {/* 1. Starter / Free Plan */}
             <div className="border border-slate-200 rounded-2xl p-6 sm:p-8 bg-white flex flex-col justify-between relative shadow-xs">
               <div>
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <h3 className="text-xl font-bold text-slate-900">Starter / Free</h3>
                   <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">Basis</span>
                 </div>
@@ -1410,13 +1439,13 @@ export default function LandingPageView({
             </div>
 
             {/* 2. Professional Plan */}
-            <div className="border-2 border-amber-400 rounded-2xl p-6 sm:p-8 bg-gradient-to-b from-amber-50/40 via-white to-yellow-50/20 flex flex-col justify-between relative shadow-xl ring-1 ring-amber-400/20 transform md:-translate-y-2">
+            <div className="border-2 border-amber-400 rounded-2xl p-6 sm:p-8 bg-gradient-to-b from-amber-50/40 via-white to-yellow-50/20 flex flex-col justify-between relative shadow-xl ring-1 ring-amber-400/20 transform lg:-translate-y-2">
               <span className="absolute -top-3 right-6 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
                 Beliebteste Wahl
               </span>
 
               <div>
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <h3 className="text-xl font-bold text-slate-900">Professional</h3>
                   <span className="text-xs bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full font-bold">Unbegrenzt</span>
                 </div>
@@ -1467,7 +1496,7 @@ export default function LandingPageView({
             {/* 3. Enterprise Plan */}
             <div className="border border-slate-200 rounded-2xl p-6 sm:p-8 bg-white flex flex-col justify-between relative shadow-xs">
               <div>
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <h3 className="text-xl font-bold text-slate-900">Enterprise</h3>
                   <span className="text-xs bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-bold">Massgeschneidert</span>
                 </div>
@@ -1517,7 +1546,7 @@ export default function LandingPageView({
       {/* ========================================================================= */}
       <section id="anfrage" className="py-20 bg-slate-50/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-lg">
+          <div className="bg-white p-5 sm:p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg">
             
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="text-xs uppercase font-bold tracking-wider text-amber-900 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
