@@ -131,11 +131,14 @@ export default function App() {
         setLegalModal('datenschutz')
       } else {
         setLegalModal(null)
-        if (hash === '#login') setAuthScreen('login')
-        else if (hash === '#register' || hash.startsWith('#register?')) setAuthScreen('register')
-        else if (hash === '#landing' || !hash) {
-          setAuthScreen('landing')
-        }
+      }
+
+      if (hash === '#login') {
+        setAuthScreen('login')
+      } else if (hash === '#register' || hash.startsWith('#register?')) {
+        setAuthScreen('register')
+      } else if (hash !== '#impressum' && hash !== '#datenschutz') {
+        setAuthScreen('landing')
       }
     }
     window.addEventListener('hashchange', handleHashChange)

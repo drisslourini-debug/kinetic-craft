@@ -554,7 +554,8 @@ export default function LandingPageView({
       {/* ========================================================================= */}
       {/* 6. INTERAKTIVER 4-PHASEN BENTO- & WORKFLOW-SHOWCASE */}
       {/* ========================================================================= */}
-      <section id="einblicke" className="py-20 bg-slate-50/70 border-b border-slate-200/60">
+      <section id="funktionen" className="py-20 bg-slate-50/70 border-b border-slate-200/60 relative scroll-mt-16">
+        <div id="einblicke" className="absolute -top-20" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-12">
