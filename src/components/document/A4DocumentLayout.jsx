@@ -1,5 +1,7 @@
 import React from 'react'
-import { formatDateLong, formatMoney } from '../../lib/formatters'
+import { formatDate, formatDateLong, formatMoney } from '../../lib/formatters'
+import { calculateSia118Schlussrechnung, roundToFiveRappen } from '../../lib/sia118Helper'
+import { calculateAusmassLine, calculateAusmassTotal, formatAusmassMasskette } from '../../lib/ausmassHelper'
 
 /**
  * Intelligent pagination algorithm for A4 documents (Offerten & Rechnungen).
@@ -96,6 +98,150 @@ export function paginateDocument(items = [], options = {}) {
 
   pages.push(currentPageItems)
   return pages
+}
+
+/**
+ * Intelligent pagination algorithm for Mahnungen (Dunning letters).
+ * Distributes letter sections across physical A4 pages:
+ * - Page 1: Header, Address window, Mahnungs-Meta, Betreff, and letter text
+ * - Forderungsaufstellung (claims & costs breakdown)
+ * - Rechtshinweis / SchKG warning box
+ * - Schlussformel & Signatur
+ * 
+ * Guarantees that:
+ * - Content never overflows into the pinned A4 footer
+ * - Avoids orphan closing/signature block (keeps it paired with Rechtshinweis or Forderungsaufstellung)
+ * - Computes clean multi-page breakdown for lengthy legal dunning letters
+ */
+export function paginateMahnung({
+  einleitung = '',
+  hasBisherigeZahlung = false,
+  hasSpesen = false,
+  hasVerzugszins = false,
+  mahnhinweis = '',
+  schlussformel = '',
+  hasSignature = true,
+  forcePageBreak = false
+} = {}) {
+  // Page 1 safe capacity: 152mm (297 - 40 margins - 15 footer clearance - 22 header - 44 address/meta - 14 title - 10 safety)
+  const page1Capacity = 152
+  // Page 2+ capacity: 215mm (297 - 40 margins - 15 footer clearance - 20 continuation header - 7 safety)
+  const page2Capacity = 215
+
+  const rawParagraphs = (einleitung || '')
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(Boolean)
+
+  const paragraphs = rawParagraphs.length > 0 ? rawParagraphs : (einleitung?.trim() ? [einleitung.trim()] : [])
+
+  const calcParagraphHeight = (p) => {
+    const lines = Math.max(1, Math.ceil((p || '').length / 75))
+    return 4.5 + (lines * 4.6)
+  }
+
+  const einleitungTotalHeight = paragraphs.reduce((acc, p) => acc + calcParagraphHeight(p), 0)
+
+  let forderungenHeight = 36
+  if (hasBisherigeZahlung) forderungenHeight += 6.5
+  if (hasSpesen) forderungenHeight += 6.5
+  if (hasVerzugszins) forderungenHeight += 7.5
+
+  const hinweisHeight = mahnhinweis
+    ? 10 + (Math.max(1, Math.ceil(mahnhinweis.length / 70)) * 4.4) + 6
+    : 0
+
+  const schlussLines = schlussformel ? Math.max(1, Math.ceil(schlussformel.length / 75)) : 1
+  const closingHeight = (schlussLines * 4.6) + (hasSignature ? 28 : 16) + 12
+
+  const totalContentHeight = einleitungTotalHeight + forderungenHeight + hinweisHeight + closingHeight
+
+  // Case 1: Fits cleanly on 1 page
+  if (!forcePageBreak && totalContentHeight <= page1Capacity) {
+    return [
+      {
+        pageIndex: 0,
+        paragraphs,
+        showForderungen: true,
+        showHinweis: Boolean(mahnhinweis),
+        showClosing: true
+      }
+    ]
+  }
+
+  // Case 2: Multi-page
+  // Balanced split: Page 1 gets Einleitung + Forderungsaufstellung; Page 2 gets Rechtshinweis + Schlussformel
+  const page1WithForderungen = einleitungTotalHeight + forderungenHeight
+  if (page1WithForderungen <= page1Capacity && (hinweisHeight > 0 || closingHeight > 0)) {
+    return [
+      {
+        pageIndex: 0,
+        paragraphs,
+        showForderungen: true,
+        showHinweis: false,
+        showClosing: false
+      },
+      {
+        pageIndex: 1,
+        paragraphs: [],
+        showForderungen: false,
+        showHinweis: Boolean(mahnhinweis),
+        showClosing: true
+      }
+    ]
+  }
+
+  // If Einleitung alone fits on Page 1:
+  if (einleitungTotalHeight <= page1Capacity) {
+    return [
+      {
+        pageIndex: 0,
+        paragraphs,
+        showForderungen: false,
+        showHinweis: false,
+        showClosing: false
+      },
+      {
+        pageIndex: 1,
+        paragraphs: [],
+        showForderungen: true,
+        showHinweis: Boolean(mahnhinweis),
+        showClosing: true
+      }
+    ]
+  }
+
+  // If Einleitung alone exceeds Page 1:
+  const page1Paragraphs = []
+  const remainingParagraphs = []
+  let usedHeight = 0
+
+  for (const p of paragraphs) {
+    const pH = calcParagraphHeight(p)
+    if (usedHeight + pH <= page1Capacity) {
+      page1Paragraphs.push(p)
+      usedHeight += pH
+    } else {
+      remainingParagraphs.push(p)
+    }
+  }
+
+  return [
+    {
+      pageIndex: 0,
+      paragraphs: page1Paragraphs,
+      showForderungen: false,
+      showHinweis: false,
+      showClosing: false
+    },
+    {
+      pageIndex: 1,
+      paragraphs: remainingParagraphs,
+      showForderungen: true,
+      showHinweis: Boolean(mahnhinweis),
+      showClosing: true
+    }
+  ]
 }
 
 /**
@@ -308,6 +454,11 @@ export function PositionsTableBody({ items, brandColor }) {
                 {posNr}
               </td>
               <td colSpan={5} style={{ padding: '5mm 1.5mm 1.5mm', fontWeight: 700, fontSize: '9.5pt', color: '#111' }}>
+                {pos.npk_kapitel && (
+                  <span style={{ fontSize: '7.5pt', color: brandColor, textTransform: 'uppercase', marginRight: '2mm', letterSpacing: '0.04em', fontWeight: 800 }}>
+                    [NPK {pos.npk_kapitel}]
+                  </span>
+                )}
                 {pos.beschreibung}
                 {pos.details && (
                   <div style={{ fontWeight: 400, fontSize: '8pt', color: '#666', marginTop: '0.5mm', lineHeight: '1.4' }}>
@@ -322,7 +473,12 @@ export function PositionsTableBody({ items, brandColor }) {
         return (
           <tr key={pos._id || idx} style={{ borderBottom: '0.5px solid #f0f0f0' }}>
             <td style={{ padding: '2mm 1.5mm', verticalAlign: 'top', fontSize: '9pt', color: '#222', fontWeight: 600 }}>
-              {posNr}
+              <div>{posNr}</div>
+              {pos.npk_code && (
+                <div style={{ fontSize: '7pt', color: '#4f46e5', fontFamily: 'monospace', fontWeight: 700, marginTop: '0.5mm' }}>
+                  NPK {pos.npk_code}
+                </div>
+              )}
             </td>
             <td style={{ padding: '2mm 1.5mm', verticalAlign: 'top', fontSize: '9pt', paddingRight: '3mm' }}>
               <span style={{ color: isOption ? '#777' : '#111', fontWeight: 500 }}>
@@ -336,6 +492,11 @@ export function PositionsTableBody({ items, brandColor }) {
               {pos.details && (
                 <div style={{ fontSize: '8pt', color: '#777', marginTop: '0.5mm', lineHeight: '1.4' }}>
                   {pos.details}
+                </div>
+              )}
+              {pos.ausmass_details && pos.ausmass_details.length > 0 && (
+                <div style={{ fontSize: '7.5pt', color: '#059669', marginTop: '0.5mm', fontWeight: 600 }}>
+                  📐 Bau-Ausmass: {pos.ausmass_details.length} Zeilen (gemäss Ausmassblatt)
                 </div>
               )}
             </td>
@@ -373,8 +534,30 @@ export function TotalsAndClosing({
   optionenTotal,
   brandColor,
   daten = {},
-  settings = {}
+  settings = {},
+  rechnung = {},
+  gesamtwerkpreis
 }) {
+  const isSchluss = rechnung?.typ === 'schluss' || Boolean(daten?.sia118?.aktiv)
+  const isAkonto = rechnung?.typ === 'akonto' && parseFloat(rechnung?.akonto_prozent || 0) > 0
+  const akontoProzent = parseFloat(rechnung?.akonto_prozent || 0)
+
+  const effectiveWerkpreis = gesamtwerkpreis || parseFloat(daten?.gesamtwerkpreis) || (isSchluss ? (mwstBetrag > 0 ? (totalNachRabatt + mwstBetrag) : (totalNachRabatt || rawTotal)) : finalTotal)
+
+  const akontoBetrag = isAkonto ? roundToFiveRappen(effectiveWerkpreis * (akontoProzent / 100)) : null
+
+  const sia118Calc = isSchluss ? calculateSia118Schlussrechnung({
+    gesamtwerkpreis: effectiveWerkpreis,
+    akontoAbzuege: daten?.akonto_abzuege || [],
+    rueckbehalt: daten?.sia118?.rueckbehalt || {
+      aktiv: true,
+      prozent: 5.0,
+      abgeloestDurchGarantie: false,
+      basis: 'gesamtwerkpreis'
+    },
+    rechnungsdatum: rechnung?.rechnungsdatum || daten?.datum || new Date().toISOString().split('T')[0]
+  }) : null
+
   return (
     <div style={{ marginTop: '4mm' }}>
       {/* Totals Table */}
@@ -428,7 +611,7 @@ export function TotalsAndClosing({
             </>
           )}
 
-          {/* Final TOTAL bar with brand accent lines */}
+          {/* Standard TOTAL / Gesamtwerkpreis bar */}
           <tr>
             <td colSpan={4}></td>
             <td colSpan={2} style={{ padding: 0 }}>
@@ -438,16 +621,123 @@ export function TotalsAndClosing({
                 padding: '2.5mm 1.5mm',
                 marginTop: '1.5mm',
                 borderTop: `2px solid ${brandColor}`,
-                borderBottom: `2px solid ${brandColor}`,
-                fontWeight: 800,
-                fontSize: '11pt',
-                color: '#111'
+                borderBottom: (isSchluss || isAkonto) ? `1px solid #e5e7eb` : `2px solid ${brandColor}`,
+                fontWeight: (isSchluss || isAkonto) ? 600 : 800,
+                fontSize: (isSchluss || isAkonto) ? '9.5pt' : '11pt',
+                color: (isSchluss || isAkonto) ? '#374151' : '#111'
               }}>
-                <span>{isPauschal ? 'Pauschalpreis' : 'TOTAL'}</span>
-                <span>CHF {formatMoney(finalTotal)}</span>
+                <span>{isPauschal ? 'Pauschalpreis' : (isSchluss ? 'Gesamtwerkpreis inkl. MwSt.' : 'TOTAL')}</span>
+                <span>CHF {formatMoney(effectiveWerkpreis)}</span>
               </div>
             </td>
           </tr>
+
+          {/* SIA 118: Anrechnung bisherige Akonto-Zahlungen */}
+          {isSchluss && sia118Calc && (
+            <>
+              {sia118Calc.akontoAbzuege.length > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={4}></td>
+                    <td colSpan={2} style={{ padding: '2mm 1.5mm 1mm', fontSize: '8.5pt', fontWeight: 700, color: '#1f2937' }}>
+                      Anrechnung bisherige Akonto-Rechnungen:
+                    </td>
+                  </tr>
+                  {sia118Calc.akontoAbzuege.map((ak, idx) => (
+                    <tr key={ak.id || idx}>
+                      <td colSpan={4}></td>
+                      <td style={{ padding: '1mm 1.5mm', textAlign: 'left', fontSize: '8.5pt', color: '#4b5563', paddingLeft: '4mm' }}>
+                        – Akonto {ak.rechnung_nr || `#${idx + 1}`}{ak.datum ? ` vom ${formatDate(ak.datum)}` : ''}
+                      </td>
+                      <td style={{ padding: '1mm 1.5mm', textAlign: 'right', fontSize: '8.5pt', color: '#dc2626', fontWeight: 500 }}>
+                        – CHF {formatMoney(ak.betrag)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={4}></td>
+                    <td style={{ padding: '1.5mm 1.5mm', textAlign: 'left', fontSize: '8.5pt', color: '#374151', fontWeight: 600, borderTop: '1px dashed #e5e7eb' }}>
+                      Zwischentotal nach Akonto-Abzügen
+                    </td>
+                    <td style={{ padding: '1.5mm 1.5mm', textAlign: 'right', fontSize: '8.5pt', color: '#111', fontWeight: 600, borderTop: '1px dashed #e5e7eb' }}>
+                      CHF {formatMoney(sia118Calc.restbetragNachAkonto)}
+                    </td>
+                  </tr>
+                </>
+              )}
+
+              {/* SIA 118 Art. 181: Garantie-Rückbehalt (5%) */}
+              {sia118Calc.rueckbehalt.aktiv && (
+                <tr>
+                  <td colSpan={4}></td>
+                  <td style={{ padding: '1.5mm 1.5mm', textAlign: 'left', fontSize: '8.5pt', color: '#374151' }}>
+                    {sia118Calc.rueckbehalt.abgeloestDurchGarantie ? (
+                      <div>
+                        <span className="font-semibold text-emerald-700">Garantie-Rückbehalt (SIA 118 Art. 181)</span>
+                        <div style={{ fontSize: '7.5pt', color: '#047857' }}>
+                          Durch Bankgarantie / Versicherungsbürgschaft abgelöst (kein Abzug)
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span>– {sia118Calc.rueckbehalt.prozent}% Garantie-Rückbehalt (SIA 118 Art. 181)</span>
+                        <div style={{ fontSize: '7.5pt', color: '#6b7280' }}>
+                          Freigabe nach 2-jähriger Rügefrist am {formatDate(sia118Calc.rueckbehalt.freigabeDatum)}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '1.5mm 1.5mm', textAlign: 'right', fontSize: '8.5pt', color: sia118Calc.rueckbehalt.abgeloestDurchGarantie ? '#047857' : '#dc2626', fontWeight: 500 }}>
+                    {sia118Calc.rueckbehalt.abgeloestDurchGarantie ? 'CHF 0.00' : `– CHF ${formatMoney(sia118Calc.rueckbehalt.betrag)}`}
+                  </td>
+                </tr>
+              )}
+
+              {/* Fälliger Schlussbetrag */}
+              <tr>
+                <td colSpan={4}></td>
+                <td colSpan={2} style={{ padding: 0 }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '2.5mm 1.5mm',
+                    marginTop: '2mm',
+                    borderTop: `2px solid ${brandColor}`,
+                    borderBottom: `2px solid ${brandColor}`,
+                    fontWeight: 800,
+                    fontSize: '11pt',
+                    color: '#111'
+                  }}>
+                    <span>FÄLLIGER SCHLUSSBETRAG</span>
+                    <span>CHF {formatMoney(sia118Calc.faelligerSchlussbetrag)}</span>
+                  </div>
+                </td>
+              </tr>
+            </>
+          )}
+
+          {/* Akontorechnung: Akontobetrag */}
+          {isAkonto && (
+            <tr>
+              <td colSpan={4}></td>
+              <td colSpan={2} style={{ padding: 0 }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '2.5mm 1.5mm',
+                  marginTop: '1.5mm',
+                  borderTop: `2px solid ${brandColor}`,
+                  borderBottom: `2px solid ${brandColor}`,
+                  fontWeight: 800,
+                  fontSize: '11pt',
+                  color: '#111'
+                }}>
+                  <span>AKONTOBETRAG ({akontoProzent}%)</span>
+                  <span>CHF {formatMoney(akontoBetrag)}</span>
+                </div>
+              </td>
+            </tr>
+          )}
 
           {optionenTotal > 0 && (
             <tr>
@@ -621,7 +911,13 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
           padding: '0 5mm'
         }}
       >
-        <span style={{ fontSize: '10px', color: '#999' }}>✂</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <circle cx="6" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <line x1="20" y1="4" x2="8.12" y2="15.88" />
+          <line x1="14.47" y1="14.48" x2="20" y2="20" />
+          <line x1="8.12" y1="8.12" x2="12" y2="12" />
+        </svg>
         <div style={{ flex: 1, borderBottom: '1px dashed #bbb', height: '1px' }}></div>
       </div>
 
@@ -637,6 +933,188 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
           overflow: 'hidden'
         }}
         dangerouslySetInnerHTML={{ __html: qrSvg }}
+      />
+    </div>
+  )
+}
+
+/**
+ * Schweizer Ausmassblatt & Massenberechnung Beilage nach SIA 118 Art. 141.
+ * Detailliertes Berechnungsblatt mit Massketten, Öffnungsabzügen und SIA 118 Ausmassregeln.
+ */
+export function AusmassBeilagePage({
+  leistungen = [],
+  docNr,
+  docType = 'Offerte',
+  kunde,
+  projekt,
+  settings,
+  brandColor = '#c5a057',
+  pageNum,
+  totalPages
+}) {
+  const measuredPositions = (leistungen || []).filter(
+    pos => pos.ausmass_details && Array.isArray(pos.ausmass_details) && pos.ausmass_details.length > 0
+  )
+
+  if (measuredPositions.length === 0) return null
+
+  return (
+    <div 
+      className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none"
+      style={{
+        width: '210mm',
+        height: '297mm',
+        maxHeight: '297mm',
+        boxSizing: 'border-box',
+        position: 'relative',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden',
+        padding: '20mm 20mm 20mm 25mm'
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: `1.5px solid ${brandColor}`, paddingBottom: '3mm', marginBottom: '4mm' }}>
+        <div>
+          <div style={{ fontSize: '13pt', fontWeight: 800, color: '#111', letterSpacing: '-0.01em' }}>
+            AUSMASSBLATT & MASSENBERECHNUNG
+          </div>
+          <div style={{ fontSize: '8.5pt', color: '#666', marginTop: '1mm' }}>
+            Beilage zu {docType} {docNr} {projekt?.name ? `• Bauobjekt: ${projekt.name}` : ''}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#555' }}>
+          <div style={{ fontWeight: 700, color: '#111' }}>{settings?.firmenname || ''}</div>
+          <div style={{ fontSize: '7.5pt', color: '#888' }}>
+            Kunde: {kunde?.firmenname || `${kunde?.vorname || ''} ${kunde?.nachname || ''}`.trim() || kunde?.name || '–'}
+          </div>
+        </div>
+      </div>
+
+      {/* SIA 118 Art. 141 Infobox */}
+      <div style={{ 
+        backgroundColor: '#fffbeb', 
+        border: '1px solid #fef3c7', 
+        borderRadius: '6px', 
+        padding: '2.5mm 3.5mm', 
+        marginBottom: '4.5mm',
+        fontSize: '7.5pt',
+        lineHeight: '1.4',
+        color: '#92400e'
+      }}>
+        <strong>Schweizer Norm SIA 118 Art. 141:</strong> Öffnungen und Aussparungen bis ≤ 2.50 m² Einzelfläche (Fenster, Türen, Nischen) werden standardmässig übermessen (kein Abzug). Öffnungen &gt; 2.50 m² sind als wirksame Abzüge deklariert.
+      </div>
+
+      {/* Positions Ausmass Details */}
+      <div style={{ maxHeight: '205mm', overflow: 'hidden' }}>
+        {measuredPositions.map((pos, pIdx) => {
+          const totals = calculateAusmassTotal(pos.ausmass_details)
+          return (
+            <div key={pos._id || pIdx} style={{ marginBottom: '4.5mm' }}>
+              {/* Position Subheader */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                padding: '1.5mm 3mm',
+                fontSize: '8.5pt',
+                fontWeight: 700,
+                color: '#1e293b'
+              }}>
+                <div>
+                  <span style={{ color: '#64748b', marginRight: '2mm' }}>Pos. {pos.posNr || (pIdx + 1)}</span>
+                  {pos.npk_code && (
+                    <span style={{ color: '#4f46e5', fontFamily: 'monospace', marginRight: '2mm' }}>
+                      [NPK {pos.npk_code}]
+                    </span>
+                  )}
+                  <span>{pos.beschreibung}</span>
+                </div>
+                <div style={{ color: '#047857' }}>
+                  Netto: {totals.nettoMenge.toFixed(2)} {pos.einheit}
+                </div>
+              </div>
+
+              {/* Lines Table */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1mm', fontSize: '8pt' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '7pt', textTransform: 'uppercase' }}>
+                    <th style={{ textAlign: 'left', padding: '1mm 1.5mm', width: '22%' }}>Bauteil / Raum</th>
+                    <th style={{ textAlign: 'center', padding: '1mm 1.5mm', width: '8%' }}>Anz.</th>
+                    <th style={{ textAlign: 'left', padding: '1mm 1.5mm', width: '38%' }}>Masskette (L × B × H)</th>
+                    <th style={{ textAlign: 'left', padding: '1mm 1.5mm', width: '20%' }}>SIA 118 Status</th>
+                    <th style={{ textAlign: 'right', padding: '1mm 1.5mm', width: '12%' }}>Fläche</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pos.ausmass_details.map((line, lIdx) => {
+                    const calc = calculateAusmassLine(line)
+                    const l = parseFloat(line.laenge) || 0
+                    const b = parseFloat(line.breite) || 0
+                    const h = parseFloat(line.hoehe) || 0
+                    const dims = [l > 0 ? `${l.toFixed(2)} m` : null, b > 0 ? `${b.toFixed(2)} m` : null, h > 0 ? `${h.toFixed(2)} m` : null].filter(Boolean).join(' × ')
+                    const anzahl = parseFloat(line.anzahl) || 1
+
+                    return (
+                      <tr key={line.id || lIdx} style={{ borderBottom: '0.5px solid #f1f5f9' }}>
+                        <td style={{ padding: '1mm 1.5mm', color: '#1e293b', fontWeight: 500 }}>
+                          {line.bezeichnung || `Zeile ${lIdx + 1}`}
+                        </td>
+                        <td style={{ padding: '1mm 1.5mm', textAlign: 'center', color: '#64748b' }}>
+                          {anzahl}
+                        </td>
+                        <td style={{ padding: '1mm 1.5mm', color: '#475569', fontFamily: 'monospace', fontSize: '7.5pt' }}>
+                          {anzahl > 1 ? `${anzahl} × (${dims})` : dims}
+                        </td>
+                        <td style={{ padding: '1mm 1.5mm', fontSize: '7pt' }}>
+                          {line.isAbzug ? (
+                            calc.sia118Uebermessen ? (
+                              <span style={{ color: '#6b7280', fontStyle: 'italic' }}>Übermessen (≤ 2.5 m²)</span>
+                            ) : (
+                              <span style={{ color: '#dc2626', fontWeight: 600 }}>Abzug (&gt; 2.5 m²)</span>
+                            )
+                          ) : (
+                            <span style={{ color: '#047857' }}>Zuschlag</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '1mm 1.5mm', textAlign: 'right', fontWeight: 600, color: line.isAbzug ? (calc.sia118Uebermessen ? '#9ca3af' : '#dc2626') : '#111' }}>
+                          {line.isAbzug ? (calc.sia118Uebermessen ? `0.00 ${calc.type}` : `-${Math.abs(calc.effectiveValue).toFixed(2)} ${calc.type}`) : `+${calc.effectiveValue.toFixed(2)} ${calc.type}`}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+
+              {/* Subtotal row */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'flex-end', 
+                gap: '4mm',
+                fontSize: '7pt', 
+                color: '#64748b', 
+                marginTop: '1mm',
+                paddingRight: '1.5mm'
+              }}>
+                <span>Brutto: {totals.bruttoZuschlag.toFixed(2)} {totals.type}</span>
+                {totals.abzuegeUebermessen > 0 && <span>• SIA 118 übermessen: ({totals.abzuegeUebermessen.toFixed(2)} {totals.type})</span>}
+                {totals.abzuegeWirksam > 0 && <span style={{ color: '#dc2626' }}>• Abzüge: -{totals.abzuegeWirksam.toFixed(2)} {totals.type}</span>}
+                <span style={{ fontWeight: 700, color: '#047857' }}>• Netto: {totals.nettoMenge.toFixed(2)} {totals.type}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Pinned Footer */}
+      <DocumentFooter
+        pageNum={pageNum}
+        totalPages={totalPages}
+        settings={settings}
+        brandColor={brandColor}
       />
     </div>
   )

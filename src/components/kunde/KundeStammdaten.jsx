@@ -40,16 +40,22 @@ export default function KundeStammdaten({
                 <span className="font-mono font-bold text-primary-700 bg-primary-50 px-2.5 py-0.5 rounded-md border border-primary-200">
                   {kunde.kundennummer}
                 </span>
-              ) : (
-                <span className="text-text-secondary italic">Keine Kundennummer hinterlegt</span>
-              )
-            } 
+              ) : null
+            }
+            hideIfEmpty
           />
-          <SettingsRow label="Anrede" value={kunde.anrede || '–'} />
-          <SettingsRow label="Kundentyp" value={kunde.typ} />
-          <SettingsRow label="Firmenname" value={kunde.firmenname} />
-          <SettingsRow label="Vorname" value={kunde.vorname} />
-          <SettingsRow label="Nachname" value={kunde.nachname} />
+          <SettingsRow label="Anrede" value={kunde.anrede} hideIfEmpty />
+          <SettingsRow label="Kundentyp" value={kunde.typ} hideIfEmpty />
+          <SettingsRow label="Firmenname" value={kunde.firmenname} hideIfEmpty />
+          <SettingsRow 
+            label="Kontaktperson" 
+            value={
+              (kunde.vorname || kunde.nachname) 
+                ? `${kunde.vorname || ''} ${kunde.nachname || ''}`.trim() 
+                : null
+            }
+            hideIfEmpty
+          />
         </>
       }
     >

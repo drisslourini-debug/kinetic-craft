@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react';
 import { TERMIN_TYPEN, TERMIN_STATUSSE, getTerminTypConfig } from '../../lib/kalenderConstants';
 import { getGoogleCalendarUrl, downloadIcsFile, generateIcsCalendar } from '../../lib/icalGenerator';
 import AddressAutocomplete from '../AddressAutocomplete';
+import {
+  IconCalendar,
+  IconBuilding,
+  IconTeam,
+  IconLocation,
+  IconDocument,
+  IconClose,
+  IconWarning,
+  IconTrash,
+  TerminTypIcon
+} from '../icons/BrandIcons';
 
 export default function TerminModal({
   isOpen,
@@ -160,8 +171,8 @@ export default function TerminModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center text-xl font-bold">
-              {getTerminTypConfig(formData.typ).icon || '📅'}
+            <div className="w-10 h-10 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center font-bold">
+              <TerminTypIcon typ={formData.typ} className="w-6 h-6" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-text-primary">
@@ -176,15 +187,17 @@ export default function TerminModal({
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg text-text-secondary hover:bg-gray-100 hover:text-text-primary transition-colors cursor-pointer"
+            aria-label="Schliessen"
           >
-            ✕
+            <IconClose className="w-5 h-5" />
           </button>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
-            ⚠️ {errorMsg}
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-1.5">
+            <IconWarning className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
@@ -217,7 +230,7 @@ export default function TerminModal({
               >
                 {TERMIN_TYPEN.map(t => (
                   <option key={t.id} value={t.id}>
-                    {t.icon} {t.label}
+                    {t.label}
                   </option>
                 ))}
               </select>
@@ -317,8 +330,9 @@ export default function TerminModal({
           {/* Verknüpfung Projekt & Kunde */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
-                🏗️ Zugehöriges Projekt
+              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
+                <IconBuilding className="w-3.5 h-3.5 text-primary-500" />
+                <span>Zugehöriges Projekt</span>
               </label>
               <select
                 value={formData.projekt_id}
@@ -335,8 +349,9 @@ export default function TerminModal({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
-                👥 Kunde / Ansprechpartner
+              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
+                <IconTeam className="w-3.5 h-3.5 text-text-secondary" />
+                <span>Kunde / Ansprechpartner</span>
               </label>
               <select
                 value={formData.kunden_id}
@@ -355,8 +370,9 @@ export default function TerminModal({
 
           {/* Ort / Baustelle mit Autocomplete */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
-              📍 Ort / Baustellen-Adresse
+            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1.5">
+              <IconLocation className="w-3.5 h-3.5 text-text-secondary" />
+              <span>Ort / Baustellen-Adresse</span>
             </label>
             <AddressAutocomplete
               value={formData.ort || ''}
@@ -389,14 +405,16 @@ export default function TerminModal({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
-              📅 In Google Kalender öffnen
+              <IconCalendar className="w-3.5 h-3.5 text-gray-700" />
+              <span>In Google Kalender öffnen</span>
             </a>
             <button
               type="button"
               onClick={handleExportIcs}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
             >
-              📥 .ics herunterladen
+              <IconDocument className="w-3.5 h-3.5 text-gray-700" />
+              <span>.ics herunterladen</span>
             </button>
           </div>
 
@@ -433,9 +451,10 @@ export default function TerminModal({
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
-                  🗑️ Termin löschen
+                  <IconTrash className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Termin löschen</span>
                 </button>
               )}
             </div>

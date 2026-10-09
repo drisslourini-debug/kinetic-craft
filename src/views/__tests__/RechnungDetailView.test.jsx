@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import RechnungDetailView from '../RechnungDetailView'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -17,11 +17,16 @@ vi.mock('../../lib/supabase', () => ({
 }))
 
 // Mock formatMoney to simplify DOM matching
-vi.mock('../../lib/formatters', () => ({
-  formatMoney: (val) => Number(val || 0).toFixed(2),
-  formatCurrency: (val) => `CHF ${Number(val || 0).toFixed(2)}`,
-  formatDate: (val) => val
-}))
+vi.mock('../../lib/formatters', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    formatMoney: (val) => Number(val || 0).toFixed(2),
+    formatCurrency: (val) => `CHF ${Number(val || 0).toFixed(2)}`,
+    formatDate: (val) => val,
+    formatDateLong: (val) => val
+  }
+})
 vi.mock('../../lib/utils', () => ({
   formatMoney: (val) => Number(val || 0).toFixed(2),
 }))
@@ -101,15 +106,8 @@ describe('RechnungDetailView', () => {
     })
 
     // Open action menu (3 dots)
-    const actionMenuBtns = screen.getAllByRole('button')
-    const threeDotBtn = actionMenuBtns.find(b => b.querySelector('svg circle') || b.innerHTML.includes('circle'))
-    if (threeDotBtn) {
-      threeDotBtn.click()
-    } else {
-      // Fallback find button containing SVG with dots
-      const svgBtns = actionMenuBtns.filter(b => b.querySelector('svg'))
-      svgBtns[svgBtns.length - 1].click()
-    }
+    const threeDotBtn = screen.getByRole('button', { name: /Aktionsmenü/i })
+    threeDotBtn.click()
 
     await waitFor(() => {
       expect(screen.getByText(/Zahlungserinnerung \/ Termin/i)).toBeInTheDocument()
@@ -120,6 +118,87 @@ describe('RechnungDetailView', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Neuer Termin erfassen/i)).toBeInTheDocument()
+    })
+  })
+
+  it('renders mobile tab switcher in edit mode and allows switching between Bearbeiten and A4-Vorschau', async () => {
+    render(<RechnungDetailView rechnung={mockRechnung} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lädt.../i)).not.toBeInTheDocument()
+    })
+
+    const bearbeitenBtn = screen.getByRole('button', { name: /Bearbeiten/i })
+    fireEvent.click(bearbeitenBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /A4-Vorschau/i })).toBeInTheDocument()
+    })
+
+    const a4TabBtn = screen.getByRole('button', { name: /A4-Vorschau/i })
+    fireEvent.click(a4TabBtn)
+
+    // A4 preview zoom controls are active
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Ganze Seite/i })).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('button', { name: /100%/i }).length).toBeGreaterThan(0)
+
+    // Can switch back to edit form
+    const editTabBtn = screen.getByRole('button', { name: /Bearbeiten/i })
+    fireEvent.click(editTabBtn)
+    expect(screen.getByText(/Live-Total:/i)).toBeInTheDocument()
+  })
+
+  it('renders Swiss Mahnwesen banner and opens MahnungModal for overdue invoice', async () => {
+    const overdueRechnung = {
+      ...mockRechnung,
+      status: 'Überfällig',
+      faellig_am: '2026-01-01',
+      daten: {
+        ...mockRechnung.daten,
+        mahnstufe: 0
+      }
+    }
+
+    render(<RechnungDetailView rechnung={overdueRechnung} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lädt.../i)).not.toBeInTheDocument()
+    })
+
+    // Banner should be visible
+    expect(screen.getByText(/Rechnung überfällig:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mahnung Stufe 1 erstellen/i)).toBeInTheDocument()
+
+    // Clicking Mahnung button opens MahnungModal
+    const mahnBtn = screen.getByText(/Mahnung Stufe 1 erstellen/i)
+    fireEvent.click(mahnBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Schweizer Mahnwesen/i)).toBeInTheDocument()
+      expect(screen.getByText(/1\. Mahnstufe wählen/i)).toBeInTheDocument()
+    })
+  })
+
+  it('automatically opens MahnungModal when viewParams.openMahnung is true', async () => {
+    const overdueRechnung = {
+      ...mockRechnung,
+      status: 'Überfällig',
+      faellig_am: '2026-01-01'
+    }
+
+    render(
+      <RechnungDetailView
+        rechnung={overdueRechnung}
+        onBack={vi.fn()}
+        onNavigate={vi.fn()}
+        viewParams={{ openMahnung: true }}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Schweizer Mahnwesen/i)).toBeInTheDocument()
     })
   })
 })

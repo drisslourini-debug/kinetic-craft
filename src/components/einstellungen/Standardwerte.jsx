@@ -1,6 +1,7 @@
 import { SettingsBlock, SettingsRow, InputField } from '../ui/SettingsComponents'
 import { isQrIban } from '../../lib/qrHelper'
 import { validateIban, validateQrIban } from '../../lib/ibanValidator'
+import { IconCheck, IconClose } from '../icons/BrandIcons'
 import { SWISS_CANTONS } from '../../lib/holidayService'
 
 const formatIban = (val) => {
@@ -35,8 +36,9 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
               <div className="flex items-center gap-2">
                 <span>{formatIban(settings.qr_iban)}</span>
                 {isQrIban(settings.qr_iban) && (
-                  <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 font-semibold rounded-full border border-emerald-200">
-                    QR-IBAN ✓
+                  <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 font-semibold rounded-full border border-emerald-200 inline-flex items-center gap-1">
+                    <span>QR-IBAN</span>
+                    <IconCheck className="w-3 h-3" />
                   </span>
                 )}
               </div>
@@ -57,8 +59,18 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
             fullWidth 
           />
           {hasIbanInput && (
-            <p className={`text-xs ${ibanValidation.valid ? 'text-emerald-600' : 'text-red-600'}`}>
-              {ibanValidation.valid ? '✓ Gültiges Schweizer IBAN-Format' : `✗ ${ibanValidation.error}`}
+            <p className={`text-xs flex items-center gap-1 ${ibanValidation.valid ? 'text-emerald-600' : 'text-red-600'}`}>
+              {ibanValidation.valid ? (
+                <>
+                  <IconCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>Gültiges Schweizer IBAN-Format</span>
+                </>
+              ) : (
+                <>
+                  <IconClose className="w-3.5 h-3.5 shrink-0" />
+                  <span>{ibanValidation.error}</span>
+                </>
+              )}
             </p>
           )}
         </div>
@@ -72,10 +84,18 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
             fullWidth 
           />
           {hasQrInput && (
-            <p className={`text-xs ${qrValidation.valid && qrValidation.isQrIban ? 'text-emerald-600 font-medium' : 'text-red-600'}`}>
-              {qrValidation.valid && qrValidation.isQrIban 
-                ? '✓ Gültige Schweizer QR-IBAN (IID 30000–31999)' 
-                : `✗ ${qrValidation.error}`}
+            <p className={`text-xs flex items-center gap-1 ${qrValidation.valid && qrValidation.isQrIban ? 'text-emerald-600 font-medium' : 'text-red-600'}`}>
+              {qrValidation.valid && qrValidation.isQrIban ? (
+                <>
+                  <IconCheck className="w-3.5 h-3.5 shrink-0" />
+                  <span>Gültige Schweizer QR-IBAN (IID 30000–31999)</span>
+                </>
+              ) : (
+                <>
+                  <IconClose className="w-3.5 h-3.5 shrink-0" />
+                  <span>{qrValidation.error}</span>
+                </>
+              )}
             </p>
           )}
         </div>

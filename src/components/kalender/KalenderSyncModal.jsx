@@ -1,11 +1,22 @@
 import { useState } from 'react';
 import { generateIcsCalendar, downloadIcsFile } from '../../lib/icalGenerator';
+import {
+  IconRefresh,
+  IconClose,
+  IconDocument,
+  IconCalendar,
+  IconFlash,
+  IconCheck,
+  IconApple,
+  IconGlobe,
+  IconMail
+} from '../icons/BrandIcons';
 
 export default function KalenderSyncModal({
   isOpen,
   onClose,
   termine = [],
-  firmenname = 'Atelier 77',
+  firmenname = 'Muster Malerei Bern AG',
   tenantId = null
 }) {
   const [copied, setCopied] = useState(false);
@@ -49,8 +60,8 @@ export default function KalenderSyncModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-r from-primary-600 to-primary-700 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
-              🔄
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+              <IconRefresh className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-lg font-bold">Kalender-Synchronisation</h2>
@@ -60,8 +71,9 @@ export default function KalenderSyncModal({
           <button 
             onClick={onClose}
             className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Schliessen"
           >
-            ✕
+            <IconClose className="w-5 h-5 text-white" />
           </button>
         </div>
 
@@ -69,8 +81,9 @@ export default function KalenderSyncModal({
           {/* Quick Export .ics */}
           <div className="p-4 rounded-xl bg-primary-50/50 border border-primary-100 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-sm font-bold text-primary-950 mb-1">
-                📥 Direkter .ics-Export
+              <h3 className="flex items-center gap-1.5 text-sm font-bold text-primary-950 mb-1">
+                <IconDocument className="w-4 h-4 text-primary-700" />
+                <span>Direkter .ics-Export</span>
               </h3>
               <p className="text-xs text-primary-800 leading-relaxed">
                 Lädt alle {termine.length} aktuellen Termine als Standard-Kalenderdatei herunter. Doppelklick importiert die Termine sofort in Outlook oder Apple Kalender.
@@ -88,15 +101,17 @@ export default function KalenderSyncModal({
           {/* WebCal / Live Subscription */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-                📡 Live-Kalender-Abonnement (WebCal / iCal Feed)
+              <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-secondary">
+                <IconCalendar className="w-3.5 h-3.5 text-primary-600" />
+                <span>Live-Kalender-Abonnement (WebCal / iCal Feed)</span>
               </h3>
               <a
                 href={webcalUrl}
                 className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                 title="Öffnet die Standard-Kalender-App zur automatischen Synchronisation"
               >
-                <span>⚡</span> 1-Klick Abonnieren
+                <IconFlash className="w-3.5 h-3.5 text-primary-600" />
+                <span>1-Klick Abonnieren</span>
               </a>
             </div>
             <p className="text-xs text-text-secondary">
@@ -112,16 +127,16 @@ export default function KalenderSyncModal({
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
               >
-                {copied ? '✓ Kopiert' : 'HTTPS kopieren'}
+                {copied ? <><IconCheck className="w-3.5 h-3.5 text-emerald-600" /><span>Kopiert</span></> : 'HTTPS kopieren'}
               </button>
               <button
                 type="button"
                 onClick={handleCopyWebcal}
-                className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1"
               >
-                {copiedWebcal ? '✓ Kopiert' : 'webcal://'}
+                {copiedWebcal ? <><IconCheck className="w-3.5 h-3.5 text-white" /><span>Kopiert</span></> : 'webcal://'}
               </button>
             </div>
           </div>
@@ -135,7 +150,8 @@ export default function KalenderSyncModal({
             {/* iPhone / Apple Calendar */}
             <div className="p-3 bg-surface border border-border rounded-xl">
               <div className="flex items-center gap-2 font-semibold text-xs text-text-primary mb-1">
-                <span>🍎</span> Apple Kalender (iPhone, iPad, Mac)
+                <IconApple className="w-4 h-4 text-text-primary" />
+                <span>Apple Kalender (iPhone, iPad, Mac)</span>
               </div>
               <p className="text-[11px] text-text-secondary leading-relaxed">
                 In den iPhone-Einstellungen auf <strong>Kalender → Accounts → Account hinzufügen → Andere → Kalenderabo hinzufügen</strong> gehen, den Link einfügen und bestätigen. Termine erscheinen sofort im Apple Kalender.
@@ -145,7 +161,8 @@ export default function KalenderSyncModal({
             {/* Google Calendar */}
             <div className="p-3 bg-surface border border-border rounded-xl">
               <div className="flex items-center gap-2 font-semibold text-xs text-text-primary mb-1">
-                <span>🌐</span> Google Kalender
+                <IconGlobe className="w-4 h-4 text-primary-600" />
+                <span>Google Kalender</span>
               </div>
               <p className="text-[11px] text-text-secondary leading-relaxed">
                 Im Google Kalender im Browser links bei «Weitere Kalender» auf das <strong>+ Symbol</strong> klicken, <strong>«Per URL»</strong> auswählen und die Kalender-URL einfügen.
@@ -155,7 +172,8 @@ export default function KalenderSyncModal({
             {/* Outlook */}
             <div className="p-3 bg-surface border border-border rounded-xl">
               <div className="flex items-center gap-2 font-semibold text-xs text-text-primary mb-1">
-                <span>📧</span> Microsoft Outlook
+                <IconMail className="w-4 h-4 text-primary-600" />
+                <span>Microsoft Outlook</span>
               </div>
               <p className="text-[11px] text-text-secondary leading-relaxed">
                 In Outlook auf <strong>Kalender hinzufügen → Aus dem Web abonnieren</strong> klicken, URL einfügen und einen Namen (z.B. «{firmenname}») vergeben.

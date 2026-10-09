@@ -1,7 +1,7 @@
 {
-  "name": "Atelier 77 CRM",
-  "short_name": "Atelier 77",
-  "description": "Atelier 77 CRM Dashboard",
+  "name": "Kinetic Craft CRM",
+  "short_name": "Kinetic Craft",
+  "description": "Kinetic Craft CRM - Handwerker Software Schweiz",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8FAFC",

@@ -1,21 +1,58 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 const RechnungPrintView = lazy(() => import('./RechnungPrintView'))
+const MahnungPrintView = lazy(() => import('./MahnungPrintView'))
 import { formatMoney, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
+import { calculateSia118Schlussrechnung, calculateGarantieFreigabeDatum, roundToFiveRappen } from '../lib/sia118Helper'
 import { generateNextRechnungNr, generateNextGutschriftNr } from '../lib/documentService'
+import { formatUrl } from '../lib/router'
 import KatalogDrawer from '../components/KatalogDrawer'
 import TerminModal from '../components/kalender/TerminModal'
+import MahnungModal from '../components/mahnwesen/MahnungModal'
+import BetreibungsModal from '../components/mahnwesen/BetreibungsModal'
+import { getMahnVorschlag } from '../lib/mahnwesenHelper'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { useModalHistory } from '../hooks/useModalHistory'
+import {
+  IconFolder,
+  IconEye,
+  IconEdit,
+  IconCalendar,
+  IconDuplicate,
+  IconPackage,
+  IconTrash,
+  IconCheck,
+  IconPlus,
+  IconBook,
+  IconMoney,
+  IconFlash,
+  IconCreditCard,
+  IconClock,
+  IconBuilding,
+  IconNotes,
+  IconSave,
+  IconRefresh,
+  IconWarning,
+  IconQrBill,
+  IconDocument
+} from '../components/icons/BrandIcons'
 
-export default function RechnungDetailView({ rechnung, onBack, onNavigate, userRole }) {
-  const [kunde, setKunde] = useState(null)
-  const [projekt, setProjekt] = useState(null)
+function IconPrinter({ className = 'w-4 h-4' }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H7v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+    </svg>
+  )
+}
+
+export default function RechnungDetailView({ rechnung, onBack, onNavigate, userRole, viewParams }) {
+  const [kunde, setKunde] = useState(rechnung?.kunden || null)
+  const [projekt, setProjekt] = useState(rechnung?.projekte || null)
   const [settings, setSettings] = useState(null)
   const [status, setStatus] = useState(rechnung.status || 'Entwurf')
   const [isUpdating, setIsUpdating] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(rechnung?.id === 'demo' ? false : true)
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
   const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
@@ -29,6 +66,12 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
+
+  // Mahnwesen Modals & State
+  const [showMahnungModal, setShowMahnungModal] = useState(false)
+  const [showMahnungPrintView, setShowMahnungPrintView] = useState(false)
+  const [activeMahnung, setActiveMahnung] = useState(null)
+  const [showBetreibungsModal, setShowBetreibungsModal] = useState(false)
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
@@ -60,14 +103,37 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [editPauschalpreis, setEditPauschalpreis] = useState(null)
   const [isPauschal, setIsPauschal] = useState(false)
   const [showLivePreview, setShowLivePreview] = useState(false)
+  const [mobileEditTab, setMobileEditTab] = useState('form') // 'form' | 'preview'
+
+  // SIA 118 Schlussrechnung Edit State
+  const [editSia118Aktiv, setEditSia118Aktiv] = useState(false)
+  const [editAkontoAbzuege, setEditAkontoAbzuege] = useState([])
+  const [editRueckbehaltAktiv, setEditRueckbehaltAktiv] = useState(true)
+  const [editRueckbehaltProzent, setEditRueckbehaltProzent] = useState(5.0)
+  const [editAbgeloestGarantie, setEditAbgeloestGarantie] = useState(false)
+  const [editGarantieDauerJahre, setEditGarantieDauerJahre] = useState(2)
+  const [isLoadingProjectInvoices, setIsLoadingProjectInvoices] = useState(false)
 
   useUnsavedChanges(isDirty || isEditing)
   useModalHistory(showPrintView, () => setShowPrintView(false), 'print_rechnung')
+  useModalHistory(showMahnungPrintView, () => setShowMahnungPrintView(false), 'print_mahnung')
+  useModalHistory(showMahnungModal, () => setShowMahnungModal(false), 'modal_mahnung')
+  useModalHistory(showBetreibungsModal, () => setShowBetreibungsModal(false), 'modal_betreibung')
   useModalHistory(showKatalogDrawer, () => setShowKatalogDrawer(false), 'katalog_drawer')
+
+  useEffect(() => {
+    if (viewParams?.openMahnung) {
+      setShowMahnungModal(true)
+    }
+  }, [viewParams?.openMahnung])
 
   useEffect(() => {
     async function loadDetails() {
       if (!supabase || !rechnung) return
+      if (rechnung.id === 'demo') {
+        setIsLoading(false)
+        return
+      }
       
       try {
         setIsLoading(true)
@@ -407,7 +473,124 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     }
   }
 
+  const handleSaveMahnung = async ({ mahnungData, updatedRechnung }) => {
+    setIsUpdating(true)
+    try {
+      const updatePayload = {
+        daten: updatedRechnung.daten
+      }
+      if (updatedRechnung.status) {
+        updatePayload.status = updatedRechnung.status
+      }
+
+      if (supabase && rechnung.id !== 'demo') {
+        // GeBüV-Schutz: Wenn die Rechnung noch 'Versendet' oder 'Überfällig' ist,
+        // verlangt der Postgres-Trigger, dass der Statuswechsel (z.B. zu 'Gemahnt')
+        // vor der Aktualisierung der Mahndaten im JSON-Feld 'daten' erfolgt.
+        if (updatedRechnung.status && updatedRechnung.status !== rechnung.status) {
+          const { error: statusError } = await supabase
+            .from('rechnungen')
+            .update({ status: updatedRechnung.status })
+            .eq('id', rechnung.id)
+          if (statusError) throw statusError
+        }
+
+        const { error: datenError } = await supabase
+          .from('rechnungen')
+          .update({ daten: updatedRechnung.daten })
+          .eq('id', rechnung.id)
+        if (datenError) throw datenError
+      }
+
+      rechnung.daten = updatedRechnung.daten
+      if (updatedRechnung.status) {
+        rechnung.status = updatedRechnung.status
+        setStatus(updatedRechnung.status)
+      }
+
+      if (mahnungData) {
+        showToast('success', `${mahnungData.titel || 'Mahnung'} erfolgreich ausgestellt!`)
+        setActiveMahnung(mahnungData)
+        setShowMahnungPrintView(true)
+      } else {
+        showToast('success', 'Mahnwesen-Status aktualisiert.')
+      }
+    } catch (err) {
+      console.error('Fehler beim Speichern der Mahnung:', err)
+      showToast('error', 'Fehler beim Speichern der Mahnung.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   // ===== EDIT MODE FUNCTIONS =====
+  const handleImportProjectAkontos = async () => {
+    const projId = projekt?.id || rechnung.projekt_id
+    if (!projId || !supabase) {
+      showToast('error', 'Kein Projekt zugeordnet, aus dem Rechnungen importiert werden können.')
+      return
+    }
+
+    setIsLoadingProjectInvoices(true)
+    try {
+      const { data, error } = await supabase
+        .from('rechnungen')
+        .select('id, rechnung_nr, rechnungsdatum, total, typ, status')
+        .eq('projekt_id', projId)
+        .neq('id', rechnung.id)
+        .neq('status', 'Storniert')
+        .order('rechnungsdatum', { ascending: true })
+
+      if (error) throw error
+
+      if (!data || data.length === 0) {
+        showToast('error', 'Keine weiteren Rechnungen für dieses Projekt gefunden.')
+        return
+      }
+
+      const imported = data.map(r => ({
+        rechnung_id: r.id,
+        rechnung_nr: r.rechnung_nr || `RE-${r.id}`,
+        datum: r.rechnungsdatum || null,
+        betrag: parseFloat(r.total || 0),
+        titel: r.typ === 'akonto' ? 'Akonto-Rechnung' : 'Bisherige Rechnung'
+      }))
+
+      setEditAkontoAbzuege(imported)
+      showToast('success', `${imported.length} Rechnung(en) aus dem Projekt übernommen.`)
+    } catch (err) {
+      console.error('Fehler beim Laden der Projektrechnungen:', err)
+      showToast('error', 'Projektrechnungen konnten nicht geladen werden.')
+    } finally {
+      setIsLoadingProjectInvoices(false)
+    }
+  }
+
+  const handleAddAkontoAbzug = () => {
+    setEditAkontoAbzuege(prev => [
+      ...prev,
+      {
+        rechnung_id: null,
+        rechnung_nr: '',
+        datum: new Date().toISOString().split('T')[0],
+        betrag: 0,
+        titel: 'Akonto-Zahlung'
+      }
+    ])
+  }
+
+  const handleUpdateAkontoAbzug = (index, field, value) => {
+    setEditAkontoAbzuege(prev => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const handleDeleteAkontoAbzug = (index) => {
+    setEditAkontoAbzuege(prev => prev.filter((_, i) => i !== index))
+  }
+
   const startEditing = () => {
     const daten = rechnung.daten || {}
     const currentLeistungen = (daten.leistungen || []).map((pos, i) => ({
@@ -424,10 +607,36 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     setEditSchluss(daten.schlusstext || '')
     setEditPauschalpreis(daten.pauschalpreis || null)
     setIsPauschal(!!daten.pauschalpreis && parseFloat(daten.pauschalpreis) > 0)
+
+    // SIA 118 Setup
+    const isSchluss = rechnung.typ === 'schluss' || Boolean(daten.is_schlussrechnung) || Boolean(daten.sia118?.aktiv)
+    setEditSia118Aktiv(isSchluss)
+    setEditAkontoAbzuege(daten.akonto_abzuege ? JSON.parse(JSON.stringify(daten.akonto_abzuege)) : [])
+    setEditRueckbehaltAktiv(daten.sia118?.rueckbehalt?.aktiv ?? true)
+    setEditRueckbehaltProzent(daten.sia118?.rueckbehalt?.prozent ?? 5.0)
+    setEditAbgeloestGarantie(daten.sia118?.rueckbehalt?.abgeloestDurchGarantie ?? false)
+    setEditGarantieDauerJahre(daten.sia118?.rueckbehalt?.dauerJahre ?? 2)
+
+    setShowLivePreview(true)
+    setMobileEditTab('form')
     setIsEditing(true)
   }
 
+  const hasHandledEditParamRef = useRef(false)
+  useEffect(() => {
+    if (viewParams?.edit && !hasHandledEditParamRef.current && !isEditing && !isLoading) {
+      if (status === 'Entwurf' || status === 'Versendet' || status === 'Teilbezahlt') {
+        hasHandledEditParamRef.current = true
+        startEditing()
+      }
+    }
+  }, [viewParams, isLoading, isEditing, status])
+
   const cancelEditing = () => {
+    if (viewParams?.edit) {
+      delete viewParams.edit
+      window.history.replaceState(window.history.state, '', formatUrl('rechnungen', { rechnungId: rechnung.id }))
+    }
     setShowDiscardModal(true)
   }
 
@@ -437,6 +646,24 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       const cleanLeistungen = editLeistungen.map(({ _id, ...pos }) => pos)
       
       const { finalTotal } = calculateDocumentTotals(cleanLeistungen, editKonditionen, isPauschal ? editPauschalpreis : null)
+
+      let effectiveTotal = finalTotal
+      let siaCalc = null
+      if (editSia118Aktiv) {
+        siaCalc = calculateSia118Schlussrechnung({
+          gesamtwerkpreis: finalTotal,
+          akontoAbzuege: editAkontoAbzuege,
+          rueckbehalt: {
+            aktiv: editRueckbehaltAktiv,
+            prozent: parseFloat(editRueckbehaltProzent) || 5.0,
+            abgeloestDurchGarantie: editAbgeloestGarantie,
+            basis: 'gesamtwerkpreis',
+            dauerJahre: editGarantieDauerJahre
+          },
+          rechnungsdatum: editStammdaten.rechnungsdatum || rechnung.rechnungsdatum || new Date().toISOString()
+        })
+        effectiveTotal = siaCalc.faelligerSchlussbetrag
+      }
 
       const updatedDaten = {
         ...rechnung.daten,
@@ -448,17 +675,46 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         einleitungstext: editEinleitung || null,
         schlusstext: editSchluss || null,
         pauschalpreis: isPauschal ? parseFloat(editPauschalpreis) || null : null,
+        is_schlussrechnung: editSia118Aktiv,
+        gesamtwerkpreis: editSia118Aktiv ? finalTotal : (rechnung.daten?.gesamtwerkpreis || null),
+        akonto_abzuege: editSia118Aktiv ? editAkontoAbzuege : (rechnung.daten?.akonto_abzuege || []),
+        sia118: editSia118Aktiv ? {
+          aktiv: true,
+          rueckbehalt: {
+            aktiv: editRueckbehaltAktiv,
+            prozent: parseFloat(editRueckbehaltProzent) || 5.0,
+            abgeloestDurchGarantie: editAbgeloestGarantie,
+            basis: 'gesamtwerkpreis',
+            dauerJahre: editGarantieDauerJahre,
+            freigabe_datum: calculateGarantieFreigabeDatum(editStammdaten.rechnungsdatum || rechnung.rechnungsdatum || new Date().toISOString(), editGarantieDauerJahre)
+          },
+          berechnung: siaCalc
+        } : { aktiv: false }
+      }
+
+      const updatePayload = {
+        daten: updatedDaten,
+        total: effectiveTotal,
+        typ: editSia118Aktiv ? 'schluss' : (rechnung.typ === 'schluss' ? 'standard' : rechnung.typ)
       }
 
       await supabase
         .from('rechnungen')
-        .update({ daten: updatedDaten, total: finalTotal })
+        .update(updatePayload)
         .eq('id', rechnung.id)
       
       rechnung.daten = updatedDaten
-      rechnung.total = finalTotal
+      rechnung.total = effectiveTotal
+      rechnung.typ = updatePayload.typ
+
+      if (viewParams?.edit) {
+        delete viewParams.edit
+        window.history.replaceState(window.history.state, '', formatUrl('rechnungen', { rechnungId: rechnung.id }))
+      }
+
       setIsEditing(false)
-      showToast('success', 'Rechnung erfolgreich gespeichert!')
+      setMobileEditTab('form')
+      showToast('success', editSia118Aktiv ? 'SIA 118 Schlussrechnung erfolgreich gespeichert!' : 'Rechnung erfolgreich gespeichert!')
     } catch (err) {
       console.error('Fehler beim Speichern:', err)
       showToast('error', 'Fehler beim Speichern der Rechnung.')
@@ -503,14 +759,18 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     const newPositions = items.map(item => ({
       _id: Date.now() + Math.random(),
       posNr: '',
+      type: 'position',
       beschreibung: item.titel,
-      menge: '',
+      details: item.details || '',
+      npk_code: item.npk_code || item.npkCode || '',
+      npk_kapitel: item.npk_kapitel || item.kapitelCode || '',
+      menge: item.menge || '',
       einheit: item.einheit,
       einzelpreis: item.preis,
       kategorie: item.kategorie,
       optional: false,
     }))
-    setEditLeistungen(prev => [...prev, ...newPositions])
+    setEditLeistungen(prev => recalculatePositions([...prev, ...newPositions]))
     setShowKatalogDrawer(false)
   }
 
@@ -532,18 +792,65 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const editFinalTotal = editTotals.finalTotal
   const editOptionalTotal = editTotals.optionenTotal
 
+  // SIA 118 Calculations
+  const isSchluss = rechnung.typ === 'schluss' || Boolean(daten.is_schlussrechnung) || Boolean(daten.sia118?.aktiv)
+  const sia118ViewCalc = isSchluss ? calculateSia118Schlussrechnung({
+    gesamtwerkpreis: finalTotal,
+    akontoAbzuege: daten.akonto_abzuege || [],
+    rueckbehalt: daten.sia118?.rueckbehalt || {
+      aktiv: true,
+      prozent: 5.0,
+      abgeloestDurchGarantie: false,
+      basis: 'gesamtwerkpreis'
+    },
+    rechnungsdatum: rechnung.rechnungsdatum || rechnung.created_at || new Date().toISOString()
+  }) : null
+
+  const sia118EditCalc = editSia118Aktiv ? calculateSia118Schlussrechnung({
+    gesamtwerkpreis: editFinalTotal,
+    akontoAbzuege: editAkontoAbzuege,
+    rueckbehalt: {
+      aktiv: editRueckbehaltAktiv,
+      prozent: parseFloat(editRueckbehaltProzent) || 5.0,
+      abgeloestDurchGarantie: editAbgeloestGarantie,
+      basis: 'gesamtwerkpreis',
+      dauerJahre: editGarantieDauerJahre
+    },
+    rechnungsdatum: editStammdaten.rechnungsdatum || rechnung.rechnungsdatum || new Date().toISOString()
+  }) : null
+
+  const activeSia118Calc = isEditing ? sia118EditCalc : sia118ViewCalc
+  const activeIsSchluss = isEditing ? editSia118Aktiv : isSchluss
+
   const previewRechnung = isEditing ? {
     ...rechnung,
+    typ: editSia118Aktiv ? 'schluss' : rechnung.typ,
     daten: {
       ...rechnung.daten,
       leistungen: editLeistungen.map(({ _id, ...pos }) => pos),
       konditionen: editKonditionen,
       einleitungstext: editEinleitung,
       schlusstext: editSchluss,
-      pauschalpreis: isPauschal ? editPauschalpreis : null
+      pauschalpreis: isPauschal ? editPauschalpreis : null,
+      is_schlussrechnung: editSia118Aktiv,
+      akonto_abzuege: editSia118Aktiv ? editAkontoAbzuege : (daten.akonto_abzuege || []),
+      sia118: editSia118Aktiv ? {
+        aktiv: true,
+        rueckbehalt: {
+          aktiv: editRueckbehaltAktiv,
+          prozent: parseFloat(editRueckbehaltProzent) || 5.0,
+          abgeloestDurchGarantie: editAbgeloestGarantie,
+          basis: 'gesamtwerkpreis',
+          dauerJahre: editGarantieDauerJahre,
+          freigabe_datum: calculateGarantieFreigabeDatum(editStammdaten.rechnungsdatum || rechnung.rechnungsdatum || new Date().toISOString(), editGarantieDauerJahre)
+        },
+        berechnung: sia118EditCalc
+      } : { aktiv: false }
     },
-    total: editFinalTotal
+    total: editSia118Aktiv && sia118EditCalc ? sia118EditCalc.faelligerSchlussbetrag : editFinalTotal
   } : rechnung;
+
+  const mahnvorschlag = getMahnVorschlag(rechnung);
 
   if (showPrintView) {
     return (
@@ -553,28 +860,45 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     )
   }
 
+  if (showMahnungPrintView) {
+    return (
+      <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent" /></div>}>
+        <MahnungPrintView
+          rechnung={rechnung}
+          mahnung={activeMahnung}
+          kunde={kunde}
+          projekt={projekt}
+          settings={settings}
+          onClose={() => setShowMahnungPrintView(false)}
+        />
+      </Suspense>
+    )
+  }
+
   return (
-    <div className="space-y-6 relative">
+    <div className={`space-y-6 relative ${isEditing ? 'pb-32 sm:pb-24' : ''}`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Row 1: Back Button, Title, Saving State & Archive Status */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <button 
             onClick={handleBackClick}
-            className="p-2 rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer"
+            className="p-2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer shrink-0"
+            aria-label="Zurück"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl md:text-3xl font-bold text-text-primary truncate">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-text-primary truncate">
                 Rechnung {rechnung.rechnung_nr || `#${rechnung.id}`}
               </h2>
               {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-text-secondary text-sm">Erstellt am {formatDate(rechnung.created_at)}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
+              <p className="text-text-secondary text-xs sm:text-sm">Erstellt am {formatDate(rechnung.created_at)}</p>
               {rechnung.pdf_url ? (
                 <a
                   href={rechnung.pdf_url}
@@ -583,7 +907,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                   title="Archiviertes PDF anzeigen"
                 >
-                  <span>📁</span> Im Archiv gesichert
+                  <IconFolder className="w-3.5 h-3.5 inline text-emerald-700" /> <span className="hidden sm:inline">Im Archiv gesichert</span><span className="sm:hidden">Archiviert</span>
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 </a>
               ) : (
@@ -593,19 +917,20 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
                   title="PDF generieren und im Archiv ablegen"
                 >
-                  <span>📁</span> Noch nicht archiviert
+                  <IconFolder className="w-3.5 h-3.5 inline text-amber-700" /> <span className="hidden sm:inline">Noch nicht archiviert</span><span className="sm:hidden">Nicht archiviert</span>
                 </button>
               )}
             </div>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Row 2: Status Dropdown + Primary Action + Icon Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap">
           <select
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={isUpdating || userRole === 'treuhand'}
-            className={`px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 ${
+            className={`min-w-0 max-w-[125px] sm:max-w-none flex-1 sm:flex-none px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 text-xs sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 truncate ${
               status === 'Entwurf' ? 'bg-neutral-100 text-text-primary border-transparent hover:bg-neutral-200' :
               status === 'Versendet' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
               status === 'Bezahlt' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
@@ -625,36 +950,71 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           {isEditing && (
             <button
               onClick={() => setShowLivePreview(!showLivePreview)}
-              className={`hidden xl:inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 font-bold text-base sm:text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
+              className={`hidden xl:inline-flex items-center gap-2 px-4 py-2.5 font-bold text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
                 showLivePreview ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-surface border-border text-text-secondary'
               }`}
               title="Split-Screen Live-Vorschau (nur Desktop)"
             >
-              {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+              <IconEye className={`w-4 h-4 ${showLivePreview ? 'text-primary-700' : 'text-text-secondary'}`} />
+              <span>{showLivePreview ? 'Live-Vorschau an' : 'Live-Vorschau aus'}</span>
             </button>
           )}
+
+          {/* Edit Button */}
           {!isEditing && userRole !== 'treuhand' && status === 'Entwurf' && (
             <button
               onClick={startEditing}
-              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-base sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm shrink-0"
             >
-              ✏️ Rechnung bearbeiten
+              <IconEdit className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Rechnung bearbeiten</span>
+              <span className="sm:hidden">Bearbeiten</span>
             </button>
           )}
+
+          {/* Mahnwesen Button */}
+          {userRole !== 'treuhand' && status !== 'Bezahlt' && status !== 'Storniert' && (status === 'Überfällig' || status === 'Gemahnt' || rechnung?.daten?.mahnstopp || (rechnung.daten?.mahnungen && rechnung.daten.mahnungen.length > 0)) && (
+            <button
+              type="button"
+              onClick={() => setShowMahnungModal(true)}
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer shadow-xs border shrink-0 ${
+                rechnung?.daten?.mahnstopp
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                  : status === 'Gemahnt'
+                    ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                    : 'bg-orange-50 text-orange-800 border-orange-300 hover:bg-orange-100'
+              }`}
+              title="Schweizer Mahnwesen öffnen"
+            >
+              <IconWarning className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">
+                {rechnung?.daten?.mahnstopp 
+                  ? 'Mahnstopp' 
+                  : rechnung?.daten?.mahnstufe 
+                    ? `Mahnstufe ${rechnung.daten.mahnstufe}` 
+                    : 'Mahnen'}
+              </span>
+              <span className="sm:hidden">Mahnen</span>
+            </button>
+          )}
+
+          {/* PDF Button */}
           <button
             onClick={() => setShowPrintView(true)}
-            className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 p-2 sm:px-4 sm:py-2.5 min-w-[40px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-primary-600 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer shrink-0"
+            title="PDF anzeigen"
+            aria-label="PDF anzeigen"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span className="hidden sm:inline">PDF anzeigen</span>
-            <span className="sm:hidden">PDF</span>
           </button>
           
           {userRole !== 'treuhand' && (
-          <div className="relative">
+          <div className="relative shrink-0">
             <button 
               onClick={() => setShowActionMenu(!showActionMenu)}
-              className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors shrink-0 cursor-pointer"
+              className="p-2 min-w-[40px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors cursor-pointer shrink-0"
+              aria-label="Aktionsmenü"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
             </button>
@@ -665,25 +1025,46 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 <div className="absolute right-0 top-12 w-56 bg-surface-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-slide-in-right sm:animate-fade-in-up">
                   <div className="p-1">
                     <button 
+                      onClick={() => { setShowActionMenu(false); setShowMahnungModal(true); }}
+                      disabled={isDirty || isEditing}
+                      className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <IconWarning className="w-4 h-4 text-orange-600 shrink-0" />
+                      <span>Mahnwesen (Stufen 1–3)</span>
+                    </button>
+                    {(rechnung?.daten?.mahnstufe >= 3 || (rechnung?.daten?.mahnungen || []).some(m => m.stufe >= 3)) && (
+                      <button 
+                        onClick={() => { setShowActionMenu(false); setShowBetreibungsModal(true); }}
+                        disabled={isDirty || isEditing}
+                        className="w-full text-left px-3 py-2 text-sm font-bold text-rose-700 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <IconDocument className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Betreibung (Art. 67 SchKG)</span>
+                      </button>
+                    )}
+                    <button 
                       onClick={() => { setShowActionMenu(false); openPlanTermin('Zahlungserinnerung'); }}
                       disabled={isDirty || isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-lg">📅</span> Zahlungserinnerung / Termin
+                      <IconCalendar className="w-4 h-4 text-primary-600 shrink-0" />
+                      <span>Zahlungserinnerung / Termin</span>
                     </button>
                     <button 
                       onClick={() => { setShowActionMenu(false); setShowDuplicateModal(true); }}
                       disabled={isDirty || isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-lg">📋</span> Duplizieren
+                      <IconDuplicate className="w-4 h-4 text-primary-600 shrink-0" />
+                      <span>Duplizieren</span>
                     </button>
                     <button 
                       onClick={() => { setShowActionMenu(false); setShowGutschriftModal(true); }}
                       disabled={isDirty || isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-lg">↩️</span> Gutschrift erstellen
+                      <IconQrBill className="w-4 h-4 text-primary-600 shrink-0" />
+                      <span>Gutschrift erstellen</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -697,7 +1078,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       disabled={isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-lg">📦</span> {rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}
+                      <IconPackage className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>{rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -711,7 +1093,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       disabled={isEditing}
                       className="w-full text-left px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer mt-1 border-t border-border pt-2"
                     >
-                      <span className="text-lg">🗑️</span> Rechnung löschen
+                      <IconTrash className="w-4 h-4 text-red-600 shrink-0" />
+                      <span>Rechnung löschen</span>
                     </button>
                   </div>
                 </div>
@@ -726,7 +1109,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       {rechnung.is_archived && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3 mt-4 animate-fade-in">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📁</span>
+            <IconFolder className="w-5 h-5 text-amber-800 shrink-0" />
             <span>Diese Rechnung ist <strong>archiviert</strong>.</span>
           </div>
           <button
@@ -736,6 +1119,80 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
             Wiederherstellen
           </button>
         </div>
+      )}
+
+      {/* Schweizer Mahnwesen Banner */}
+      {!rechnung.is_archived && userRole !== 'treuhand' && (
+        <>
+          {rechnung?.daten?.mahnstopp ? (
+            <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 animate-fade-in shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">⏸️</span>
+                <div>
+                  <span className="font-bold">Mahnstopp aktiv:</span>{' '}
+                  <span>{rechnung.daten.mahnstopp_grund || 'Automatische Mahnungen pausiert (z.B. wegen Klärung/Ratenzahlung)'}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMahnungModal(true)}
+                className="px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                Mahnstopp anpassen / aufheben
+              </button>
+            </div>
+          ) : (status === 'Überfällig' || status === 'Gemahnt') && (
+            <div className={`border px-4 py-3 rounded-xl text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 animate-fade-in shadow-xs ${
+              mahnvorschlag.status === 'betreibung_bereit'
+                ? 'bg-rose-50 border-rose-300 text-rose-950'
+                : status === 'Gemahnt'
+                  ? 'bg-orange-50 border-orange-200 text-orange-950'
+                  : 'bg-red-50 border-red-200 text-red-950'
+            }`}>
+              <div className="flex items-start sm:items-center gap-2.5">
+                <IconWarning className={`w-5 h-5 mt-0.5 sm:mt-0 shrink-0 ${
+                  mahnvorschlag.status === 'betreibung_bereit' ? 'text-rose-600' : 'text-orange-600'
+                }`} />
+                <div>
+                  <span className="font-bold">
+                    {mahnvorschlag.status === 'betreibung_bereit' 
+                      ? 'SchKG-Betreibung bereit:' 
+                      : rechnung?.daten?.mahnstufe 
+                        ? `Mahnstufe ${rechnung.daten.mahnstufe} aktiv:` 
+                        : 'Rechnung überfällig:'}
+                  </span>{' '}
+                  <span className="text-xs sm:text-sm">{mahnvorschlag.empfehlung}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowMahnungModal(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                    mahnvorschlag.status === 'betreibung_bereit'
+                      ? 'bg-neutral-800 hover:bg-neutral-900 text-white'
+                      : 'bg-primary-600 hover:bg-primary-700 text-white'
+                  }`}
+                >
+                  {mahnvorschlag.status === 'betreibung_bereit'
+                    ? 'Mahnung / Eskalation'
+                    : `Mahnung Stufe ${mahnvorschlag.naechsteStufe || 1} erstellen`}
+                </button>
+
+                {mahnvorschlag.status === 'betreibung_bereit' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBetreibungsModal(true)}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                  >
+                    Betreibung vorbereiten →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Warnung bei ungespeicherten Änderungen, falls man Quick Actions nutzen will */}
@@ -752,6 +1209,39 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
       
 
+      {/* Mobile / Tablet Tab Switcher (Sticky Sub-Header for < xl screens) */}
+      {isEditing && (
+        <div className="xl:hidden sticky top-0 sm:top-2 z-20 bg-surface/95 backdrop-blur-md border-b border-border py-2 px-3 mb-4 -mx-4 sm:-mx-6 sm:px-6 shadow-xs flex items-center justify-center">
+          <div className="grid grid-cols-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200/80 shadow-inner w-full max-w-sm">
+            <button
+              type="button"
+              onClick={() => setMobileEditTab('form')}
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                mobileEditTab === 'form'
+                  ? 'bg-white text-primary-700 shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <IconEdit className="w-3.5 h-3.5" />
+              <span>Bearbeiten</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileEditTab('preview')}
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                mobileEditTab === 'preview'
+                  ? 'bg-white text-primary-700 shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <IconEye className="w-3.5 h-3.5" />
+              <span>A4-Vorschau</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-xs">
           <div className="h-6 bg-gray-200 rounded w-1/4"></div>
@@ -759,8 +1249,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           <div className="h-20 bg-gray-200 rounded w-full"></div>
         </div>
       ) : (
-        <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
-          <div className="animate-fade-in">
+        <div className={(showLivePreview || mobileEditTab === 'preview') && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+          <div className={`animate-fade-in ${isEditing && mobileEditTab === 'preview' ? 'hidden xl:block' : 'block'}`}>
             <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-12' : ''} gap-8 items-start`}>
               
               {/* ================= LEFT COLUMN: DOKUMENTENFLUSS ================= */}
@@ -778,8 +1268,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 {status === 'Teilbezahlt' && (
                   <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs animate-fade-in">
                     <div className="flex items-start sm:items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl shrink-0">
-                        ⏳
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                        <IconClock className="w-5 h-5 text-purple-700" />
                       </div>
                       <div>
                         <p className="text-sm font-bold text-purple-900">Teilweise bezahlt</p>
@@ -801,8 +1291,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 {status === 'Bezahlt' && rechnung.bezahlt_am && (
                   <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs animate-fade-in">
                     <div className="flex items-start sm:items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
-                        ✅
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                        <IconCheck className="w-5 h-5 text-emerald-800" />
                       </div>
                       <div>
                         <p className="text-sm font-bold text-emerald-900">Vollständig bezahlt am {formatDate(rechnung.bezahlt_am)}</p>
@@ -871,20 +1361,22 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       </p>
                     </div>
                     {isEditing && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap sm:flex-wrap">
                         <button
                           type="button"
                           onClick={addPosition}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs shrink-0"
                         >
-                          <span>➕</span> Position hinzufügen
+                          <IconPlus className="w-3.5 h-3.5 text-primary-600" />
+                          <span>Position hinzufügen</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowKatalogDrawer(true)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-xl hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs shrink-0"
                         >
-                          <span>📖</span> Katalog
+                          <IconBook className="w-3.5 h-3.5 text-primary-600" />
+                          <span>Katalog</span>
                         </button>
                       </div>
                     )}
@@ -1051,10 +1543,10 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                               />
                             </div>
 
-                            {/* Row 3: Menge, Einheit, Preis, Total */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pl-2 sm:pl-10">
+                            {/* Row 3: Menge, Einheit, Preis, Total (2x2 on mobile, 4 cols on desktop) */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pl-0 sm:pl-10">
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Menge</label>
                                 <input
                                   type="number"
                                   step="any"
@@ -1065,7 +1557,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
                                 <input
                                   type="text"
                                   value={pos.einheit || ''}
@@ -1075,7 +1567,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einzelpreis (CHF)</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Einzelpreis (CHF)</label>
                                 <input
                                   type="number"
                                   step="0.05"
@@ -1086,8 +1578,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
-                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary">
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Total</label>
+                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary flex items-center h-[34px] sm:h-[38px] truncate">
                                   CHF {formatMoney((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
                                 </div>
                               </div>
@@ -1158,6 +1650,245 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                     </div>
                   )}
 
+                  {/* SIA 118 Schlussrechnung Editor Section */}
+                  {isEditing && (
+                    <div className="p-5 border-t border-border bg-amber-50/25 space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="sia118_toggle"
+                            checked={editSia118Aktiv}
+                            onChange={(e) => setEditSia118Aktiv(e.target.checked)}
+                            className="accent-amber-600 w-4 h-4 cursor-pointer"
+                          />
+                          <label htmlFor="sia118_toggle" className="text-sm font-bold text-text-primary cursor-pointer flex items-center gap-2">
+                            <span>SIA 118 Schlussrechnung</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                              Art. 154 / 181
+                            </span>
+                          </label>
+                        </div>
+                        {editSia118Aktiv && (
+                          <button
+                            type="button"
+                            onClick={handleImportProjectAkontos}
+                            disabled={isLoadingProjectInvoices || (!projekt?.id && !rechnung.projekt_id)}
+                            className="px-3 py-1.5 bg-white border border-amber-300 text-amber-900 text-xs font-bold rounded-lg hover:bg-amber-50 active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {isLoadingProjectInvoices ? (
+                              <svg className="animate-spin w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            ) : (
+                              <IconRefresh className="w-3.5 h-3.5 text-amber-700" />
+                            )}
+                            <span>Akontos aus Projekt importieren</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {editSia118Aktiv && (
+                        <div className="space-y-4 pt-2 border-t border-amber-200/60">
+                          {/* 1. Akonto-Abzüge */}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                                1. Anrechnung bisherige Akonto-Rechnungen (SIA 118 Art. 154)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={handleAddAkontoAbzug}
+                                className="text-xs font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
+                              >
+                                + Akonto hinzufügen
+                              </button>
+                            </div>
+
+                            {editAkontoAbzuege.length === 0 ? (
+                              <div className="p-3 bg-white/70 rounded-xl border border-dashed border-amber-300 text-xs text-text-secondary text-center">
+                                Noch keine Akonto-Abzüge erfasst. Klicke auf "Akontos aus Projekt importieren" oder füge manuell eine Akonto-Rechnung hinzu.
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                {editAkontoAbzuege.map((ak, idx) => (
+                                  <div key={idx} className="p-2.5 bg-white rounded-xl border border-amber-200/80 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs">
+                                    <div className="sm:col-span-5">
+                                      <input
+                                        type="text"
+                                        value={ak.rechnung_nr || ''}
+                                        onChange={(e) => handleUpdateAkontoAbzug(idx, 'rechnung_nr', e.target.value)}
+                                        placeholder="Rechnungs-Nr. (z.B. RE-2026-001)"
+                                        className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs"
+                                      />
+                                    </div>
+                                    <div className="sm:col-span-3">
+                                      <input
+                                        type="date"
+                                        value={ak.datum ? ak.datum.split('T')[0] : ''}
+                                        onChange={(e) => handleUpdateAkontoAbzug(idx, 'datum', e.target.value)}
+                                        className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs"
+                                      />
+                                    </div>
+                                    <div className="sm:col-span-3 flex items-center gap-1">
+                                      <span className="text-text-secondary font-bold">CHF</span>
+                                      <input
+                                        type="number"
+                                        step="0.05"
+                                        value={ak.betrag}
+                                        onChange={(e) => handleUpdateAkontoAbzug(idx, 'betrag', parseFloat(e.target.value) || 0)}
+                                        placeholder="0.00"
+                                        className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs font-semibold text-right"
+                                      />
+                                    </div>
+                                    <div className="sm:col-span-1 flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteAkontoAbzug(idx)}
+                                        className="p-1.5 text-text-secondary hover:text-red-600 rounded-lg hover:bg-red-50 cursor-pointer"
+                                        title="Löschen"
+                                      >
+                                        <IconTrash className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                <div className="flex justify-between items-center px-3 py-1.5 bg-amber-100/50 rounded-lg text-xs font-bold text-amber-950">
+                                  <span>Total Akonto-Abzüge:</span>
+                                  <span>- CHF {formatMoney(editAkontoAbzuege.reduce((sum, a) => sum + parseFloat(a.betrag || 0), 0))}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 2. Garantie-Rückbehalt (SIA 118 Art. 181) */}
+                          <div className="pt-3 border-t border-amber-200/60 space-y-3">
+                            <span className="text-xs font-bold uppercase tracking-wider text-amber-950 block">
+                              2. Garantie-Rückbehalt (SIA 118 Art. 181)
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <label className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-amber-200 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editRueckbehaltAktiv}
+                                  onChange={(e) => setEditRueckbehaltAktiv(e.target.checked)}
+                                  className="accent-amber-600 w-4 h-4"
+                                />
+                                <span className="text-xs font-bold text-text-primary">Garantie-Rückbehalt anwenden</span>
+                              </label>
+
+                              {editRueckbehaltAktiv && (
+                                <div className="flex items-center gap-2 p-2.5 bg-white rounded-xl border border-amber-200">
+                                  <span className="text-xs text-text-secondary font-medium">Satz:</span>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="50"
+                                    value={editRueckbehaltProzent}
+                                    onChange={(e) => setEditRueckbehaltProzent(parseFloat(e.target.value) || 0)}
+                                    className="w-16 px-2 py-1 bg-surface border border-border rounded-lg text-xs font-bold text-right"
+                                  />
+                                  <span className="text-xs font-bold text-text-secondary">% (Standard: 5.0%)</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {editRueckbehaltAktiv && (
+                              <div className="p-3 bg-white rounded-xl border border-amber-200 space-y-2">
+                                <label className="flex items-start sm:items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={editAbgeloestGarantie}
+                                    onChange={(e) => setEditAbgeloestGarantie(e.target.checked)}
+                                    className="accent-amber-600 w-4 h-4 mt-0.5 sm:mt-0"
+                                  />
+                                  <div className="text-xs">
+                                    <span className="font-bold text-text-primary">Durch Bankgarantie / Versicherungsbürgschaft abgelöst</span>
+                                    <span className="text-text-secondary block mt-0.5">Gemäss SIA 118 Art. 181 Abs. 3: Kein Barabzug, 100% Auszahlung bei Vorlage einer Solidarbürgschaft.</span>
+                                  </div>
+                                </label>
+
+                                <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-xs text-text-secondary flex-wrap gap-2">
+                                  <span>Rügefrist nach SIA 118 Art. 172: <strong>{editGarantieDauerJahre} Jahre</strong></span>
+                                  <span>Freigabe fällig: <strong>{formatDate(calculateGarantieFreigabeDatum(editStammdaten.rechnungsdatum || rechnung.rechnungsdatum || new Date().toISOString(), editGarantieDauerJahre))}</strong></span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SIA 118 Schlussabrechnung View Card */}
+                  {!isEditing && isSchluss && sia118ViewCalc && (
+                    <div className="p-5 border-t border-border bg-amber-50/30 space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                          <h4 className="text-sm font-bold text-amber-950 uppercase tracking-wider">
+                            SIA 118 Schlussabrechnung & Baugarantie
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            Art. 154 (Akonto)
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            Art. 181 (5% Garantie)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-xl border border-amber-200/80 overflow-hidden divide-y divide-amber-100 text-xs">
+                        <div className="p-3 flex justify-between items-center bg-amber-50/40">
+                          <span className="font-semibold text-text-secondary">Gesamtwerkpreis (brutto inkl. MwSt):</span>
+                          <span className="font-bold text-text-primary">CHF {formatMoney(sia118ViewCalc.gesamtwerkpreis)}</span>
+                        </div>
+
+                        {sia118ViewCalc.akontoAbzuege.length > 0 && (
+                          <div className="p-3 space-y-1.5">
+                            <span className="font-bold text-text-secondary block mb-1">Angerechnete Akontozahlungen:</span>
+                            {sia118ViewCalc.akontoAbzuege.map((ak, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-text-secondary pl-2">
+                                <span>– Akonto {ak.rechnung_nr || `#${idx + 1}`}{ak.datum ? ` vom ${formatDate(ak.datum)}` : ''}</span>
+                                <span className="font-mono font-medium text-red-600">– CHF {formatMoney(ak.betrag)}</span>
+                              </div>
+                            ))}
+                            <div className="pt-1.5 border-t border-neutral-100 flex justify-between items-center font-semibold text-text-primary">
+                              <span>Zwischentotal nach Akonto:</span>
+                              <span>CHF {formatMoney(sia118ViewCalc.restbetragNachAkonto)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="p-3 flex justify-between items-center">
+                          <div>
+                            <span className="font-semibold text-text-primary block">
+                              Garantie-Rückbehalt ({sia118ViewCalc.rueckbehaltProzent}% gem. SIA 118 Art. 181)
+                            </span>
+                            <span className="text-[11px] text-text-secondary">
+                              {sia118ViewCalc.abgeloestDurchGarantie
+                                ? 'Abgelöst durch Bankgarantie / Versicherungsbürgschaft (Art. 181 Abs. 3)'
+                                : `Rügefrist bis ${formatDate(sia118ViewCalc.freigabeDatum)} (2 Jahre gem. Art. 172)`}
+                            </span>
+                          </div>
+                          <span className={`font-bold font-mono ${sia118ViewCalc.abgeloestDurchGarantie ? 'text-text-secondary' : 'text-amber-800'}`}>
+                            {sia118ViewCalc.abgeloestDurchGarantie ? 'CHF 0.00 (Bürgschaft)' : `– CHF ${formatMoney(sia118ViewCalc.garantieBetrag)}`}
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 bg-amber-100/60 flex justify-between items-center">
+                          <span className="font-bold text-sm text-amber-950">FÄLLIGER SCHLUSSBETRAG:</span>
+                          <span className="font-bold text-base text-amber-950 font-mono">
+                            CHF {formatMoney(sia118ViewCalc.faelligerSchlussbetrag)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Schlusstext */}
                   {(isEditing || daten.schlusstext) && (
                     <div className="p-5 border-t border-border bg-surface/20 space-y-3">
@@ -1209,7 +1940,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                      <span>💰</span> Kalkulation {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
+                      <IconMoney className="w-4 h-4 text-primary-600" />
+                      <span>Kalkulation</span> {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
                     </h3>
                     <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 font-medium rounded-full">
                       CHF
@@ -1217,44 +1949,99 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   </div>
 
                   <div className="space-y-2.5 text-sm">
-                    <div className="flex justify-between items-center text-text-secondary">
-                      <span>Zwischensumme</span>
-                      <span className="font-semibold text-text-primary">
-                        CHF {formatMoney(isEditing ? editRawTotal : rawTotal)}
-                      </span>
-                    </div>
+                    {activeIsSchluss && activeSia118Calc ? (
+                      <>
+                        <div className="flex justify-between items-center text-text-secondary">
+                          <span>Gesamtwerkpreis</span>
+                          <span className="font-semibold text-text-primary">
+                            CHF {formatMoney(activeSia118Calc.gesamtwerkpreis)}
+                          </span>
+                        </div>
 
-                    {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
-                      <div className="flex justify-between items-center text-red-600 font-medium">
-                        <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
-                        <span>- CHF {formatMoney(isEditing ? editRabattBetrag : rabattBetrag)}</span>
-                      </div>
+                        {activeSia118Calc.akontoAbzuege.length > 0 && (
+                          <div className="space-y-1 py-1.5 border-y border-dashed border-border text-xs">
+                            <span className="text-text-secondary block font-semibold">Akonto-Abzüge:</span>
+                            {activeSia118Calc.akontoAbzuege.map((ak, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-red-600 pl-1.5">
+                                <span>– {ak.rechnung_nr || `Akonto #${idx + 1}`}</span>
+                                <span className="font-mono">– CHF {formatMoney(ak.betrag)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between items-center pt-1 font-medium text-text-primary">
+                              <span>Nach Akonto-Abzug</span>
+                              <span>CHF {formatMoney(activeSia118Calc.restbetragNachAkonto)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeSia118Calc.garantieAktiv && (
+                          <div className="flex justify-between items-center text-amber-900 font-medium text-xs bg-amber-50/80 p-2 rounded-lg border border-amber-200">
+                            <div>
+                              <span className="font-bold">Rückbehalt ({activeSia118Calc.rueckbehaltProzent}%)</span>
+                              <span className="block text-[10px] text-amber-700">
+                                {activeSia118Calc.abgeloestDurchGarantie ? 'SIA 118 Art. 181 Abs. 3 (Bürgschaft)' : 'SIA 118 Art. 181'}
+                              </span>
+                            </div>
+                            <span className="font-mono font-bold">
+                              {activeSia118Calc.abgeloestDurchGarantie ? 'CHF 0.00' : `– CHF ${formatMoney(activeSia118Calc.garantieBetrag)}`}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="pt-3 border-t-2 border-primary-500 flex justify-between items-baseline bg-primary-50/40 p-2.5 rounded-xl border border-primary-200">
+                          <div>
+                            <span className="text-xs font-bold uppercase tracking-wider text-primary-950 block">Fälliger Betrag</span>
+                            <span className="text-[10px] text-primary-700 font-medium">Schlusszahlung</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xl sm:text-2xl font-bold text-primary-950 tracking-tight block font-mono">
+                              CHF {formatMoney(activeSia118Calc.faelligerSchlussbetrag)}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center text-text-secondary">
+                          <span>Zwischensumme</span>
+                          <span className="font-semibold text-text-primary">
+                            CHF {formatMoney(isEditing ? editRawTotal : rawTotal)}
+                          </span>
+                        </div>
+
+                        {(isEditing ? editKonditionen.rabatt : rabatt) > 0 && (
+                          <div className="flex justify-between items-center text-red-600 font-medium">
+                            <span>Rabatt ({isEditing ? editKonditionen.rabatt : rabatt}%)</span>
+                            <span>- CHF {formatMoney(isEditing ? editRabattBetrag : rabattBetrag)}</span>
+                          </div>
+                        )}
+
+                        {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
+                          <div className="flex justify-between items-center text-text-secondary">
+                            <span>MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
+                            <span className="font-medium text-text-primary">
+                              CHF {formatMoney(isEditing ? editMwstBetrag : mwstBetrag)}
+                            </span>
+                          </div>
+                        )}
+
+                        {isEditing && isPauschal && editPauschalpreis && (
+                          <div className="flex justify-between items-center text-amber-700 font-medium text-xs bg-amber-50 px-2 py-1 rounded-md">
+                            <span className="inline-flex items-center gap-1"><IconFlash className="w-3.5 h-3.5" /> Pauschalpreis fixiert</span>
+                            <span>aktiv</span>
+                          </div>
+                        )}
+
+                        <div className="pt-3 border-t border-border flex justify-between items-baseline">
+                          <span className="text-base font-bold text-text-primary">Total</span>
+                          <div className="text-right">
+                            <span className="text-2xl font-bold text-text-primary tracking-tight block">
+                              CHF {formatMoney(isEditing ? editFinalTotal : finalTotal)}
+                            </span>
+                          </div>
+                        </div>
+                      </>
                     )}
-
-                    {(isEditing ? editKonditionen.mwst : mwst) > 0 && (
-                      <div className="flex justify-between items-center text-text-secondary">
-                        <span>MwSt ({isEditing ? editKonditionen.mwst : mwst}%)</span>
-                        <span className="font-medium text-text-primary">
-                          CHF {formatMoney(isEditing ? editMwstBetrag : mwstBetrag)}
-                        </span>
-                      </div>
-                    )}
-
-                    {isEditing && isPauschal && editPauschalpreis && (
-                      <div className="flex justify-between items-center text-amber-700 font-medium text-xs bg-amber-50 px-2 py-1 rounded-md">
-                        <span>⚡ Pauschalpreis fixiert</span>
-                        <span>aktiv</span>
-                      </div>
-                    )}
-
-                    <div className="pt-3 border-t border-border flex justify-between items-baseline">
-                      <span className="text-base font-bold text-text-primary">Total</span>
-                      <div className="text-right">
-                        <span className="text-2xl font-bold text-text-primary tracking-tight block">
-                          CHF {formatMoney(isEditing ? editFinalTotal : finalTotal)}
-                        </span>
-                      </div>
-                    </div>
 
                     {(isEditing ? editOptionalTotal : optionenTotal) > 0 && (
                       <div className="pt-2 border-t border-dashed border-border flex justify-between text-xs text-text-secondary">
@@ -1272,7 +2059,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                   <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                        <span>💳</span> Zahlungseingang
+                        <IconCreditCard className="w-4 h-4 text-primary-600" />
+                        <span>Zahlungseingang</span>
                       </h3>
                       {parseFloat(rechnung.bezahlt) > 0 && (
                         <span className="text-xs text-purple-700 bg-purple-50 font-bold px-2 py-0.5 rounded-full border border-purple-200">
@@ -1314,7 +2102,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                             disabled={isUpdating}
                             className="w-full py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
                           >
-                            <span>💰</span> Zahlung erfassen
+                            <IconMoney className="w-4 h-4" />
+                            <span>Zahlung erfassen</span>
                           </button>
                         </div>
                       )
@@ -1420,7 +2209,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 {/* 3. Rechnungsdaten & Fristen Card */}
                 <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>📅</span> Fristen & Rechnungsdaten
+                    <IconClock className="w-4 h-4 text-primary-600" />
+                    <span>Fristen & Rechnungsdaten</span>
                   </h3>
 
                   <div className="space-y-3">
@@ -1466,7 +2256,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                             className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
                             title="Im Kalender ansehen"
                           >
-                            <span>📅 Im Kalender ansehen</span>
+                            <IconCalendar className="w-3.5 h-3.5" />
+                            <span>Im Kalender ansehen</span>
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </button>
                         )}
@@ -1481,7 +2272,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 {/* 4. Stammdaten (Kunde, Projekt, Bankverbindung) */}
                 <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>🏢</span> Stammdaten & Zuweisung
+                    <IconBuilding className="w-4 h-4 text-primary-600" />
+                    <span>Stammdaten & Zuweisung</span>
                   </h3>
 
                   <div className="space-y-3 text-sm">
@@ -1528,24 +2320,38 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                     {/* Rechnungstyp */}
                     <div className="p-3 bg-surface rounded-xl border border-border/60 flex items-center justify-between text-xs">
                       <span className="text-text-secondary font-medium">Rechnungstyp:</span>
-                      <span className="font-bold text-text-primary capitalize">
-                        {rechnung.typ || 'gesamt'}
-                        {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+                      <span className="font-bold text-text-primary capitalize flex items-center gap-1.5">
+                        {(rechnung.typ === 'schluss' || daten?.is_schlussrechnung || daten?.sia118?.aktiv) ? (
+                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold text-[11px]">
+                            SIA 118 Schlussrechnung
+                          </span>
+                        ) : (
+                          <>
+                            {rechnung.typ || 'gesamt'}
+                            {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+                          </>
+                        )}
                       </span>
                     </div>
 
-                    {/* Bankverbindung */}
-                    <div className="p-3 bg-surface rounded-xl border border-border/60 text-xs space-y-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Zahlungsverbindung</span>
-                      {settings?.iban ? (
-                        <>
-                          <p className="text-text-primary font-mono text-[11px]">{settings.iban}</p>
-                          {settings.bank_name && <p className="text-text-secondary">{settings.bank_name}</p>}
-                        </>
-                      ) : (
-                        <p className="text-text-secondary italic">Keine IBAN in den Einstellungen hinterlegt.</p>
-                      )}
-                    </div>
+                      {/* Bankverbindung */}
+                      <div className="p-3 bg-surface rounded-xl border border-border/60 text-xs space-y-1">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary block">Zahlungsverbindung</span>
+                        {(settings?.bankverbindung || settings?.qr_iban || settings?.iban) ? (
+                          <>
+                            <p className="text-text-primary font-mono text-[11px] font-medium">
+                              IBAN: {settings.bankverbindung || settings.iban || settings.qr_iban}
+                            </p>
+                            {settings.qr_iban && settings.qr_iban !== (settings.bankverbindung || settings.iban) && (
+                              <p className="text-text-secondary font-mono text-[10px]">
+                                QR-IBAN: {settings.qr_iban}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-text-secondary italic">Keine IBAN in den Einstellungen hinterlegt.</p>
+                        )}
+                      </div>
                   </div>
                 </div>
 
@@ -1553,7 +2359,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                      <span>📝</span> Interne Notizen
+                      <IconNotes className="w-4 h-4 text-primary-600" />
+                      <span>Interne Notizen</span>
                     </h3>
                   </div>
                   <textarea 
@@ -1564,6 +2371,107 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                     placeholder="Absprachen, Zahlungsversprechen, Besonderheiten..."
                   />
                 </div>
+
+                {/* 6. Schweizer Mahnwesen & Historie Card */}
+                {userRole !== 'treuhand' && (
+                  <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
+                        <IconWarning className="w-4 h-4 text-orange-600" />
+                        <span>Mahnwesen & SchKG</span>
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowMahnungModal(true)}
+                        className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors cursor-pointer"
+                      >
+                        {rechnung?.daten?.mahnstopp ? 'Mahnstopp anpassen' : 'Mahnung öffnen →'}
+                      </button>
+                    </div>
+
+                    {rechnung?.daten?.mahnstopp ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span>⏸️</span>
+                          <span>Mahnstopp aktiv</span>
+                        </div>
+                        <p className="text-text-secondary">
+                          {rechnung.daten.mahnstopp_grund || 'Automatische Mahnungen sind für diese Rechnung pausiert.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-text-secondary">Aktuelle Mahnstufe:</span>
+                          <span className={`px-2 py-0.5 rounded font-bold ${
+                            rechnung?.daten?.mahnstufe >= 3
+                              ? 'bg-rose-100 text-rose-800'
+                              : rechnung?.daten?.mahnstufe === 2
+                                ? 'bg-orange-100 text-orange-800'
+                                : rechnung?.daten?.mahnstufe === 1
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-neutral-100 text-neutral-700'
+                          }`}>
+                            {rechnung?.daten?.mahnstufe ? `Stufe ${rechnung.daten.mahnstufe}` : 'Keine (Normallauf)'}
+                          </span>
+                        </div>
+
+                        {/* Mahnhistorie Liste */}
+                        {Array.isArray(rechnung?.daten?.mahnungen) && rechnung.daten.mahnungen.length > 0 ? (
+                          <div className="space-y-2 pt-2 border-t border-border/60">
+                            <span className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
+                              Mahnverlauf ({rechnung.daten.mahnungen.length})
+                            </span>
+                            {rechnung.daten.mahnungen.map((m, idx) => (
+                              <div
+                                key={m.id || idx}
+                                className="p-2.5 bg-surface rounded-xl border border-border/60 flex items-center justify-between text-xs"
+                              >
+                                <div>
+                                  <div className="font-semibold text-text-primary">
+                                    {m.titel || `Mahnung Stufe ${m.stufe}`}
+                                  </div>
+                                  <div className="text-[11px] text-text-muted">
+                                    {formatDate(m.datum)} • Frist: {m.fristTage}T
+                                    {m.spesen > 0 && ` • +${formatMoney(m.spesen)} Spesen`}
+                                    {m.verzugszins > 0 && ` • +${formatMoney(m.verzugszins)} Zins`}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMahnung(m)
+                                    setShowMahnungPrintView(true)
+                                  }}
+                                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-primary-600 transition-colors cursor-pointer"
+                                  title="Mahnung anzeigen & drucken"
+                                >
+                                  <IconPrinter className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-text-muted italic">
+                            Bisher keine Mahnungen erfasst.
+                          </p>
+                        )}
+
+                        {/* Button für Betreibung bei Stufe 3 */}
+                        {(rechnung?.daten?.mahnstufe >= 3 || (rechnung?.daten?.mahnungen || []).some(m => m.stufe >= 3)) && (
+                          <button
+                            type="button"
+                            onClick={() => setShowBetreibungsModal(true)}
+                            className="w-full py-2 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <IconDocument className="w-4 h-4 text-rose-600" />
+                            <span>Betreibungsbegehren (Art. 67 SchKG)</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Stammdaten Save Action */}
                 {isDirty && userRole !== 'treuhand' && status === 'Entwurf' && (
@@ -1583,31 +2491,46 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
             </div>
           </div>
-        {showLivePreview && isEditing && (
-          <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
+        {isEditing && (
+          <div className={`bg-gray-100 rounded-2xl border border-border overflow-hidden sticky top-6 shadow-inner ${
+            mobileEditTab === 'preview' ? 'block mb-24 min-h-[calc(100vh-180px)]' : (showLivePreview ? 'hidden xl:block' : 'hidden')
+          }`} style={{ height: 'calc(100vh - 120px)' }}>
             <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
               <RechnungPrintView rechnung={previewRechnung} kunde={kunde} projekt={projekt} settings={settings} previewMode={true} />
             </Suspense>
           </div>
         )}
-      </div>
+        </div>
       )}
 
       {isEditing && (
-        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 animate-slide-up">
-          <button
-            onClick={cancelEditing}
-            className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-surface-card border border-border text-text-secondary font-bold text-base sm:text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
-          >
-            Abbrechen
-          </button>
-          <button
-            onClick={saveEditing}
-            disabled={isUpdating || userRole === 'treuhand'}
-            className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
-          >
-            {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
-          </button>
+        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/95 backdrop-blur-md border-t border-border px-4 py-3 sm:py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 animate-slide-up pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <span className="text-xs uppercase tracking-wider font-bold text-text-secondary">Live-Total:</span>
+            <span className="text-lg sm:text-xl font-black text-primary-700">
+              CHF {formatMoney(editFinalTotal)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={cancelEditing}
+              className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2.5 bg-surface-card border border-border text-text-secondary font-bold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={saveEditing}
+              disabled={isUpdating || userRole === 'treuhand'}
+              className="flex-1 sm:flex-initial min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+            >
+              {isUpdating ? 'Speichert...' : (
+                <>
+                  <IconSave className="w-4 h-4" />
+                  <span>Änderungen speichern</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1685,7 +2608,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-amber-200">
             <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
-              <span className="text-2xl">📦</span>
+              <IconPackage className="w-7 h-7 text-amber-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung archivieren?</h3>
             <p className="text-text-secondary mb-6 text-sm">
@@ -1718,7 +2641,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-emerald-200">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
-              <span className="text-2xl">♻️</span>
+              <IconRefresh className="w-7 h-7 text-emerald-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung wiederherstellen?</h3>
             <p className="text-text-secondary mb-6 text-sm">
@@ -1761,7 +2684,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
             <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center mb-4">
-              <span className="text-2xl">📋</span>
+              <IconDuplicate className="w-7 h-7 text-primary-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung duplizieren?</h3>
             <p className="text-text-secondary mb-6 text-sm">
@@ -1794,7 +2717,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
             <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
-              <span className="text-2xl">↩️</span>
+              <IconWarning className="w-7 h-7 text-amber-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Bearbeitung abbrechen?</h3>
             <p className="text-text-secondary mb-6 text-sm">
@@ -1811,6 +2734,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 onClick={() => {
                   setShowDiscardModal(false)
                   setIsEditing(false)
+                  setMobileEditTab('form')
                 }}
                 className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors cursor-pointer"
               >
@@ -1826,7 +2750,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-2xl border border-primary-200">
             <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center mb-4">
-              <span className="text-2xl">↩️</span>
+              <IconQrBill className="w-7 h-7 text-primary-700" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Gutschrift erstellen?</h3>
             <p className="text-text-secondary mb-4 text-sm">
@@ -1867,12 +2791,41 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         />
       )}
 
+      {/* Schweizer Mahnwesen Modal */}
+      {showMahnungModal && (
+        <MahnungModal
+          isOpen={showMahnungModal}
+          onClose={() => setShowMahnungModal(false)}
+          rechnung={rechnung}
+          kunde={kunde}
+          projekt={projekt}
+          settings={settings}
+          onSaveMahnung={handleSaveMahnung}
+          onOpenPrintView={(m) => {
+            setActiveMahnung(m)
+            setShowMahnungPrintView(true)
+          }}
+          onOpenBetreibung={() => setShowBetreibungsModal(true)}
+        />
+      )}
+
+      {/* Schweizer SchKG Betreibungsbegehren Modal */}
+      {showBetreibungsModal && (
+        <BetreibungsModal
+          isOpen={showBetreibungsModal}
+          onClose={() => setShowBetreibungsModal(false)}
+          rechnung={rechnung}
+          kunde={kunde}
+          settings={settings}
+        />
+      )}
+
       {/* Feedback Toast */}
       {feedbackToast && (
         <div className={`fixed bottom-6 right-6 z-[110] px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
       )}

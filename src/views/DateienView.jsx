@@ -1,13 +1,29 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import CameraCapture from '../components/CameraCapture'
 import { getTenantStoragePath, extractStoragePath } from '../lib/storageHelper'
 import { formatCurrency } from '../lib/formatters'
+import {
+  IconFolder,
+  IconDocument,
+  IconImage,
+  IconNotes,
+  IconAttachment,
+  IconClose,
+  IconRefresh,
+  IconCamera,
+  IconEye,
+  IconLink,
+  IconEdit,
+  IconTrash,
+  IconLegal,
+  IconCheck,
+  IconWarning,
+  IconInfo
+} from '../components/icons/BrandIcons'
 
 const FolderIcon = ({ className = "w-10 h-10 text-amber-400" }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-  </svg>
+  <IconFolder className={className} />
 )
 
 const STANDARD_CATEGORIES = ['Offerten', 'Rechnungen', 'Fotos & Pläne', 'Allgemeine Dokumente']
@@ -23,11 +39,11 @@ const normalizeCategory = (cat, typ) => {
 }
 
 const FileIcon = ({ typ, className = "w-10 h-10" }) => {
-  if (!typ) return <span className={`text-4xl ${className}`}>📎</span>
-  if (typ.includes('pdf')) return <span className={`text-4xl ${className}`}>📄</span>
-  if (typ.includes('image')) return <span className={`text-4xl ${className}`}>🖼️</span>
-  if (typ.includes('word') || typ.includes('document')) return <span className={`text-4xl ${className}`}>📝</span>
-  return <span className={`text-4xl ${className}`}>📎</span>
+  if (!typ) return <IconAttachment className={className} />
+  if (typ.includes('pdf')) return <IconDocument className={className} />
+  if (typ.includes('image')) return <IconImage className={className} />
+  if (typ.includes('word') || typ.includes('document')) return <IconNotes className={className} />
+  return <IconAttachment className={className} />
 }
 
 export default function DateienView({ onNavigate, userRole, globalSettings }) {
@@ -48,6 +64,11 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Mobile Bottom Sheets & Refs
+  const fileInputRef = useRef(null)
+  const [selectedFileForSheet, setSelectedFileForSheet] = useState(null)
+  const [showCreateSheet, setShowCreateSheet] = useState(false)
+
   // Modals & Toast
   const [uploadModal, setUploadModal] = useState(null)
   const [renameModal, setRenameModal] = useState(null)
@@ -60,9 +81,17 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     setTimeout(() => setToast(null), 4000)
   }
 
-  // Navigation State (Breadcrumbs)
+  // Navigation State (Breadcrumbs & Drilldown)
   const [currentPath, setCurrentPath] = useState([{ type: 'root', id: 'root', name: 'Archiv' }])
   const currentFolder = currentPath[currentPath.length - 1]
+  const previousFolder = currentPath.length > 1 ? currentPath[currentPath.length - 2] : null
+
+  const handleGoBack = () => {
+    if (currentPath.length > 1) {
+      setCurrentPath(currentPath.slice(0, -1))
+      setSearchTerm('')
+    }
+  }
 
   // Tree State
   const [isKundenExpanded, setIsKundenExpanded] = useState(false)
@@ -77,6 +106,15 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
       return []
     }
   })
+
+  const recentDateienList = useMemo(() => {
+    if (!recentFiles.length || !dateien.length) return []
+    const dateienMap = new Map(dateien.map(d => [d.id, d]))
+    return recentFiles.map(rf => {
+      const file = dateienMap.get(rf.id)
+      return file ? { ...file, openedAt: rf.openedAt } : null
+    }).filter(Boolean).slice(0, 8)
+  }, [recentFiles, dateien])
 
   const handleOpenFile = (file) => {
     setRecentFiles(prev => {
@@ -605,11 +643,38 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
     return kunden.filter(k => (k.name || k.firmenname || '').toLowerCase().includes(lower))
   }, [kunden, treeSearch])
 
+  // Global search when at root on mobile
+  const mobileRootSearchResults = useMemo(() => {
+    if (!searchTerm || currentFolder.id !== 'root') return { matchedKunden: [], matchedFiles: [] }
+    const term = searchTerm.toLowerCase()
+    const matchedKunden = kunden.filter(k => 
+      (k.name || '').toLowerCase().includes(term) || 
+      (k.firmenname || '').toLowerCase().includes(term)
+    )
+    const matchedFiles = dateien.filter(d => 
+      (d.name || '').toLowerCase().includes(term) || 
+      (d.kategorie || '').toLowerCase().includes(term) || 
+      (d.kunden?.name || '').toLowerCase().includes(term) ||
+      (d.projekte?.name || '').toLowerCase().includes(term) ||
+      (d.docNr && d.docNr.toLowerCase().includes(term))
+    )
+    return { matchedKunden, matchedFiles }
+  }, [searchTerm, currentFolder, kunden, dateien])
+
   return (
-    <div className="flex h-[calc(100vh-6rem)] -m-4 sm:-m-6 lg:-m-8 bg-surface">
+    <div className="flex flex-col md:flex-row h-[calc(100dvh-7.5rem)] md:h-[calc(100vh-6rem)] -m-4 sm:-m-6 lg:-m-8 bg-surface overflow-hidden">
       
-      {/* ---------------- SIDEBAR (Tree) ---------------- */}
-      <div className="w-64 bg-surface-card border-r border-border overflow-y-auto flex flex-col shrink-0">
+      {/* Hidden file input accessible from both Desktop and Mobile */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        onChange={handleFileSelect} 
+        disabled={isUploading} 
+      />
+
+      {/* ---------------- DESKTOP SIDEBAR (Tree) (>= md) ---------------- */}
+      <div className="hidden md:flex w-64 bg-surface-card border-r border-border overflow-y-auto flex-col shrink-0">
         <div className="p-4 border-b border-border sticky top-0 bg-surface-card/90 backdrop-blur-sm z-10">
           <h2 className="font-bold text-text-primary text-lg flex items-center gap-2">
             <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
@@ -666,8 +731,9 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                       onClick={() => setTreeSearch('')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full text-xs cursor-pointer"
                       title="Suche zurücksetzen"
+                      aria-label="Suche zurücksetzen"
                     >
-                      ✕
+                      <IconClose className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
@@ -733,11 +799,731 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
         </div>
       </div>
 
-      {/* ---------------- MAIN CONTENT ---------------- */}
-      <div className="flex-1 flex flex-col min-w-0 bg-surface">
+      {/* ---------------- MAIN CONTENT CONTAINER ---------------- */}
+      <div className="flex-1 flex flex-col min-w-0 bg-surface overflow-hidden">
         
-        {/* Toolbar & Breadcrumbs */}
-        <div className="h-16 border-b border-border px-6 flex items-center justify-between shrink-0 bg-surface-card">
+        {/* ============================================================== */}
+        {/* ------------ MOBILE APPLE FILES INTERFACE (< md) ------------- */}
+        {/* ============================================================== */}
+        <div className="md:hidden flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-surface">
+          {currentFolder.id === 'root' ? (
+            /* ------------------ MOBILE ROOT VIEW ------------------ */
+            <div className="flex-1 overflow-y-auto px-4 py-3 pb-28">
+              {/* Large iOS Navigation Title */}
+              <div className="flex items-center justify-between mb-3 pt-1">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-text-primary tracking-tight">Dateien</h1>
+                  <p className="text-xs text-text-secondary">{globalSettings?.firmenname || 'Archiv & Dokumente'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSheet(true)}
+                  className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold hover:bg-primary-200 active:scale-95 transition-all shadow-xs"
+                  title="Aktionen & Upload"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* iOS-Style Pill Search Bar */}
+              <div className="relative mb-5">
+                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Dateien durchsuchen..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-9 py-2.5 bg-gray-100 dark:bg-gray-800/60 border border-transparent focus:border-primary-500 rounded-xl text-sm focus:outline-none transition-all placeholder:text-gray-400"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full text-xs cursor-pointer"
+                    aria-label="Suche zurücksetzen"
+                  >
+                    <IconClose className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Global search results if searching from root */}
+              {searchTerm ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                      Suchergebnisse für "{searchTerm}"
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      className="text-xs text-primary-600 font-semibold cursor-pointer"
+                    >
+                      Zurücksetzen
+                    </button>
+                  </div>
+
+                  {mobileRootSearchResults.matchedKunden.length === 0 && mobileRootSearchResults.matchedFiles.length === 0 ? (
+                    <div className="py-12 text-center text-text-secondary text-sm">
+                      Keine passenden Kunden oder Dateien gefunden.
+                    </div>
+                  ) : (
+                    <>
+                      {/* Matched Kunden */}
+                      {mobileRootSearchResults.matchedKunden.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-text-secondary mb-1.5 px-1">Kunden</p>
+                          <div className="bg-surface-card rounded-2xl border border-border shadow-xs divide-y divide-border overflow-hidden">
+                            {mobileRootSearchResults.matchedKunden.map(k => (
+                              <button
+                                key={k.id}
+                                onClick={() => handleNavigate({ type: 'kunde', id: `kunde_${k.id}`, dbId: k.id, name: k.name || k.firmenname })}
+                                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-9 h-9 rounded-full bg-amber-50 text-amber-700 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-200">
+                                    {(k.name || k.firmenname || 'K').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-text-primary text-sm truncate">{k.name || k.firmenname}</p>
+                                    {k.firmenname && k.name && <p className="text-xs text-text-secondary truncate">{k.firmenname}</p>}
+                                  </div>
+                                </div>
+                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Matched Files */}
+                      {mobileRootSearchResults.matchedFiles.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-text-secondary mb-1.5 px-1">Dateien & Belege</p>
+                          <div className="bg-surface-card rounded-2xl border border-border shadow-xs divide-y divide-border overflow-hidden">
+                            {mobileRootSearchResults.matchedFiles.map(file => (
+                              <div
+                                key={file.id}
+                                onClick={() => {
+                                  if (file.url) {
+                                    handleOpenFile(file)
+                                    window.open(file.url, '_blank')
+                                  } else {
+                                    handleJumpToSource(file)
+                                  }
+                                }}
+                                className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <FileIcon typ={file.typ} className="w-8 h-8 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-text-primary text-sm truncate">
+                                      {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs text-text-secondary mt-0.5">
+                                      {file.docTotal != null ? (
+                                        <span className="font-semibold text-text-primary">CHF {formatCurrency(file.docTotal)}</span>
+                                      ) : (
+                                        <span>{file.size_bytes ? formatBytes(file.size_bytes) : 'Datei'}</span>
+                                      )}
+                                      <span>•</span>
+                                      <span>{new Date(file.created_at).toLocaleDateString('de-CH')}</span>
+                                      {file.docStatus && (
+                                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                          file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                                          file.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                                          'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {file.docStatus}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedFileForSheet(file)
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-gray-700 rounded-lg shrink-0 ml-2 cursor-pointer"
+                                >
+                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* SPEICHERORTE (iOS Inset-Grouped Card) */}
+                  <div className="mb-6">
+                    <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 px-1">Speicherorte</p>
+                    <div className="bg-surface-card rounded-2xl border border-border shadow-xs divide-y divide-border overflow-hidden">
+                      {/* Kunden */}
+                      <button
+                        onClick={() => handleNavigate({ type: 'system', id: 'kunden_root', name: 'Kunden' })}
+                        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                            <FolderIcon className="w-5 h-5 text-amber-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-text-primary text-sm block">Kunden</span>
+                            <span className="text-xs text-text-secondary block">{kunden.length} Kundenordner</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-text-secondary">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Offerten */}
+                      <button
+                        onClick={() => handleNavigate({ type: 'system', id: 'offerten_root', name: 'Offerten' })}
+                        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                            <FolderIcon className="w-5 h-5 text-indigo-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-text-primary text-sm block">Offerten</span>
+                            <span className="text-xs text-text-secondary block">{offerten.length} Belege & PDF</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-text-secondary">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Buchhaltung & Rechnungen */}
+                      <button
+                        onClick={() => handleNavigate({ type: 'system', id: 'buchhaltung_root', name: 'Buchhaltung & Rechnungen' })}
+                        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                            <FolderIcon className="w-5 h-5 text-emerald-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-text-primary text-sm block">Buchhaltung & Rechnungen</span>
+                            <span className="text-xs text-text-secondary block">{rechnungen.length} Belege</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-text-secondary">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Firma Intern */}
+                      <button
+                        onClick={() => handleNavigate({ type: 'system', id: 'intern_root', name: 'Firma Intern' })}
+                        className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center shrink-0">
+                            <FolderIcon className="w-5 h-5 text-gray-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-text-primary text-sm block">Firma Intern</span>
+                            <span className="text-xs text-text-secondary block">{dateien.filter(d => d.kategorie === 'Firma intern').length} interne Dokumente</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-text-secondary">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ZULETZT GEÖFFNET */}
+                  {recentDateienList.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-text-secondary">Zuletzt geöffnet</p>
+                        <button
+                          onClick={() => handleNavigate({ type: 'system', id: 'recent_root', name: 'Zuletzt geöffnet' })}
+                          className="text-xs font-semibold text-primary-600 hover:text-primary-700 cursor-pointer"
+                        >
+                          Alle anzeigen ›
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {recentDateienList.slice(0, 4).map(file => (
+                          <div
+                            key={file.id}
+                            onClick={() => {
+                              if (file.url) {
+                                handleOpenFile(file)
+                                window.open(file.url, '_blank')
+                              } else {
+                                handleJumpToSource(file)
+                              }
+                            }}
+                            className="bg-surface-card rounded-2xl border border-border p-3.5 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative group"
+                          >
+                            <div className="flex items-start justify-between">
+                              <FileIcon typ={file.typ} className="w-10 h-10" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedFileForSheet(file)
+                                }}
+                                className="p-1.5 -mr-1 -mt-1 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="mt-2 min-w-0">
+                              <p className="font-semibold text-text-primary text-xs truncate">
+                                {file.docNr ? `${file.docNr}` : file.name}
+                              </p>
+                              <p className="text-[11px] text-text-secondary truncate mt-0.5">
+                                {file.name}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ALLGEMEINE DOKUMENTE AUF ROOT */}
+                  {currentContents.files.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 px-1">Allgemeine Dokumente</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {currentContents.files.map(file => (
+                          <div
+                            key={file.id}
+                            onClick={() => {
+                              if (file.url) {
+                                handleOpenFile(file)
+                                window.open(file.url, '_blank')
+                              } else {
+                                handleJumpToSource(file)
+                              }
+                            }}
+                            className="bg-surface-card rounded-2xl border border-border p-3 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative min-h-[130px]"
+                          >
+                            <div className="flex items-start justify-between w-full">
+                              <FileIcon typ={file.typ} className="w-9 h-9" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedFileForSheet(file)
+                                }}
+                                className="p-1 -mr-1 -mt-1 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="w-full mt-2">
+                              <p className="text-xs font-semibold text-text-primary line-clamp-2 break-words">
+                                {file.name}
+                              </p>
+                              {file.size_bytes && (
+                                <p className="text-[10px] text-gray-400 mt-0.5">{formatBytes(file.size_bytes)}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            /* ------------------ MOBILE SUBFOLDER VIEW ------------------ */
+            <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+              {/* iOS Navigation Header */}
+              <div className="px-4 py-3 border-b border-border bg-surface-card/95 backdrop-blur-md flex items-center justify-between shrink-0">
+                {/* Back button */}
+                <button
+                  onClick={handleGoBack}
+                  className="inline-flex items-center gap-1 text-primary-600 font-semibold text-sm hover:opacity-80 active:opacity-60 transition-opacity max-w-[140px] truncate cursor-pointer"
+                >
+                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="truncate">{previousFolder?.name || 'Zurück'}</span>
+                </button>
+
+                {/* Center folder title */}
+                <h2 className="font-bold text-text-primary text-sm sm:text-base text-center truncate px-2 flex-1">
+                  {currentFolder.name}
+                </h2>
+
+                {/* Right action buttons */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {currentFolder.id !== 'kunden_root' && (
+                    <button
+                      type="button"
+                      onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                      className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                      title={viewMode === 'grid' ? 'Zur Listenansicht' : 'Zur Kachelansicht'}
+                    >
+                      {viewMode === 'grid' ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateSheet(true)}
+                    className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold hover:bg-primary-200 active:scale-95 transition-all cursor-pointer"
+                    title="Aktionen & Upload"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Subfolder Search Bar */}
+              <div className="px-4 py-2 bg-surface border-b border-border/60">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder={currentFolder.id === 'kunden_root' ? 'Kunden durchsuchen...' : 'In diesem Ordner suchen...'}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-gray-100 dark:bg-gray-800/60 border border-transparent focus:border-primary-500 rounded-xl text-xs sm:text-sm focus:outline-none transition-all placeholder:text-gray-400"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full text-xs cursor-pointer"
+                      aria-label="Suche zurücksetzen"
+                    >
+                      <IconClose className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable Subfolder Content */}
+              <div className="flex-1 overflow-y-auto px-4 py-3 pb-28">
+                {/* Special Customer List View */}
+                {currentFolder.id === 'kunden_root' ? (
+                  <div className="bg-surface-card rounded-2xl border border-border shadow-xs divide-y divide-border overflow-hidden">
+                    {currentContents.folders.length === 0 ? (
+                      <div className="p-8 text-center text-text-secondary text-sm">
+                        Keine Kunden gefunden{searchTerm ? ` für "${searchTerm}"` : ''}.
+                      </div>
+                    ) : (
+                      currentContents.folders.map(folder => {
+                        const k = kunden.find(item => item.id === folder.dbId) || {}
+                        const projectCount = projekte.filter(p => p.kunden_id === folder.dbId).length
+                        return (
+                          <button
+                            key={folder.id}
+                            onClick={() => handleNavigate(folder)}
+                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-700 font-bold text-sm flex items-center justify-center shrink-0 border border-amber-200">
+                                {(k.name || k.firmenname || 'K').charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-text-primary text-sm truncate">
+                                  {k.name || k.firmenname}
+                                </p>
+                                {k.firmenname && k.name && (
+                                  <p className="text-xs text-text-secondary truncate">{k.firmenname}</p>
+                                )}
+                                <span className="inline-block mt-0.5 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-text-secondary rounded text-[11px] font-medium">
+                                  {projectCount} {projectCount === 1 ? 'Projekt' : 'Projekte'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onNavigate('kunden', { kundeId: folder.dbId })
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg cursor-pointer"
+                                title="Zum Kundenprofil"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </button>
+                              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Empty State */}
+                    {currentContents.folders.length === 0 && currentContents.files.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center text-text-secondary">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                          <IconFolder className="w-8 h-8 text-primary-500" />
+                        </div>
+                        <p className="font-semibold text-text-primary text-sm">Dieser Ordner ist leer</p>
+                        <p className="text-xs text-gray-500 mt-1">Lade neue Dateien hoch oder nimm ein Foto auf.</p>
+                        {userRole !== 'treuhand' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateSheet(true)}
+                            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold shadow-xs hover:bg-primary-700 cursor-pointer"
+                          >
+                            + Inhalt hinzufügen
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* GRID VIEW (2 columns on mobile) */}
+                        {viewMode === 'grid' && (
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Folders */}
+                            {currentContents.folders.map(folder => (
+                              <div
+                                key={folder.id}
+                                onClick={() => handleNavigate(folder)}
+                                className="bg-surface-card rounded-2xl border border-border p-3.5 flex flex-col items-center justify-center text-center shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative min-h-[120px]"
+                              >
+                                {(folder.type === 'kunde' || folder.type === 'projekt') && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (folder.type === 'kunde') onNavigate('kunden', { kundeId: folder.dbId })
+                                      else if (folder.type === 'projekt') onNavigate('projekte', { projektId: folder.dbId })
+                                    }}
+                                    className="absolute top-2 right-2 p-1 text-gray-400 hover:text-blue-500 rounded cursor-pointer"
+                                    title={`Zum ${folder.type === 'kunde' ? 'Kunden' : 'Projekt'}`}
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                  </button>
+                                )}
+                                {folder.id === 'recent_root' ? (
+                                  <svg className="w-12 h-12 mb-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                ) : (
+                                  <FolderIcon className={`w-12 h-12 mb-2 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                                )}
+                                <span className="text-xs font-semibold text-text-primary line-clamp-2 w-full px-1">
+                                  {folder.name}
+                                </span>
+                              </div>
+                            ))}
+
+                            {/* Files */}
+                            {currentContents.files.map(file => (
+                              <div
+                                key={file.id}
+                                onClick={() => {
+                                  if (file.url) {
+                                    handleOpenFile(file)
+                                    window.open(file.url, '_blank')
+                                  } else {
+                                    handleJumpToSource(file)
+                                  }
+                                }}
+                                className="bg-surface-card rounded-2xl border border-border p-3 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative min-h-[140px]"
+                              >
+                                {/* Top row: badge & ... button */}
+                                <div className="flex items-start justify-between w-full">
+                                  {file.isDocument ? (
+                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                      file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                                      file.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                                      file.docStatus === 'Überfällig' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {file.docStatus || file.kategorie || 'Beleg'}
+                                    </span>
+                                  ) : <span />}
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedFileForSheet(file)
+                                    }}
+                                    className="p-1 -mr-1 -mt-1 text-gray-400 hover:text-gray-700 rounded-lg cursor-pointer"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                {/* Center icon */}
+                                <div className="flex items-center justify-center my-1">
+                                  <FileIcon typ={file.typ} className="w-12 h-12" />
+                                </div>
+
+                                {/* Bottom info */}
+                                <div className="w-full text-center">
+                                  <p className="text-xs font-semibold text-text-primary line-clamp-2 break-words">
+                                    {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                  </p>
+                                  {file.docTotal != null && (
+                                    <p className="text-[11px] font-bold text-text-secondary mt-0.5">
+                                      CHF {formatCurrency(file.docTotal)}
+                                    </p>
+                                  )}
+                                  {file.size_bytes && (
+                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                      {formatBytes(file.size_bytes)}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* LIST VIEW (Inset Grouped) */}
+                        {viewMode === 'list' && (
+                          <div className="bg-surface-card rounded-2xl border border-border shadow-xs divide-y divide-border overflow-hidden">
+                            {/* Folders in list */}
+                            {currentContents.folders.map(folder => (
+                              <div
+                                key={folder.id}
+                                onClick={() => handleNavigate(folder)}
+                                className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <FolderIcon className={`w-8 h-8 shrink-0 ${folder.id.includes('buchhaltung') ? 'text-emerald-400' : folder.id.includes('intern') ? 'text-gray-400' : folder.id.includes('offerten') ? 'text-indigo-400' : 'text-amber-400'}`} />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-text-primary text-sm truncate">{folder.name}</p>
+                                    <p className="text-xs text-text-secondary">Ordner</p>
+                                  </div>
+                                </div>
+                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            ))}
+
+                            {/* Files in list */}
+                            {currentContents.files.map(file => (
+                              <div
+                                key={file.id}
+                                onClick={() => {
+                                  if (file.url) {
+                                    handleOpenFile(file)
+                                    window.open(file.url, '_blank')
+                                  } else {
+                                    handleJumpToSource(file)
+                                  }
+                                }}
+                                className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <FileIcon typ={file.typ} className="w-8 h-8 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-text-primary text-sm truncate">
+                                      {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs text-text-secondary mt-0.5">
+                                      {file.docTotal != null ? (
+                                        <span className="font-semibold text-text-primary">CHF {formatCurrency(file.docTotal)}</span>
+                                      ) : (
+                                        <span>{file.size_bytes ? formatBytes(file.size_bytes) : 'PDF'}</span>
+                                      )}
+                                      <span>•</span>
+                                      <span>{new Date(file.created_at).toLocaleDateString('de-CH')}</span>
+                                      {file.docStatus && (
+                                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                          file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                                          file.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                                          'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {file.docStatus}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedFileForSheet(file)
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-gray-700 rounded-lg shrink-0 ml-2 cursor-pointer"
+                                >
+                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================== */}
+        {/* ------------- DESKTOP FINDER INTERFACE (>= md) --------------- */}
+        {/* ============================================================== */}
+        <div className="hidden md:flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+          {/* Toolbar & Breadcrumbs */}
+          <div className="h-16 border-b border-border px-6 flex items-center justify-between shrink-0 bg-surface-card">
           
           <div className="flex items-center gap-2 text-sm text-text-secondary overflow-x-auto hide-scrollbar">
             {currentPath.map((folder, index) => (
@@ -769,8 +1555,9 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                   onClick={() => setSearchTerm('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full cursor-pointer text-xs"
                   title="Suche zurücksetzen"
+                  aria-label="Suche zurücksetzen"
                 >
-                  ✕
+                  <IconClose className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -797,7 +1584,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
               className="inline-flex items-center justify-center gap-1.5 px-3 py-3 sm:py-1.5 min-h-[48px] sm:min-h-0 bg-surface border border-border text-text-primary text-base sm:text-sm font-semibold rounded-lg hover:bg-gray-100 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
               title="Archiv mit Offerten & Rechnungen synchronisieren"
             >
-              <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
+              <IconRefresh className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
               <span className="hidden xl:inline">{isSyncing ? 'Synchronisiert...' : 'Archiv abgleichen'}</span>
             </button>
 
@@ -807,7 +1594,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                 onClick={() => setShowCamera(true)}
                 className="md:hidden inline-flex items-center justify-center gap-1.5 px-3 py-3 sm:py-2 min-h-[48px] bg-emerald-600 text-white text-base sm:text-sm font-semibold rounded-lg hover:bg-emerald-700 cursor-pointer transition-colors shadow-sm"
               >
-                <span>📷</span>
+                <IconCamera className="w-4 h-4" />
                 <span>Foto aufnehmen</span>
               </button>
             )}
@@ -856,6 +1643,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                   {currentContents.folders.map(folder => (
                     <div
                       key={folder.id} 
+                      onClick={() => handleNavigate(folder)}
                       onDoubleClick={() => handleNavigate(folder)}
                       className="group relative flex flex-col items-center p-4 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-primary-500/50"
                     >
@@ -963,7 +1751,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                     <tbody>
                       {/* Folders */}
                       {currentContents.folders.map(folder => (
-                        <tr key={folder.id} onDoubleClick={() => handleNavigate(folder)} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
+                        <tr key={folder.id} onClick={() => handleNavigate(folder)} onDoubleClick={() => handleNavigate(folder)} className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer">
                           <td className="px-4 py-3 font-medium text-text-primary flex items-center gap-3">
                             {folder.id === 'recent_root' ? (
                               <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1070,6 +1858,235 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
           )}
         </div>
       </div>
+    </div>
+
+      {/* ============================================================== */}
+      {/* ---------------- iOS ACTION SHEETS (BOTTOM SHEETS) ---------- */}
+      {/* ============================================================== */}
+      
+      {/* iOS File Action Sheet */}
+      {selectedFileForSheet && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => setSelectedFileForSheet(null)}
+        >
+          <div 
+            className="w-full sm:max-w-md bg-surface-card border-t sm:border border-border rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-slide-up space-y-4 max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* iOS pull bar */}
+            <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto sm:hidden mb-2" />
+
+            {/* File info header */}
+            <div className="flex items-center gap-3 pb-3 border-b border-border">
+              <FileIcon typ={selectedFileForSheet.typ} className="w-12 h-12 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-text-primary text-sm truncate">
+                  {selectedFileForSheet.docNr ? `${selectedFileForSheet.docNr} • ${selectedFileForSheet.name}` : selectedFileForSheet.name}
+                </p>
+                <div className="flex items-center flex-wrap gap-2 text-xs text-text-secondary mt-0.5">
+                  <span>{selectedFileForSheet.size_bytes ? formatBytes(selectedFileForSheet.size_bytes) : (selectedFileForSheet.isDocument ? 'Beleg' : 'Datei')}</span>
+                  {selectedFileForSheet.created_at && (
+                    <>
+                      <span>•</span>
+                      <span>{new Date(selectedFileForSheet.created_at).toLocaleDateString('de-CH')}</span>
+                    </>
+                  )}
+                  {selectedFileForSheet.docStatus && (
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      selectedFileForSheet.docStatus === 'Bezahlt' || selectedFileForSheet.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
+                      selectedFileForSheet.docStatus === 'Versendet' ? 'bg-blue-100 text-blue-800' :
+                      selectedFileForSheet.docStatus === 'Überfällig' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedFileForSheet.docStatus}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-1">
+              {selectedFileForSheet.url ? (
+                <a
+                  href={selectedFileForSheet.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    handleOpenFile(selectedFileForSheet)
+                    setSelectedFileForSheet(null)
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <IconEye className="w-5 h-5 text-blue-600" />
+                  </span>
+                  <span>Öffnen / Vorschau</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleJumpToSource(selectedFileForSheet)
+                    setSelectedFileForSheet(null)
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-amber-700 text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <IconDocument className="w-5 h-5 text-amber-600" />
+                  </span>
+                  <span>Beleg öffnen & PDF erstellen</span>
+                </button>
+              )}
+
+              {(selectedFileForSheet.kunde_id || selectedFileForSheet.projekt_id || selectedFileForSheet.docId) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleJumpToSource(selectedFileForSheet)
+                    setSelectedFileForSheet(null)
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <IconLink className="w-5 h-5 text-indigo-600" />
+                  </span>
+                  <span>{selectedFileForSheet.docType ? `Zur ${selectedFileForSheet.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : 'Zum Datensatz / Projekt'}</span>
+                </button>
+              )}
+
+              {userRole !== 'treuhand' && !selectedFileForSheet.isLiveOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const f = selectedFileForSheet
+                      setSelectedFileForSheet(null)
+                      handleOpenRename(f)
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    <span className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                      <IconEdit className="w-5 h-5 text-amber-600" />
+                    </span>
+                    <span>Umbenennen</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const f = selectedFileForSheet
+                      setSelectedFileForSheet(null)
+                      handleRequestDelete(f)
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-600 text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    <span className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                      <IconTrash className="w-5 h-5 text-red-600" />
+                    </span>
+                    <span>Löschen</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Cancel Button */}
+            <button
+              type="button"
+              onClick={() => setSelectedFileForSheet(null)}
+              className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text-primary font-semibold text-sm rounded-xl hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* iOS Create / Plus Action Sheet */}
+      {showCreateSheet && (
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fade-in" 
+          onClick={() => setShowCreateSheet(false)}
+        >
+          <div 
+            className="w-full sm:max-w-md bg-surface-card border-t sm:border border-border rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-slide-up space-y-4 max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto sm:hidden mb-2" />
+
+            <div>
+              <h3 className="font-bold text-base text-text-primary">Aktionen & Upload</h3>
+              <p className="text-xs text-text-secondary mt-0.5">Zielordner: {currentFolder.name}</p>
+            </div>
+
+            <div className="space-y-1">
+              {userRole !== 'treuhand' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateSheet(false)
+                    setShowCamera(true)
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <span className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <IconCamera className="w-5 h-5 text-emerald-600" />
+                  </span>
+                  <div className="text-left min-w-0">
+                    <p className="font-semibold text-text-primary text-sm">Foto / Scan aufnehmen</p>
+                    <p className="text-xs text-text-secondary">Beleg oder Notiz direkt fotografieren</p>
+                  </div>
+                </button>
+              )}
+
+              {userRole !== 'treuhand' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateSheet(false)
+                    fileInputRef.current?.click()
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
+                >
+                  <span className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <IconFolder className="w-5 h-5 text-blue-600" />
+                  </span>
+                  <div className="text-left min-w-0">
+                    <p className="font-semibold text-text-primary text-sm">Datei hochladen</p>
+                    <p className="text-xs text-text-secondary">PDF, Dokument oder Bild auswählen</p>
+                  </div>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateSheet(false)
+                  handleSyncArchive()
+                }}
+                disabled={isSyncing}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <span className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                  <IconRefresh className={`w-5 h-5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                </span>
+                <div className="text-left min-w-0">
+                  <p className="font-semibold text-text-primary text-sm">Archiv synchronisieren</p>
+                  <p className="text-xs text-text-secondary">Offerten & Rechnungen mit Dateien abgleichen</p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCreateSheet(false)}
+              className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-text-primary font-semibold text-sm rounded-xl hover:bg-gray-200 transition-colors cursor-pointer"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {uploadModal && (
@@ -1221,7 +2238,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
 
             {(deleteModal.docType === 'rechnung' || deleteModal.rechnung_id || deleteModal.kategorie === 'Rechnungen' || deleteModal.name?.toLowerCase().includes('rechnung')) && (
               <div className="mb-6 p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                <span className="text-xl shrink-0">⚖️</span>
+                <IconLegal className="w-6 h-6 text-amber-700 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-900 leading-relaxed">
                   <p className="font-semibold mb-0.5">Gesetzliche Aufbewahrungspflicht (Art. 958f OR)</p>
                   <p className="text-amber-800">
@@ -1267,16 +2284,23 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
             toast.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
             'bg-blue-50 text-blue-800 border-blue-200'
           }`}>
-            <span>
-              {toast.type === 'success' ? '✓' : toast.type === 'error' ? '⚠️' : 'ℹ️'}
+            <span className="shrink-0">
+              {toast.type === 'success' ? (
+                <IconCheck className="w-4 h-4 text-emerald-600" />
+              ) : toast.type === 'error' ? (
+                <IconWarning className="w-4 h-4 text-red-600" />
+              ) : (
+                <IconInfo className="w-4 h-4 text-blue-600" />
+              )}
             </span>
             <span>{toast.text}</span>
             <button 
               type="button" 
               onClick={() => setToast(null)}
-              className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer"
+              className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer p-0.5 rounded"
+              aria-label="Schliessen"
             >
-              ✕
+              <IconClose className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

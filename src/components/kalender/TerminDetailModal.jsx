@@ -2,6 +2,20 @@ import { useState } from 'react';
 import { formatDate, formatCurrency } from '../../lib/formatters';
 import { getTerminTypConfig, getTerminStatusConfig, TERMIN_STATUSSE } from '../../lib/kalenderConstants';
 import { getGoogleCalendarUrl, downloadIcsFile, generateIcsCalendar } from '../../lib/icalGenerator';
+import {
+  IconCalendar,
+  IconClock,
+  IconBuilding,
+  IconTeam,
+  IconLocation,
+  IconDocument,
+  IconMoney,
+  IconClose,
+  IconEdit,
+  IconTrash,
+  IconRapport,
+  TerminTypIcon
+} from '../icons/BrandIcons';
 
 export default function TerminDetailModal({
   isOpen,
@@ -22,31 +36,33 @@ export default function TerminDetailModal({
   const isQuoteEvent = Boolean(termin.isSyntheticQuote);
 
   let headerColor = '#3b82f6';
-  let headerIcon = '📅';
   let headerLabel = 'Termin';
   let headerTitle = termin.titel;
 
   if (isProjectEvent) {
     headerColor = '#4f46e5';
-    headerIcon = '🏗️';
     headerLabel = 'Projekt-Laufzeit';
-    headerTitle = termin.projekte?.name || termin.titel.replace(/^🏗️\s*/, '');
+    headerTitle = termin.projekte?.name || termin.titel.replace(/^[\p{Emoji}\s]+/u, '');
   } else if (isInvoiceEvent) {
     headerColor = '#e11d48';
-    headerIcon = '💰';
     headerLabel = 'Rechnungs-Fälligkeit';
     headerTitle = termin.rechnung_nr ? `Rechnung ${termin.rechnung_nr}` : termin.titel;
   } else if (isQuoteEvent) {
     headerColor = '#0284c7';
-    headerIcon = '📄';
     headerLabel = 'Offerten-Frist';
-    headerTitle = termin.titel.replace(/^📄\s*/, '');
+    headerTitle = termin.titel.replace(/^[\p{Emoji}\s]+/u, '');
   } else {
     const typConfig = getTerminTypConfig(termin.typ);
     headerColor = typConfig.color || '#3b82f6';
-    headerIcon = typConfig.icon || '📅';
     headerLabel = typConfig.label;
   }
+
+  const renderHeaderIcon = () => {
+    if (isProjectEvent) return <IconBuilding className="w-6 h-6 text-white" />;
+    if (isInvoiceEvent) return <IconMoney className="w-6 h-6 text-white" />;
+    if (isQuoteEvent) return <IconDocument className="w-6 h-6 text-white" />;
+    return <TerminTypIcon typ={termin.typ} className="w-6 h-6 text-white" />;
+  };
 
   const statusConfig = getTerminStatusConfig(termin.status);
 
@@ -85,8 +101,8 @@ export default function TerminDetailModal({
         >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-inner">
-                {headerIcon}
+              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
+                {renderHeaderIcon()}
               </div>
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-white/80 bg-black/20 px-2.5 py-0.5 rounded-full">
@@ -100,8 +116,9 @@ export default function TerminDetailModal({
             <button 
               onClick={onClose}
               className="text-white/80 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Schliessen"
             >
-              ✕
+              <IconClose className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -136,8 +153,9 @@ export default function TerminDetailModal({
           {/* Date & Time Info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-surface border border-border rounded-xl">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block mb-1">
-                {isInvoiceEvent ? 'Fällig am' : isQuoteEvent ? 'Gültig bis' : isProjectEvent ? 'Laufzeit' : '📅 Datum'}
+              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1 mb-1">
+                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                <span>{isInvoiceEvent ? 'Fällig am' : isQuoteEvent ? 'Gültig bis' : isProjectEvent ? 'Laufzeit' : 'Datum'}</span>
               </span>
               <p className="text-sm font-bold text-text-primary">
                 {formatDate(termin.datum)}
@@ -148,8 +166,18 @@ export default function TerminDetailModal({
             </div>
 
             <div className="p-3 bg-surface border border-border rounded-xl">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block mb-1">
-                {termin.total !== undefined ? 'Betrag / Total' : '⏰ Uhrzeit'}
+              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1 mb-1">
+                {termin.total !== undefined ? (
+                  <>
+                    <IconMoney className="w-3.5 h-3.5 text-text-secondary" />
+                    <span>Betrag / Total</span>
+                  </>
+                ) : (
+                  <>
+                    <IconClock className="w-3.5 h-3.5 text-text-secondary" />
+                    <span>Uhrzeit</span>
+                  </>
+                )}
               </span>
               <p className="text-sm font-bold text-text-primary">
                 {termin.total !== undefined ? (
@@ -185,9 +213,10 @@ export default function TerminDetailModal({
                     onClose();
                     onNavigate && onNavigate('rechnungen', { rechnungId: termin.originalId });
                   }}
-                  className="flex-1 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="flex-1 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
                 >
-                  🧾 Rechnung öffnen →
+                  <IconDocument className="w-4 h-4" />
+                  <span>Rechnung öffnen →</span>
                 </button>
                 <button
                   type="button"
@@ -230,9 +259,10 @@ export default function TerminDetailModal({
                     onClose();
                     onNavigate && onNavigate('offerten', { offerteId: termin.originalId });
                   }}
-                  className="flex-1 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="flex-1 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
                 >
-                  📄 Offerte öffnen →
+                  <IconDocument className="w-4 h-4" />
+                  <span>Offerte öffnen →</span>
                 </button>
                 <button
                   type="button"
@@ -258,9 +288,14 @@ export default function TerminDetailModal({
             <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-2xl space-y-3">
               <div>
                 <span className="text-xs font-bold text-indigo-900 block">Projektlaufzeit</span>
-                <p className="text-xs text-indigo-700">
-                  {formatDate(termin.datum)} bis {formatDate(termin.end_datum)}
-                  {termin.ort && <span className="ml-1">📍 {termin.ort}</span>}
+                <p className="text-xs text-indigo-700 flex items-center gap-1 flex-wrap">
+                  <span>{formatDate(termin.datum)} bis {formatDate(termin.end_datum)}</span>
+                  {termin.ort && (
+                    <span className="ml-1 inline-flex items-center gap-1">
+                      <IconLocation className="w-3 h-3 text-indigo-600" />
+                      <span>{termin.ort}</span>
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2 pt-1 border-t border-indigo-100">
@@ -270,9 +305,10 @@ export default function TerminDetailModal({
                     onClose();
                     onNavigate && onNavigate('projekte', { projektId: termin.originalId, activeTab: 'termine' });
                   }}
-                  className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center"
+                  className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
                 >
-                  🏗️ Zum Projekt springen →
+                  <IconBuilding className="w-4 h-4" />
+                  <span>Zum Projekt springen →</span>
                 </button>
                 <button
                   type="button"
@@ -299,14 +335,18 @@ export default function TerminDetailModal({
           {!isProjectEvent && (termin.projekte || termin.projekt_id) && (
             <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider block">
-                  🏗️ Projekt
+                <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider flex items-center gap-1">
+                  <IconBuilding className="w-3.5 h-3.5 text-indigo-700" />
+                  <span>Projekt</span>
                 </span>
                 <p className="text-sm font-bold text-indigo-950 mt-0.5">
                   {termin.projekte?.name || termin.projektName || 'Zugeordnetes Projekt'}
                 </p>
                 {termin.projekte?.adresse && (
-                  <p className="text-xs text-indigo-600 mt-0.5">📍 {termin.projekte.adresse}</p>
+                  <p className="text-xs text-indigo-600 mt-0.5 flex items-center gap-1">
+                    <IconLocation className="w-3 h-3 text-indigo-600 shrink-0" />
+                    <span>{termin.projekte.adresse}</span>
+                  </p>
                 )}
               </div>
               {onNavigate && (
@@ -331,8 +371,9 @@ export default function TerminDetailModal({
           {(termin.kunden || termin.kunden_id) && (
             <div className="p-3 bg-surface border border-border rounded-xl flex items-center justify-between">
               <div>
-                <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block">
-                  👥 Kunde / Ansprechpartner
+                <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1">
+                  <IconTeam className="w-3.5 h-3.5 text-text-secondary" />
+                  <span>Kunde / Ansprechpartner</span>
                 </span>
                 <p className="text-sm font-semibold text-text-primary mt-0.5">
                   {termin.kunden?.name || termin.kundeName || 'Kunde'}
@@ -356,8 +397,9 @@ export default function TerminDetailModal({
           {/* Location / Address */}
           {termin.ort && !isProjectEvent && (
             <div className="p-3 bg-surface border border-border rounded-xl">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block mb-1">
-                📍 Ort / Baustellenadresse
+              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1 mb-1">
+                <IconLocation className="w-3.5 h-3.5 text-text-secondary" />
+                <span>Ort / Baustellenadresse</span>
               </span>
               <div className="flex items-center justify-between">
                 <p className="text-sm text-text-primary font-medium">{termin.ort}</p>
@@ -376,8 +418,9 @@ export default function TerminDetailModal({
           {/* Description / Notes */}
           {termin.beschreibung && !isInvoiceEvent && !isQuoteEvent && !isProjectEvent && (
             <div className="p-3 bg-surface border border-border rounded-xl">
-              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block mb-1">
-                📝 Notizen & Arbeitsanweisungen
+              <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1 mb-1">
+                <IconRapport className="w-3.5 h-3.5 text-text-secondary" />
+                <span>Notizen & Arbeitsanweisungen</span>
               </span>
               <p className="text-xs text-text-primary whitespace-pre-wrap leading-relaxed">
                 {termin.beschreibung}
@@ -393,14 +436,16 @@ export default function TerminDetailModal({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
             >
-              📅 In Google Kalender öffnen
+              <IconCalendar className="w-4 h-4 text-gray-700" />
+              <span>In Google Kalender öffnen</span>
             </a>
             <button
               type="button"
               onClick={handleExportIcs}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer"
             >
-              📥 .ics herunterladen
+              <IconDocument className="w-4 h-4 text-gray-700" />
+              <span>.ics herunterladen</span>
             </button>
           </div>
 
@@ -442,9 +487,10 @@ export default function TerminDetailModal({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                className="px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                🗑️ Löschen
+                <IconTrash className="w-3.5 h-3.5 text-rose-600" />
+                <span>Löschen</span>
               </button>
             )}
           </div>
@@ -457,9 +503,10 @@ export default function TerminDetailModal({
                   onClose();
                   onEdit(termin);
                 }}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                ✏️ Bearbeiten
+                <IconEdit className="w-3.5 h-3.5 text-text-primary" />
+                <span>Bearbeiten</span>
               </button>
             )}
             <button

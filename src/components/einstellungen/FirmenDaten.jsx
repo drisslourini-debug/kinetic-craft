@@ -3,6 +3,7 @@ import { SettingsBlock, SettingsRow, InputField, TextAreaField } from '../ui/Set
 import AddressAutocomplete from '../AddressAutocomplete'
 import { supabase } from '../../lib/supabase'
 import { injectThemeVariables } from '../../utils/colors'
+import { IconSwissFlag, IconClose, IconCheck } from '../icons/BrandIcons'
 
 export default function FirmenDaten({ settings, draft, editState, isSaving, startEdit, cancelEdit, handleSave, handleDraftChange, setDraft, userRole }) {
   const [isUploading, setIsUploading] = useState(false)
@@ -71,7 +72,8 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
             <SettingsRow label="PLZ & Ort" value={displayPlzOrt} />
             <SettingsRow label="Land" value={
               <span className="inline-flex items-center gap-1.5 font-medium text-text-primary">
-                <span>🇨🇭</span> {settings.land || 'Schweiz'}
+                <IconSwissFlag className="w-4 h-4 rounded-xs shrink-0" />
+                <span>{settings.land || 'Schweiz'}</span>
               </span>
             } />
             <SettingsRow label="UID-Nummer" value={settings.uid} />
@@ -146,7 +148,7 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
         <div className="space-y-1">
           <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">Land</label>
           <div className="w-full px-3 py-2 bg-neutral-100 border border-border rounded-lg text-sm text-text-primary flex items-center gap-2">
-            <span>🇨🇭</span>
+            <IconSwissFlag className="w-4 h-4 rounded-xs shrink-0" />
             <span className="font-semibold">Schweiz</span>
             <span className="text-[11px] text-text-secondary ml-auto">(Schweizer Handwerker-Standard)</span>
           </div>
@@ -193,7 +195,9 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
               {uploadError && (
                 <div className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5 flex items-start justify-between gap-2">
                   <span>{uploadError}</span>
-                  <button type="button" onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-700 cursor-pointer">✕</button>
+                  <button type="button" onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-700 cursor-pointer">
+                    <IconClose className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
@@ -227,7 +231,9 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
                 style={{ backgroundColor: preset.value }}
               >
                 <span>{preset.name}</span>
-                {(draft.primary_color || '#b88a38').toLowerCase() === preset.value.toLowerCase() && <span>✓</span>}
+                {(draft.primary_color || '#b88a38').toLowerCase() === preset.value.toLowerCase() && (
+                  <IconCheck className="w-3.5 h-3.5" />
+                )}
               </button>
             ))}
           </div>

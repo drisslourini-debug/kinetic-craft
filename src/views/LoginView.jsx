@@ -1,26 +1,41 @@
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import KineticLogoMark from '../components/KineticLogoMark'
+import {
+  IconSwissFlag,
+  IconQrBill,
+  IconDatenschutz,
+  IconShieldCheck,
+  IconFlash,
+  IconTeam,
+  IconCheck,
+} from '../components/icons/BrandIcons'
 
 function mapAuthError(err) {
   if (!err) return null
   const msg = typeof err === 'string' ? err : (err.message || '')
   if (msg.includes('Invalid login credentials')) {
-    return 'E-Mail oder Passwort ist nicht korrekt. Bitte prüfe deine Eingaben.'
+    return 'E-Mail oder Passwort ist nicht korrekt. Bitte prüfen Sie Ihre Eingaben.'
   }
   if (msg.includes('Email not confirmed')) {
-    return 'Deine E-Mail-Adresse wurde noch nicht bestätigt. Bitte prüfe deinen Posteingang.'
+    return 'Ihre E-Mail-Adresse wurde noch nicht bestätigt. Bitte prüfen Sie Ihren Posteingang.'
   }
   if (msg.includes('Rate limit') || msg.includes('over_email_send_rate_limit')) {
-    return 'Zu viele Versuche in kurzer Zeit. Bitte warte kurz vor dem nächsten Versuch.'
+    return 'Zu viele Versuche in kurzer Zeit. Bitte warten Sie einen Moment vor dem nächsten Versuch.'
   }
   if (msg.includes('User not found')) {
     return 'Kein Benutzer mit dieser E-Mail-Adresse gefunden.'
   }
-  return msg || 'Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.'
+  return msg || 'Anmeldung fehlgeschlagen. Bitte prüfen Sie Ihre Zugangsdaten.'
 }
 
-export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackToLanding }) {
+export default function LoginView({ 
+  onLoginSuccess, 
+  onGoToRegistration, 
+  onBackToLanding,
+  onOpenImpressum,
+  onOpenDatenschutz
+}) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -63,7 +78,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
     e.preventDefault()
     const cleanEmail = resetEmail.trim().toLowerCase()
     if (!cleanEmail) {
-      setResetError('Bitte gib deine E-Mail-Adresse ein.')
+      setResetError('Bitte geben Sie Ihre E-Mail-Adresse ein.')
       return
     }
 
@@ -113,23 +128,23 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-white/90 mb-6">
-            <span>🇨🇭</span>
+            <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
             <span>Schweizer Handwerker-Standard</span>
           </div>
 
           <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
-            Präzision & Effizienz für deinen Betrieb.
+            Präzision & Effizienz für Ihren Betrieb.
           </h1>
           <p className="mt-4 text-slate-300 text-sm leading-relaxed max-w-md">
-            Melde dich an, um Offerten, Ausmasse, Schweizer QR-Rechnungen und Projekte nahtlos zu verwalten.
+            Melden Sie sich an, um Offerten, Ausmasse, Schweizer QR-Rechnungen und Projekte nahtlos zu verwalten.
           </p>
         </div>
 
         {/* Swiss Trust Feature Badges */}
         <div className="relative z-10 space-y-4 my-8">
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 text-base">
-              🧾
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <IconQrBill className="w-5 h-5 text-amber-300" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Rechtskonforme QR-Rechnungen</h3>
@@ -138,12 +153,12 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 text-yellow-300 flex items-center justify-center shrink-0 text-base">
-              🔒
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <IconDatenschutz className="w-5 h-5 text-amber-300" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-white">Schweizer Datenschutz (revDSG)</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Sichere Mandantentrennung und höchste Sicherheitsstandards.</p>
+              <h3 className="font-bold text-sm text-white">Schweizer Datenschutz (DSG)</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Sichere Mandantentrennung und ISO 27001 Sicherheitsstandards.</p>
             </div>
           </div>
         </div>
@@ -152,20 +167,20 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
         <div className="relative z-10 pt-6 border-t border-white/10">
           <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>🇨🇭 Hosted in Switzerland</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconSwissFlag className="w-3.5 h-3.5 rounded shrink-0" /> Hosted in Switzerland</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>🔒 256-Bit SSL Verschlüsselung</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" /> 256-Bit SSL</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>⚡ Schweizer Handelsregister</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconFlash className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Zefix Anbindung</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>👥 Treuhand- & Team-Zugang</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconTeam className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Treuhand-Zugang</span>
             </div>
           </div>
         </div>
@@ -215,7 +230,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                 Willkommen zurück
               </h2>
               <p className="mt-2 text-sm text-text-secondary">
-                Melde dich an, um auf dein Kinetic Craft Handwerker-CRM zuzugreifen.
+                Melden Sie sich an, um auf Ihr Kinetic Craft Handwerker-CRM zuzugreifen.
               </p>
             </div>
 
@@ -319,7 +334,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                   className={`w-full min-h-[48px] flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white ${
                     isLoading 
                       ? 'bg-amber-400 cursor-wait' 
-                      : 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/20 hover:shadow-lg active:scale-[0.99]'
+                      : 'bg-amber-700 hover:bg-amber-800 active:bg-amber-900 shadow-amber-900/20 hover:shadow-lg active:scale-[0.99]'
                   } transition-all duration-200 cursor-pointer`}
                 >
                   {isLoading ? (
@@ -331,7 +346,10 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                       <span>Wird angemeldet...</span>
                     </>
                   ) : (
-                    <span>Anmelden 🇨🇭</span>
+                    <span className="inline-flex items-center gap-2">
+                      <span>Anmelden</span>
+                      <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
+                    </span>
                   )}
                 </button>
               </div>
@@ -345,14 +363,31 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
               <button 
                 type="button"
                 onClick={onGoToRegistration} 
-                className="text-amber-600 hover:text-amber-800 font-bold transition-colors cursor-pointer"
+                className="text-amber-700 hover:text-amber-800 font-bold transition-colors cursor-pointer"
               >
                 Jetzt 14 Tage kostenlos testen
               </button>
             </p>
             <p className="text-xs text-text-secondary/60 font-medium">
-              &copy; {new Date().getFullYear()} Kinetic Craft · Kinetic Schweiz
+              &copy; {new Date().getFullYear()} Kinetic Idrissi · Kinetic Schweiz
             </p>
+            <div className="flex items-center justify-center gap-3 pt-1 text-xs text-text-secondary/70">
+              <button 
+                type="button" 
+                onClick={onOpenDatenschutz}
+                className="hover:text-amber-700 underline cursor-pointer"
+              >
+                Datenschutz (DSG)
+              </button>
+              <span>•</span>
+              <button 
+                type="button" 
+                onClick={onOpenImpressum}
+                className="hover:text-amber-700 underline cursor-pointer"
+              >
+                Impressum
+              </button>
+            </div>
           </div>
         </div>
 
@@ -378,7 +413,7 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                 </div>
                 <h3 className="text-xl font-bold text-text-primary">Passwort zurücksetzen</h3>
                 <p className="text-sm text-text-secondary mt-1">
-                  Gib deine geschäftliche E-Mail-Adresse ein. Wir senden dir einen sicheren Schweizer Reset-Link.
+                  Geben Sie Ihre geschäftliche E-Mail-Adresse ein. Wir senden Ihnen einen sicheren Schweizer Reset-Link.
                 </p>
               </div>
 
@@ -386,12 +421,12 @@ export default function LoginView({ onLoginSuccess, onGoToRegistration, onBackTo
                 <div className="space-y-4">
                   <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-200 text-sm">
                     <p className="font-semibold mb-1">E-Mail wurde versendet!</p>
-                    <p>Bitte prüfe deinen Posteingang und klicke auf den Link in der E-Mail.</p>
+                    <p>Bitte prüfen Sie Ihren Posteingang und klicken Sie auf den Link in der E-Mail.</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowResetModal(false)}
-                    className="w-full py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 transition-colors cursor-pointer"
+                    className="w-full py-3 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-bold rounded-xl shadow-md shadow-amber-900/20 transition-colors cursor-pointer"
                   >
                     Zurück zur Anmeldung
                   </button>

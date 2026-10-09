@@ -1,4 +1,5 @@
 import { formatCurrency } from '../../lib/formatters'
+import { IconFlash } from '../icons/BrandIcons'
 
 export default function RechnungTotals({
   isEditing,
@@ -33,7 +34,10 @@ export default function RechnungTotals({
         )}
         {isEditing && isPauschalActive && (
           <div className="flex justify-between text-sm text-amber-600 font-medium">
-            <span>⚡ Pauschalpreis</span>
+            <span className="flex items-center gap-1">
+              <IconFlash className="w-3.5 h-3.5 text-amber-600" />
+              <span>Pauschalpreis</span>
+            </span>
             <span>aktiv</span>
           </div>
         )}

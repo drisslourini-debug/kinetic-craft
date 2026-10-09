@@ -15,7 +15,31 @@
 export async function generateNextRechnungNr(supabase, startnummer = null) {
   const year = new Date().getFullYear()
 
-  // 1. Try atomic server-side sequence RPC
+  // 1. Find the highest existing number in the database
+  let maxNum = startnummer ? startnummer - 1 : 0
+  if (supabase?.from) {
+    try {
+      const { data: existing } = await supabase
+        .from('rechnungen')
+        .select('rechnung_nr')
+        .ilike('rechnung_nr', `RE-${year}-%`)
+        .order('rechnung_nr', { ascending: false })
+        .limit(100)
+      if (existing && existing.length > 0) {
+        for (const item of existing) {
+          const match = item.rechnung_nr?.match(/RE-\d{4}-(\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Try atomic server-side sequence RPC if available and higher than maxNum
   if (supabase?.rpc) {
     try {
       const { data, error } = await supabase.rpc('get_next_document_number', {
@@ -23,28 +47,16 @@ export async function generateNextRechnungNr(supabase, startnummer = null) {
         p_year: year
       })
       if (!error && data) {
-        return data
+        const match = data.match(/RE-\d{4}-(\d+)/)
+        const rpcNum = match ? parseInt(match[1], 10) : 0
+        if (rpcNum > maxNum) {
+          return data
+        }
       }
-    } catch (_) {
-      // Fallback
-    }
+    } catch (_) {}
   }
 
-  // 2. Client-side query fallback
-  const { data: existing } = await supabase
-    .from('rechnungen')
-    .select('rechnung_nr')
-    .ilike('rechnung_nr', `RE-${year}-%`)
-    .order('rechnung_nr', { ascending: false })
-    .limit(1)
-
-  let nextNum = startnummer || 1
-  if (existing && existing.length > 0) {
-    const parts = existing[0].rechnung_nr.split('-')
-    const lastNum = parseInt(parts[2]) || 0
-    nextNum = Math.max(nextNum, lastNum + 1)
-  }
-
+  const nextNum = maxNum + 1
   return `RE-${year}-${String(nextNum).padStart(3, '0')}`
 }
 
@@ -59,6 +71,30 @@ export async function generateNextRechnungNr(supabase, startnummer = null) {
 export async function generateNextGutschriftNr(supabase, startnummer = null) {
   const year = new Date().getFullYear()
 
+  let maxNum = startnummer ? startnummer - 1 : 0
+  if (supabase?.from) {
+    try {
+      const { data: existing } = await supabase
+        .from('rechnungen')
+        .select('rechnung_nr')
+        .ilike('rechnung_nr', `GS-${year}-%`)
+        .order('rechnung_nr', { ascending: false })
+        .limit(100)
+      if (existing && existing.length > 0) {
+        for (const item of existing) {
+          const raw = item.rechnung_nr || item.gutschrift_nr
+          const match = raw?.match(/GS-\d{4}-(\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (supabase?.rpc) {
     try {
       const { data, error } = await supabase.rpc('get_next_document_number', {
@@ -66,27 +102,16 @@ export async function generateNextGutschriftNr(supabase, startnummer = null) {
         p_year: year
       })
       if (!error && data) {
-        return data
+        const match = data.match(/GS-\d{4}-(\d+)/)
+        const rpcNum = match ? parseInt(match[1], 10) : 0
+        if (rpcNum > maxNum) {
+          return data
+        }
       }
-    } catch (_) {
-      // Fallback
-    }
+    } catch (_) {}
   }
 
-  const { data: existing } = await supabase
-    .from('rechnungen')
-    .select('rechnung_nr')
-    .ilike('rechnung_nr', `GS-${year}-%`)
-    .order('rechnung_nr', { ascending: false })
-    .limit(1)
-
-  let nextNum = startnummer || 1
-  if (existing && existing.length > 0) {
-    const parts = existing[0].rechnung_nr.split('-')
-    const lastNum = parseInt(parts[2]) || 0
-    nextNum = Math.max(nextNum, lastNum + 1)
-  }
-
+  const nextNum = maxNum + 1
   return `GS-${year}-${String(nextNum).padStart(3, '0')}`
 }
 
@@ -101,7 +126,29 @@ export async function generateNextGutschriftNr(supabase, startnummer = null) {
 export async function generateNextOfferteNr(supabase, startnummer = null) {
   const year = new Date().getFullYear()
 
-  // 1. Try atomic server-side sequence RPC
+  let maxNum = startnummer ? startnummer - 1 : 1000
+  if (supabase?.from) {
+    try {
+      const { data: existing } = await supabase
+        .from('offerten')
+        .select('offerte_nr')
+        .ilike('offerte_nr', `OF-${year}-%`)
+        .order('offerte_nr', { ascending: false })
+        .limit(100)
+      if (existing && existing.length > 0) {
+        for (const item of existing) {
+          const match = item.offerte_nr?.match(/OF-\d{4}-(\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (supabase?.rpc) {
     try {
       const { data, error } = await supabase.rpc('get_next_document_number', {
@@ -109,28 +156,16 @@ export async function generateNextOfferteNr(supabase, startnummer = null) {
         p_year: year
       })
       if (!error && data) {
-        return data
+        const match = data.match(/OF-\d{4}-(\d+)/)
+        const rpcNum = match ? parseInt(match[1], 10) : 0
+        if (rpcNum > maxNum) {
+          return data
+        }
       }
-    } catch (_) {
-      // Fallback
-    }
+    } catch (_) {}
   }
 
-  // 2. Client-side query fallback
-  const { data: existing } = await supabase
-    .from('offerten')
-    .select('offerte_nr')
-    .ilike('offerte_nr', `OF-${year}-%`)
-    .order('offerte_nr', { ascending: false })
-    .limit(1)
-
-  let nextNum = startnummer || 1000
-  if (existing && existing.length > 0) {
-    const parts = existing[0].offerte_nr.split('-')
-    const lastNum = parseInt(parts[2]) || 0
-    nextNum = Math.max(nextNum, lastNum + 1)
-  }
-
+  const nextNum = maxNum + 1
   return `OF-${year}-${String(nextNum).padStart(3, '0')}`
 }
 
@@ -163,9 +198,15 @@ export function parseZahlungsfrist(zahlungsziel, fallback = 30) {
  */
 export function calculateDueDate(startDate, fristTage) {
   if (!startDate) return ''
-  const parts = String(startDate).split('T')[0].split('-').map(Number)
-  if (parts.length < 3 || isNaN(parts[0])) return ''
-  const date = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0)
+  let date
+  if (startDate instanceof Date) {
+    if (isNaN(startDate.getTime())) return ''
+    date = new Date(startDate.getTime())
+  } else {
+    const parts = String(startDate).split('T')[0].split('-').map(Number)
+    if (parts.length < 3 || isNaN(parts[0])) return ''
+    date = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0)
+  }
   date.setDate(date.getDate() + parseInt(fristTage || 0, 10))
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')

@@ -25,7 +25,7 @@ describe('kalenderConstants', () => {
   it('returns valid config for known types like Montage', () => {
     const montage = getTerminTypConfig('Montage');
     expect(montage.label).toBe('Montage');
-    expect(montage.icon).toBe('🔨');
+    expect(montage.icon).toBe('Montage');
     expect(montage.color).toBe('#10b981');
   });
 });

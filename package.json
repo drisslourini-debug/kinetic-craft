@@ -21,10 +21,12 @@
     "html2pdf.js": "^0.14.0",
     "ibantools": "^4.5.4",
     "jszip": "^3.10.1",
+    "libphonenumber-js": "^1.13.15",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "recharts": "^3.10.1",
-    "swissqrbill": "^4.4.0"
+    "swissqrbill": "^4.4.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.5.0",

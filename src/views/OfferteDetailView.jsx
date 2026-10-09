@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate } from '../lib/formatters'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
+import { formatUrl } from '../lib/router'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { useModalHistory } from '../hooks/useModalHistory'
 const OffertePrintView = lazy(() => import('./OffertePrintView'))
@@ -10,13 +11,39 @@ import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 import TerminModal from '../components/kalender/TerminModal'
 import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
+import {
+  IconFolder,
+  IconEye,
+  IconEdit,
+  IconMic,
+  IconRuler,
+  IconCalendar,
+  IconSparkles,
+  IconBauunternehmung,
+  IconDocument,
+  IconPlus,
+  IconBook,
+  IconAttachment,
+  IconMoney,
+  IconClock,
+  IconFlash,
+  IconNotes,
+  IconUser,
+  IconLocation,
+  IconMail,
+  IconSave,
+  IconTrash,
+  IconQrBill,
+  IconWarning,
+  IconCheck
+} from '../components/icons/BrandIcons'
 
 export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams, userRole }) {
-  const [kunde, setKunde] = useState(null)
-  const [projekt, setProjekt] = useState(null)
+  const [kunde, setKunde] = useState(offerte?.kunden || null)
+  const [projekt, setProjekt] = useState(offerte?.projekte || null)
   const [status, setStatus] = useState(offerte.status || 'Entwurf')
   const [isUpdating, setIsUpdating] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(offerte?.id === 'demo' ? false : true)
   const [showPrintView, setShowPrintView] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
 
@@ -40,6 +67,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
   const [showKatalogDrawer, setShowKatalogDrawer] = useState(false)
   const [showLivePreview, setShowLivePreview] = useState(false)
+  const [mobileEditTab, setMobileEditTab] = useState('form') // 'form' | 'preview'
   const [showNewPositionForm, setShowNewPositionForm] = useState(false)
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [showArchiveModal, setShowArchiveModal] = useState(false)
@@ -117,12 +145,16 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       notizen: daten.ausfuehrung?.notizen || ''
     })
     setEditAnhange(daten.anhange || [])
+    setShowLivePreview(true)
+    setMobileEditTab('form')
     setIsEditing(true)
   }, [offerte])
 
+  const hasHandledEditParamRef = useRef(false)
   useEffect(() => {
-    if (viewParams?.edit && !isEditing && !isLoading) {
+    if (viewParams?.edit && !hasHandledEditParamRef.current && !isEditing && !isLoading) {
       if (status === 'Entwurf' || status === 'In Überarbeitung') {
+        hasHandledEditParamRef.current = true
         startEditing()
       }
     }
@@ -131,8 +163,19 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   useEffect(() => {
     async function loadKatalogData() {
       try {
-        const { data: katData } = await supabase.from('katalog_leistungen').select('id, titel, beschreibung, einheit, preis').order('titel')
-        if (katData) setKatalogList(katData)
+        const { data: katData } = await supabase
+          .from('katalog_leistungen')
+          .select('id, beschreibung, einheit, einzelpreis')
+          .order('sort_order', { ascending: true })
+        if (katData) {
+          setKatalogList(katData.map(k => ({
+            id: k.id,
+            titel: k.beschreibung,
+            beschreibung: k.beschreibung,
+            einheit: k.einheit,
+            preis: parseFloat(k.einzelpreis) || 0
+          })))
+        }
       } catch (e) {
         console.warn('Katalog konnte nicht geladen werden:', e)
       }
@@ -163,7 +206,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       }))
 
       setEditLeistungen(prev => recalculatePositions([...prev, ...formatted]))
-      showToast('success', `✨ ${formatted.length} Positionen per Sprache kalkuliert und eingefügt!`)
+      showToast('success', `${formatted.length} Positionen per Sprache kalkuliert und eingefügt!`)
     }
   }
 
@@ -196,6 +239,10 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   useEffect(() => {
     async function loadDetails() {
       if (!supabase || !offerte) return
+      if (offerte.id === 'demo') {
+        setIsLoading(false)
+        return
+      }
       
       try {
         setIsLoading(true)
@@ -360,7 +407,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       // Calculate faellig_am based on customer's payment term
       const fristTage = parseZahlungsfrist(kunde?.zahlungsziel)
       const rechnungsdatum = new Date()
-      const faelligAm = calculateDueDate(rechnungsdatum, fristTage)
+      const faelligAm = calculateDueDate(rechnungsdatum, fristTage) || calculateDueDate(rechnungsdatum.toISOString().split('T')[0], 30)
 
       const { data: newRechnung, error } = await supabase
         .from('rechnungen')
@@ -438,7 +485,10 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           type: 'position',
           kategorie,
           beschreibung: item.titel,
-          menge: '', 
+          details: item.details || '',
+          npk_code: item.npk_code || item.npkCode || '',
+          npk_kapitel: item.npk_kapitel || item.kapitelCode || '',
+          menge: item.menge || '', 
           einheit: item.einheit,
           einzelpreis: item.preis,
           optional: false
@@ -456,7 +506,12 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
   const confirmDiscardChanges = () => {
     setShowDiscardModal(false)
+    if (viewParams?.edit) {
+      delete viewParams.edit
+      window.history.replaceState(window.history.state, '', formatUrl('offerten', { offerteId: offerte.id }))
+    }
     setIsEditing(false)
+    setMobileEditTab('form')
   }
 
   const handleFileUpload = async (event) => {
@@ -578,7 +633,13 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         setProjekt(null)
       }
 
+      if (viewParams?.edit) {
+        delete viewParams.edit
+        window.history.replaceState(window.history.state, '', formatUrl('offerten', { offerteId: offerte.id }))
+      }
+
       setIsEditing(false)
+      setMobileEditTab('form')
       showToast('success', 'Offerte erfolgreich gespeichert!')
     } catch (err) {
       console.error('Fehler beim Speichern:', err)
@@ -731,25 +792,29 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className={`space-y-6 relative ${isEditing ? 'pb-32 sm:pb-24' : ''}`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Row 1: Back + Title + Archive Info */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <button 
             onClick={onBack}
-            className="p-2 rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer"
+            className="p-2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer shrink-0"
+            aria-label="Zurück"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Offerte #{offerte.id}</h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-text-primary truncate">
+                Offerte #{offerte.id}
+              </h2>
               {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-text-secondary text-sm">Erstellt am {formatDate(offerte.created_at)}</p>
+            <div className="flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
+              <p className="text-text-secondary text-xs sm:text-sm">Erstellt am {formatDate(offerte.created_at)}</p>
               {offerte.pdf_url ? (
                 <a
                   href={offerte.pdf_url}
@@ -758,7 +823,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                   title="Archiviertes PDF anzeigen"
                 >
-                  <span>📁</span> Im Archiv gesichert
+                  <IconFolder className="w-3.5 h-3.5 inline text-emerald-700" /> <span className="hidden sm:inline">Im Archiv gesichert</span><span className="sm:hidden">Archiviert</span>
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 </a>
               ) : (
@@ -768,19 +833,20 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
                   title="PDF generieren und im Archiv ablegen"
                 >
-                  <span>📁</span> Noch nicht archiviert
+                  <IconFolder className="w-3.5 h-3.5 inline text-amber-700" /> <span className="hidden sm:inline">Noch nicht archiviert</span><span className="sm:hidden">Nicht archiviert</span>
                 </button>
               )}
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        {/* Row 2: Status Dropdown + Primary Action + Icon Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap">
           <select
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={isUpdating || isEditing || userRole === 'treuhand'}
-            className={`px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 hidden sm:block ${
+            className={`min-w-0 max-w-[125px] sm:max-w-none flex-1 sm:flex-none px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 text-xs sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 truncate ${
               status === 'Akzeptiert' || status === 'Verrechnet' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
               status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
               status === 'In Überarbeitung' ? 'border-amber-200 bg-amber-50 text-amber-700' :
@@ -795,47 +861,61 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
             <option value="Abgelehnt">Abgelehnt</option>
             <option value="Verrechnet">Verrechnet</option>
           </select>
-          {/* Main Action: PDF View or Edit */}
+
+          {/* Desktop Only: Live preview toggle */}
           {isEditing && (
             <button
               onClick={() => setShowLivePreview(!showLivePreview)}
-              className={`hidden xl:inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 font-bold text-base sm:text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
+              className={`hidden xl:inline-flex items-center gap-2 px-4 py-2.5 font-bold text-sm rounded-xl transition-colors shadow-sm cursor-pointer border ${
                 showLivePreview ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-surface border-border text-text-secondary'
               }`}
               title="Split-Screen Live-Vorschau (nur Desktop)"
             >
-              {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+              <IconEye className={`w-4 h-4 ${showLivePreview ? 'text-primary-700' : 'text-text-secondary'}`} />
+              <span>{showLivePreview ? 'Live-Vorschau an' : 'Live-Vorschau aus'}</span>
             </button>
           )}
-          {userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
-            <button
-              onClick={() => setShowVoiceModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer"
-              title="Offerte per Sprache diktieren & durch KI berechnen"
-            >
-              <span>🎙️</span>
-              <span>Sprach-Diktat (KI)</span>
-            </button>
-          )}
+
+          {/* Edit Button */}
           {!isEditing && userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
             <button
               onClick={startEditing}
-              className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-base sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 bg-surface border border-primary-200 text-primary-700 font-bold text-xs sm:text-sm rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm shrink-0"
             >
-              ✏️ Offerte bearbeiten
+              <IconEdit className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Offerte bearbeiten</span>
+              <span className="sm:hidden">Bearbeiten</span>
             </button>
           )}
+
+          {/* AI Voice Diktat (Icon on mobile, full text on desktop) */}
+          {userRole !== 'treuhand' && (status === 'Entwurf' || status === 'In Überarbeitung') && (
+            <button
+              onClick={() => setShowVoiceModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 p-2 sm:px-4 sm:py-2.5 min-w-[40px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer shrink-0"
+              title="Offerte per Sprache diktieren & durch KI berechnen"
+              aria-label="Sprach-Diktat (KI)"
+            >
+              <IconMic className="w-3.5 h-3.5 text-slate-950" />
+              <span className="hidden sm:inline">Sprach-Diktat (KI)</span>
+            </button>
+          )}
+
+          {/* PDF View Button */}
           <button
             onClick={() => setShowPrintView(true)}
-            className="inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] sm:min-h-0 bg-primary-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 p-2 sm:px-4 sm:py-2.5 min-w-[40px] min-h-[44px] sm:min-w-0 sm:min-h-0 bg-primary-600 text-white font-bold text-xs sm:text-sm rounded-xl hover:bg-primary-700 transition-colors shadow-md shadow-primary-600/20 active:scale-[0.98] cursor-pointer shrink-0"
+            title="PDF anzeigen"
+            aria-label="PDF anzeigen"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             <span className="hidden sm:inline">PDF anzeigen</span>
-            <span className="sm:hidden">PDF</span>
           </button>
+
+          {/* Action Menu (⋮) */}
           {userRole !== 'treuhand' && (
-            <div className="relative">
-              <button aria-label="Aktionsmenü" onClick={() => setShowActionMenu(!showActionMenu)} className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 bg-surface-card hover:bg-neutral-50 rounded-xl sm:rounded-lg border border-border shadow-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center">
+            <div className="relative shrink-0">
+              <button aria-label="Aktionsmenü" onClick={() => setShowActionMenu(!showActionMenu)} className="p-2 min-w-[40px] min-h-[44px] sm:min-w-[40px] sm:min-h-[40px] bg-surface-card hover:bg-neutral-50 rounded-xl sm:rounded-lg border border-border shadow-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
               </button>
               {showActionMenu && (
@@ -863,14 +943,14 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                         onClick={() => { setShowActionMenu(false); openPlanTermin('Aufmass / Besichtigung'); }} 
                         className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2"
                       >
-                        <span className="text-sm">📏</span>
+                        <IconRuler className="w-4 h-4 text-primary-600 shrink-0" />
                         Aufmass / Besichtigung planen
                       </button>
                       <button 
                         onClick={() => { setShowActionMenu(false); openPlanTermin('Kundentermin'); }} 
                         className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
-                        <span className="text-sm">📅</span>
+                        <IconCalendar className="w-4 h-4 text-primary-600 shrink-0" />
                         Kundentermin im Kalender
                       </button>
                       {offerte.is_archived ? (
@@ -909,8 +989,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {status === 'Akzeptiert' && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm animate-fade-in">
           <div className="flex items-start sm:items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center text-xl shrink-0">
-              🎉
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <IconSparkles className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
               <p className="text-sm font-bold text-emerald-900">Auftrag erteilt / Offerte akzeptiert!</p>
@@ -924,21 +1004,24 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               onClick={() => openPlanTermin('Montage')}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
             >
-              <span>📅 Montagetermin planen</span>
+              <IconCalendar className="w-4 h-4" />
+              <span>Montagetermin planen</span>
             </button>
             {!offerte.projekt_id && (
               <button
                 onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: offerte.kunden_id, name: offerte.daten?.titel || `Projekt zu Offerte #${offerte.id}` })}
                 className="px-3.5 py-2 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>🏗️ Projekt anlegen</span>
+                <IconBauunternehmung className="w-4 h-4" />
+                <span>Projekt anlegen</span>
               </button>
             )}
             <button
               onClick={() => setShowConvertModal(true)}
               className="px-3.5 py-2 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
             >
-              <span>📄 Rechnung erstellen</span>
+              <IconDocument className="w-4 h-4" />
+              <span>Rechnung erstellen</span>
             </button>
           </div>
         </div>
@@ -948,8 +1031,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {offerte.is_archived && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
-              📁
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <IconFolder className="w-5 h-5 text-amber-700" />
             </div>
             <div>
               <p className="text-sm font-bold text-amber-900">Diese Offerte ist archiviert.</p>
@@ -967,12 +1050,45 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         </div>
       )}
 
+      {/* Mobile / Tablet Tab Switcher (Sticky Sub-Header for < xl screens) */}
+      {isEditing && (
+        <div className="xl:hidden sticky top-0 sm:top-2 z-20 bg-surface/95 backdrop-blur-md border-b border-border py-2 px-3 mb-4 -mx-4 sm:-mx-6 sm:px-6 shadow-xs flex items-center justify-center">
+          <div className="grid grid-cols-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200/80 shadow-inner w-full max-w-sm">
+            <button
+              type="button"
+              onClick={() => setMobileEditTab('form')}
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                mobileEditTab === 'form'
+                  ? 'bg-white text-primary-700 shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <IconEdit className="w-3.5 h-3.5" />
+              <span>Bearbeiten</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileEditTab('preview')}
+              className={`flex items-center justify-center gap-1.5 py-2 px-3 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                mobileEditTab === 'preview'
+                  ? 'bg-white text-primary-700 shadow-xs'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <IconEye className="w-3.5 h-3.5" />
+              <span>A4-Vorschau</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* End Header Actions */}
       {isLoading ? (
         <div className="p-8 text-center text-text-secondary">Lade Daten...</div>
       ) : (
-        <div className={showLivePreview && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
-        <div className="animate-fade-in">
+        <div className={(showLivePreview || mobileEditTab === 'preview') && isEditing ? "grid grid-cols-1 xl:grid-cols-2 gap-6" : ""}>
+        <div className={`animate-fade-in ${isEditing && mobileEditTab === 'preview' ? 'hidden xl:block' : 'block'}`}>
           <div className={`grid grid-cols-1 ${!(showLivePreview && isEditing) ? 'lg:grid-cols-12' : ''} gap-8 items-start`}>
             
             {/* ================= LEFT COLUMN: DOKUMENTENFLUSS ================= */}
@@ -1036,12 +1152,13 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                     <p className="text-xs text-text-secondary">Positionen, Mengen und Einheitspreise der Offerte</p>
                   </div>
                   {isEditing && (
-                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-2.5">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none flex-nowrap sm:flex-wrap">
                       <button
                         onClick={addTitle}
                         className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface text-text-primary border border-border font-semibold text-xs rounded-lg hover:bg-surface-card transition-colors cursor-pointer shadow-2xs"
                       >
-                        ➕ Titel
+                        <IconPlus className="w-3.5 h-3.5 text-primary-600" />
+                        <span>Titel</span>
                       </button>
                       <button
                         onClick={() => {
@@ -1059,26 +1176,29 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                         }}
                         className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-surface text-text-primary border border-border font-semibold text-xs rounded-lg hover:bg-surface-card transition-colors cursor-pointer shadow-2xs"
                       >
-                        ➕ Leere Pos.
+                        <IconPlus className="w-3.5 h-3.5 text-primary-600" />
+                        <span>Leere Pos.</span>
                       </button>
                       <button
                         onClick={() => setShowNewPositionForm(true)}
                         className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
                       >
-                        ➕ Position
+                        <IconPlus className="w-3.5 h-3.5 text-primary-600" />
+                        <span>Position</span>
                       </button>
                       <button
                         onClick={() => setShowKatalogDrawer(true)}
                         className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-xs rounded-lg hover:bg-primary-100 transition-colors cursor-pointer shadow-2xs"
                       >
-                        📖 Katalog
+                        <IconBook className="w-3.5 h-3.5 text-primary-600" />
+                        <span>Katalog</span>
                       </button>
                       <button
                         onClick={() => setShowVoiceModal(true)}
                         className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-lg transition-all active:scale-95 cursor-pointer shadow-2xs"
                         title="Positionen per Sprache diktieren & durch KI berechnen"
                       >
-                        <span>🎙️</span>
+                        <IconMic className="w-3.5 h-3.5 text-slate-950" />
                         <span>Sprache (KI)</span>
                       </button>
                     </div>
@@ -1233,11 +1353,11 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                             />
                           </div>
 
-                          {/* Row: Menge, Einheit, Preis, Total */}
+                          {/* Row: Menge, Einheit, Preis, Total (2x2 on mobile, 5 cols on desktop) */}
                           {pos.type !== 'title' && (
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pl-2 sm:pl-10">
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 pl-0 sm:pl-10">
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Menge</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Menge</label>
                                 <input
                                   type="number"
                                   step="any"
@@ -1248,7 +1368,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
                                 <input
                                   type="text"
                                   value={pos.einheit || ''}
@@ -1258,7 +1378,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Netto (CHF)</label>
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Netto (CHF)</label>
                                 <input
                                   type="number"
                                   step="0.05"
@@ -1277,7 +1397,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                   placeholder="0.00"
                                 />
                               </div>
-                              <div>
+                              <div className="hidden sm:block">
                                 <label className="text-xs text-text-secondary font-semibold block mb-1">Brutto (CHF)</label>
                                 <input
                                   type="number"
@@ -1298,8 +1418,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-text-secondary font-semibold block mb-1">Total</label>
-                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary flex items-center h-[38px]">
+                                <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Total</label>
+                                <div className="px-3 py-1.5 bg-surface border border-border rounded-lg text-sm font-bold text-text-primary flex items-center h-[34px] sm:h-[38px] truncate">
                                   {formatCurrency((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
                                 </div>
                               </div>
@@ -1555,11 +1675,12 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                       />
                       <label 
                         htmlFor="file-upload"
-                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
                           isUploading ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-wait' : 'bg-surface border-border text-text-secondary hover:bg-primary-50 hover:text-primary-600 hover:border-primary-200'
                         }`}
                       >
-                        {isUploading ? 'Lädt hoch...' : '📎 Datei hochladen'}
+                        <IconAttachment className="w-3.5 h-3.5" />
+                        <span>{isUploading ? 'Lädt hoch...' : 'Datei hochladen'}</span>
                       </label>
                     </div>
                   )}
@@ -1570,7 +1691,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                     {(isEditing ? editAnhange : (daten.anhange || [])).map((anhang, idx) => (
                       <div key={idx} className="flex items-center justify-between p-3 bg-surface rounded-xl border border-border">
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <span className="text-lg">📄</span>
+                          <IconDocument className="w-5 h-5 text-primary-600 shrink-0" />
                           <div className="truncate">
                             <a href={anhang.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-primary-600 hover:underline truncate block">
                               {anhang.name}
@@ -1606,7 +1727,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>💰</span> Kalkulation {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
+                    <IconMoney className="w-4 h-4 text-primary-600" />
+                    <span>Kalkulation</span> {isEditing && <span className="text-primary-600 font-semibold">(Live)</span>}
                   </h3>
                   <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 font-medium rounded-full">
                     CHF
@@ -1634,8 +1756,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   )}
                   
                   {isEditing && isPauschal && editPauschalpreis && (
-                    <div className="flex justify-between text-sm text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded-lg">
-                      <span>⚡ Pauschalpreis</span>
+                    <div className="flex justify-between text-sm text-amber-600 font-medium bg-amber-50 px-2 py-1 rounded-lg items-center">
+                      <span className="inline-flex items-center gap-1"><IconFlash className="w-3.5 h-3.5" /> Pauschalpreis</span>
                       <span>aktiv</span>
                     </div>
                   )}
@@ -1660,7 +1782,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-border/60">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>📋</span> Stammdaten
+                    <IconNotes className="w-4 h-4 text-primary-600" />
+                    <span>Stammdaten</span>
                   </h3>
                   {kunde && (
                     <span className="text-[11px] font-mono font-medium text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-100">
@@ -1671,8 +1794,9 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
                 {/* Kunde */}
                 <div>
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1.5">
-                    <span>👤</span> Kunde
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1.5">
+                    <IconUser className="w-3.5 h-3.5 text-text-secondary" />
+                    <span>Kunde</span>
                   </label>
                   {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
                     <select
@@ -1688,16 +1812,17 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   ) : (
                     <div className="bg-surface/60 rounded-xl p-3 border border-border/60">
                       <div className="font-semibold text-text-primary text-sm">{kunde ? kunde.name : (offerte.kunden_name || 'Unbekannt')}</div>
-                      {kunde && kunde.ort && <div className="text-xs text-text-secondary mt-0.5">📍 {kunde.ort}</div>}
-                      {kunde && kunde.email && <div className="text-xs text-text-secondary mt-0.5">✉️ {kunde.email}</div>}
+                      {kunde && kunde.ort && <div className="text-xs text-text-secondary mt-0.5 flex items-center gap-1"><IconLocation className="w-3.5 h-3.5" /> <span>{kunde.ort}</span></div>}
+                      {kunde && kunde.email && <div className="text-xs text-text-secondary mt-0.5 flex items-center gap-1"><IconMail className="w-3.5 h-3.5" /> <span>{kunde.email}</span></div>}
                     </div>
                   )}
                 </div>
 
                 {/* Projekt */}
                 <div>
-                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1.5">
-                    <span>🏗️</span> Projekt / Baustelle
+                  <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1.5">
+                    <IconBauunternehmung className="w-3.5 h-3.5 text-text-secondary" />
+                    <span>Projekt / Baustelle</span>
                   </label>
                   {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
                     <select
@@ -1714,7 +1839,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                   ) : (
                     <div className="bg-surface/60 rounded-xl p-3 border border-border/60">
                       <div className="font-semibold text-text-primary text-sm">{projekt ? projekt.name : 'Kein Projekt zugeordnet'}</div>
-                      {projekt && projekt.adresse && <div className="text-xs text-text-secondary mt-0.5">📍 {projekt.adresse}</div>}
+                      {projekt && projekt.adresse && <div className="text-xs text-text-secondary mt-0.5 flex items-center gap-1"><IconLocation className="w-3.5 h-3.5" /> <span>{projekt.adresse}</span></div>}
                     </div>
                   )}
                 </div>
@@ -1722,8 +1847,9 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                 {/* Ausführung */}
                 {isEditing ? (
                   <div className="pt-2 border-t border-border/60 space-y-2">
-                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1">
-                      <span>📅</span> Geplante Ausführung
+                    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                      <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                      <span>Geplante Ausführung</span>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -1751,8 +1877,9 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                 ) : (
                   (daten.ausfuehrung?.start || daten.ausfuehrung?.dauer) && (
                     <div className="pt-2 border-t border-border/60">
-                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1 mb-1">
-                        <span>📅</span> Ausführung
+                      <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5 mb-1">
+                        <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                        <span>Ausführung</span>
                       </label>
                       <div className="text-xs text-text-primary bg-surface/60 p-2.5 rounded-lg border border-border/60 space-y-0.5">
                         {daten.ausfuehrung.start && <div>Start: <span className="font-medium">{daten.ausfuehrung.start}</span></div>}
@@ -1767,7 +1894,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-border/60">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>⏱️</span> Fristen
+                    <IconClock className="w-4 h-4 text-primary-600" />
+                    <span>Fristen</span>
                   </h3>
                 </div>
                 {isEditing ? (
@@ -1812,7 +1940,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                             className="text-[11px] font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
                             title="Im Kalender ansehen"
                           >
-                            <span>📅 Im Kalender ansehen</span>
+                            <IconCalendar className="w-3.5 h-3.5" />
+                            <span>Im Kalender ansehen</span>
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                           </button>
                         )}
@@ -1838,7 +1967,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <div className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs space-y-2">
                 <div className="flex items-center justify-between pb-1 border-b border-border/60">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                    <span>📝</span> Interne Notizen
+                    <IconNotes className="w-4 h-4 text-primary-600" />
+                    <span>Interne Notizen</span>
                   </h3>
                   <span className="text-[10px] text-text-secondary font-medium">Auto-Save</span>
                 </div>
@@ -1855,8 +1985,10 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           </div>
         </div>
 
-        {showLivePreview && isEditing && (
-          <div className="hidden xl:block bg-gray-100 rounded-2xl border border-border overflow-y-auto sticky top-6 shadow-inner" style={{ height: 'calc(100vh - 120px)' }}>
+        {isEditing && (
+          <div className={`bg-gray-100 rounded-2xl border border-border overflow-hidden sticky top-6 shadow-inner ${
+            mobileEditTab === 'preview' ? 'block mb-24 min-h-[calc(100vh-180px)]' : (showLivePreview ? 'hidden xl:block' : 'hidden')
+          }`} style={{ height: 'calc(100vh - 120px)' }}>
             <Suspense fallback={<div className="flex h-64 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>}>
               <OffertePrintView offerte={previewOfferte} kunde={kunde} projekt={projekt} previewMode={true} />
             </Suspense>
@@ -1866,20 +1998,33 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       )}
 
       {isEditing && (
-        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/80 backdrop-blur-md border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 animate-slide-up">
-          <button
-            onClick={cancelEditing}
-            className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-surface-card border border-border text-text-secondary font-bold text-base sm:text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
-          >
-            Abbrechen
-          </button>
-          <button
-            onClick={saveEditing}
-            disabled={isUpdating}
-            className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold text-base sm:text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
-          >
-            {isUpdating ? 'Speichert...' : '💾 Änderungen speichern'}
-          </button>
+        <div className="fixed bottom-0 left-0 right-0 lg:left-[240px] bg-surface/95 backdrop-blur-md border-t border-border px-4 py-3 sm:py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] z-40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 animate-slide-up pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <span className="text-xs uppercase tracking-wider font-bold text-text-secondary">Live-Total:</span>
+            <span className="text-lg sm:text-xl font-black text-primary-700">
+              {formatCurrency(editFinalTotal)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={cancelEditing}
+              className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2.5 bg-surface-card border border-border text-text-secondary font-bold text-sm rounded-xl hover:bg-surface transition-colors cursor-pointer"
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={saveEditing}
+              disabled={isUpdating}
+              className="flex-1 sm:flex-initial min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-600/20 cursor-pointer disabled:opacity-50"
+            >
+              {isUpdating ? 'Speichert...' : (
+                <>
+                  <IconSave className="w-4 h-4" />
+                  <span>Änderungen speichern</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1916,8 +2061,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {showArchiveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowArchiveModal(false)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              📁
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+              <IconFolder className="w-6 h-6 text-amber-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Offerte archivieren?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -1946,8 +2091,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDeleteModal(false)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-2xl mb-4">
-              🗑️
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mb-4">
+              <IconTrash className="w-6 h-6 text-red-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Offerte löschen?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -1976,8 +2121,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {showConvertModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowConvertModal(false)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-4">
-              🧾
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+              <IconQrBill className="w-6 h-6 text-emerald-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">In Rechnung umwandeln?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -2006,8 +2151,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {showDiscardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowDiscardModal(false)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              ⚠️
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+              <IconWarning className="w-6 h-6 text-amber-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Änderungen verwerfen?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -2035,8 +2180,8 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       {deleteAttachmentTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setDeleteAttachmentTarget(null)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center text-2xl mb-4">
-              📎
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mb-4">
+              <IconAttachment className="w-6 h-6 text-red-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Anhang löschen?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -2080,7 +2225,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
       )}

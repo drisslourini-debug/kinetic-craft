@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
+import { useModalHistory } from '../../hooks/useModalHistory';
 
 export default function BottomSheet({ isOpen, onClose, title, subtitle, children, footer }) {
+  useModalHistory(isOpen, onClose, 'bottom_sheet');
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -29,33 +32,27 @@ export default function BottomSheet({ isOpen, onClose, title, subtitle, children
         role="dialog"
         aria-modal="true"
       >
-        {/* Pull / Drag Indicator */}
-        <div 
-          className="w-full pt-3 pb-1.5 flex justify-center cursor-pointer shrink-0 touch-action-manipulation"
-          onClick={onClose}
-        >
-          <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
-        </div>
-
-        {/* Header */}
-        {(title || subtitle) && (
-          <div className="px-5 py-3 border-b border-border/80 flex items-center justify-between shrink-0">
-            <div>
-              {title && <h3 className="text-lg font-bold text-text-primary tracking-tight">{title}</h3>}
-              {subtitle && <p className="text-xs text-text-secondary mt-0.5">{subtitle}</p>}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center rounded-full text-text-secondary hover:text-text-primary hover:bg-neutral-100 active:scale-95 transition-all cursor-pointer"
-              aria-label="Schliessen"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        {/* Header with Title and Round Close Button (No drag handle) */}
+        <div className="px-5 py-3.5 border-b border-border/80 flex items-center justify-between shrink-0 bg-surface/50">
+          <div className="min-w-0 pr-2">
+            {title ? (
+              <h3 className="text-base font-bold text-text-primary tracking-tight truncate">{title}</h3>
+            ) : (
+              <div />
+            )}
+            {subtitle && <p className="text-xs text-text-secondary mt-0.5 truncate">{subtitle}</p>}
           </div>
-        )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 text-text-secondary hover:text-text-primary transition-all cursor-pointer shrink-0"
+            aria-label="Schliessen"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">

@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/formatters'
 import { recalculatePositions } from '../../lib/calculations'
+import AusmassModal from '../document/AusmassModal'
+import { NPK_KAPITEL } from '../../lib/npkCatalog'
+import {
+  IconPlus,
+  IconBook,
+  IconDocument,
+  IconClose,
+  IconSparkles,
+  IconWarning
+} from '../icons/BrandIcons'
 
 export default function OfferteLeistungsTabelle({
   isEditing,
@@ -13,8 +23,10 @@ export default function OfferteLeistungsTabelle({
   const [posError, setPosError] = useState('')
   const [showNewPositionForm, setShowNewPositionForm] = useState(false)
   const [dbKategorien, setDbKategorien] = useState([])
+  const [ausmassModalPos, setAusmassModalPos] = useState(null)
+  const [showNpkMenu, setShowNpkMenu] = useState(false)
   const [newPosData, setNewPosData] = useState({
-    beschreibung: '', menge: '', einheit: 'Stück (Stk)', einzelpreis: '', saveToKatalog: false, kategorie_id: ''
+    beschreibung: '', menge: '', einheit: 'Stück (Stk)', einzelpreis: '', saveToKatalog: false, kategorie_id: '', npk_code: ''
   })
 
   // Lade Katalog-Kategorien für das Speichern
@@ -44,6 +56,30 @@ export default function OfferteLeistungsTabelle({
       einzelpreis: '',
       optional: false,
     }]))
+  }
+
+  const addNpkChapter = (kap) => {
+    onChangeLeistungen(recalculatePositions([...editLeistungen, {
+      _id: Date.now(),
+      type: 'title',
+      posNr: '',
+      beschreibung: kap.titel,
+      npk_kapitel: kap.code,
+      menge: '',
+      einheit: '',
+      einzelpreis: '',
+      optional: false,
+    }]))
+  }
+
+  const handleSaveAusmass = (nettoMenge, ausmassDetails) => {
+    if (!ausmassModalPos) return
+    onChangeLeistungen(editLeistungen.map(p => 
+      p._id === ausmassModalPos._id 
+        ? { ...p, menge: nettoMenge, ausmass_details: ausmassDetails } 
+        : p
+    ))
+    setAusmassModalPos(null)
   }
 
   const movePosition = (index, direction) => {
@@ -119,19 +155,50 @@ export default function OfferteLeistungsTabelle({
                 onClick={addTitle}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-surface-card text-text-primary border border-border font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-surface transition-colors cursor-pointer"
               >
-                ➕ Titel
+                <IconPlus className="w-3.5 h-3.5" />
+                <span>Titel</span>
               </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNpkMenu(!showNpkMenu)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-3 min-h-[48px] bg-primary-50 text-primary-800 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
+                >
+                  <span>🇨🇭</span>
+                  <span>+ NPK Kapitel</span>
+                </button>
+                {showNpkMenu && (
+                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-64 bg-surface-card border border-border rounded-xl shadow-xl z-30 p-1.5 space-y-1">
+                    <div className="px-2 py-1 text-[10px] uppercase font-bold text-text-secondary tracking-wider">NPK Kapitel auswählen</div>
+                    {NPK_KAPITEL.map(kap => (
+                      <button
+                        key={kap.code}
+                        type="button"
+                        onClick={() => {
+                          addNpkChapter(kap)
+                          setShowNpkMenu(false)
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 text-xs rounded-lg hover:bg-primary-50 hover:text-primary-800 transition-colors font-medium flex items-center justify-between cursor-pointer"
+                      >
+                        <span>{kap.titel}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={onShowKatalogDrawer}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
               >
-                📖 Aus Katalog
+                <IconBook className="w-3.5 h-3.5" />
+                <span>Aus Katalog</span>
               </button>
               <button
                 onClick={() => setShowNewPositionForm(true)}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 min-h-[48px] bg-primary-50 text-primary-700 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
               >
-                ➕ Neue Leistung
+                <IconPlus className="w-3.5 h-3.5" />
+                <span>Neue Leistung</span>
               </button>
             </div>
           )}
@@ -162,7 +229,8 @@ export default function OfferteLeistungsTabelle({
                     <div key={idx}>
                       {pos.page_break && (
                         <div className="flex items-center gap-2 py-1 px-4 bg-blue-50/80 border-y border-blue-200 text-xs font-semibold text-blue-700">
-                          <span>📄 Seitenumbruch vor Position {pos.posNr || (idx + 1)}</span>
+                          <IconDocument className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>Seitenumbruch vor Position {pos.posNr || (idx + 1)}</span>
                           <div className="flex-1 border-b border-dashed border-blue-300"></div>
                         </div>
                       )}
@@ -173,9 +241,31 @@ export default function OfferteLeistungsTabelle({
                         <div className="flex flex-col min-w-0 flex-1">
                           <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
                             <span className="font-bold text-text-secondary mr-2">{pos.posNr || (idx + 1)}</span>
+                            {pos.npk_code && (
+                              <span className="mr-1.5 px-1.5 py-0.5 rounded bg-primary-100 text-primary-800 text-[10px] font-mono font-bold">
+                                NPK {pos.npk_code}
+                              </span>
+                            )}
                             {pos.beschreibung}
                             {pos.optional && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Option</span>}
                           </div>
+                          {pos.details && (
+                            <div className="text-xs text-text-secondary mt-0.5 leading-relaxed">
+                              {pos.details}
+                            </div>
+                          )}
+                          {pos.ausmass_details && pos.ausmass_details.length > 0 && (
+                            <div className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setAusmassModalPos(pos)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded cursor-pointer"
+                              >
+                                <span>📐</span>
+                                <span>Ausmass ({pos.ausmass_details.length} Zeilen)</span>
+                              </button>
+                            </div>
+                          )}
                           {!isInfo && (
                             <div className="text-xs text-text-secondary mt-1">
                               {pos.menge} {pos.einheit} à {formatCurrency(parseFloat(pos.einzelpreis) || 0)}
@@ -195,8 +285,33 @@ export default function OfferteLeistungsTabelle({
                           {pos.posNr || (idx + 1)}
                         </div>
                         <div className={`text-sm text-text-primary ${isKategorie ? 'font-bold text-base' : 'font-medium'}`}>
-                          {pos.beschreibung}
-                          {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {pos.npk_code && (
+                              <span className="px-1.5 py-0.5 rounded bg-primary-100 text-primary-800 text-[10px] font-mono font-bold">
+                                NPK {pos.npk_code}
+                              </span>
+                            )}
+                            <span>{pos.beschreibung}</span>
+                            {pos.optional && <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Option</span>}
+                          </div>
+                          {pos.details && (
+                            <div className="text-xs text-text-secondary mt-0.5 font-normal leading-relaxed">
+                              {pos.details}
+                            </div>
+                          )}
+                          {pos.ausmass_details && pos.ausmass_details.length > 0 && (
+                            <div className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setAusmassModalPos(pos)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded cursor-pointer"
+                                title="Detailliertes Schweizer Bau-Ausmass anzeigen"
+                              >
+                                <span>📐</span>
+                                <span>Ausmass ({pos.ausmass_details.length} Zeilen)</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                         {!isInfo ? (
                           <>
@@ -238,10 +353,11 @@ export default function OfferteLeistungsTabelle({
                       <button
                         type="button"
                         onClick={() => updatePosition(pos._id, 'page_break', false)}
-                        className="text-blue-500 hover:text-blue-800 p-0.5 text-xs font-bold"
+                        className="text-blue-500 hover:text-blue-800 p-0.5 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
                         title="Umbruch aufheben"
                       >
-                        ✕ Aufheben
+                        <IconClose className="w-3 h-3" />
+                        <span>Aufheben</span>
                       </button>
                     </div>
                   )}
@@ -274,7 +390,19 @@ export default function OfferteLeistungsTabelle({
                     </div>
 
                     {/* Description Field */}
-                    <div className="flex-1">
+                    <div className="flex-1 space-y-1.5">
+                      {pos.type !== 'title' && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={pos.npk_code || ''}
+                            onChange={(e) => updatePosition(pos._id, 'npk_code', e.target.value)}
+                            placeholder="NPK-Code (z.B. 675.211)"
+                            className="w-36 px-2 py-1 bg-surface border border-border rounded text-[11px] font-mono text-primary-800 placeholder:text-gray-400 focus:outline-none focus:border-primary-400"
+                            title="Normpositionenkatalog (CRB / NPK) Code"
+                          />
+                        </div>
+                      )}
                       <textarea
                         rows={2}
                         value={pos.beschreibung}
@@ -282,6 +410,15 @@ export default function OfferteLeistungsTabelle({
                         className={`w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 resize-y min-h-[48px] ${pos.type === 'title' ? 'font-bold text-base bg-surface-card' : ''}`}
                         placeholder={pos.type === 'title' ? 'Titel...' : 'Beschreibung...'}
                       />
+                      {pos.type !== 'title' && (
+                        <input
+                          type="text"
+                          value={pos.details || ''}
+                          onChange={(e) => updatePosition(pos._id, 'details', e.target.value)}
+                          placeholder="Zusatzdetails / CRB Spezifikation..."
+                          className="w-full px-2.5 py-1 bg-surface border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-primary-400"
+                        />
+                      )}
                     </div>
 
                     <div className="pt-1.5 flex items-center">
@@ -325,8 +462,8 @@ export default function OfferteLeistungsTabelle({
 
                   {/* Quantity & Price Row (Not for Titles) */}
                   {pos.type !== 'title' && (
-                    <div className="pl-[76px] grid grid-cols-2 sm:grid-cols-[100px_120px_1fr] gap-3 pt-2">
-                      <div>
+                    <div className="pl-[76px] grid grid-cols-2 sm:grid-cols-[140px_130px_1fr] gap-3 pt-2">
+                      <div className="flex items-center gap-1.5">
                         <input
                           type="number"
                           step="any"
@@ -335,6 +472,19 @@ export default function OfferteLeistungsTabelle({
                           className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm text-right focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                           placeholder="Menge"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setAusmassModalPos(pos)}
+                          className={`px-2 py-1.5 rounded-lg border text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1 transition-colors ${
+                            pos.ausmass_details && pos.ausmass_details.length > 0
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-surface text-text-secondary border-border hover:text-primary-700 hover:border-primary-300'
+                          }`}
+                          title={pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length} Ausmass-Zeilen (SIA 118)` : 'Bau-Ausmass berechnen'}
+                        >
+                          <span>📐</span>
+                          <span className="hidden sm:inline">{pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length}` : 'Ausmass'}</span>
+                        </button>
                       </div>
                       <div>
                         <select
@@ -386,7 +536,8 @@ export default function OfferteLeistungsTabelle({
               <div className="p-5 border-b border-border bg-orange-50/50">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-bold text-sm text-orange-800 flex items-center gap-2">
-                    <span className="text-orange-500">✨</span> Neue Leistung
+                    <IconSparkles className="w-4 h-4 text-orange-500" />
+                    <span>Neue Leistung</span>
                   </h4>
                   <button onClick={() => setShowNewPositionForm(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -396,7 +547,8 @@ export default function OfferteLeistungsTabelle({
                 <div className="space-y-4">
                   {posError && (
                     <div className="p-2.5 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100 flex items-center gap-2">
-                      <span>⚠️</span> {posError}
+                      <IconWarning className="w-4 h-4 text-red-600 shrink-0" />
+                      <span>{posError}</span>
                     </div>
                   )}
                   <div>
@@ -504,6 +656,14 @@ export default function OfferteLeistungsTabelle({
           </div>
         )}
       </div>
+
+      <AusmassModal
+        isOpen={!!ausmassModalPos}
+        onClose={() => setAusmassModalPos(null)}
+        position={ausmassModalPos}
+        readOnly={!isEditing}
+        onSaveAusmass={handleSaveAusmass}
+      />
     </div>
   )
 }

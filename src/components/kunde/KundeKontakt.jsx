@@ -1,5 +1,12 @@
 import { SettingsBlock, SettingsRow, InputField } from '../ui/SettingsComponents'
 import AddressAutocomplete from '../AddressAutocomplete'
+import {
+  IconLocation,
+  IconPhone,
+  IconMail,
+  IconGlobe,
+  IconSwissFlag
+} from '../icons/BrandIcons'
 
 export default function KundeKontakt({
   kunde,
@@ -14,6 +21,8 @@ export default function KundeKontakt({
   onAddressDetails,
   disabled
 }) {
+  const fullAddress = [kunde.strasse, [kunde.plz, kunde.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+
   return (
     <SettingsBlock
       title="Kontakt & Adresse"
@@ -25,16 +34,34 @@ export default function KundeKontakt({
       disabled={disabled}
       readOnlyView={
         <>
-          <SettingsRow label="Strasse" value={kunde.strasse} />
-          <SettingsRow label="PLZ & Ort" value={kunde.plz && kunde.ort ? `${kunde.plz} ${kunde.ort}` : (kunde.plz || kunde.ort || '')} />
-          <SettingsRow label="Land" value={
-            <span className="inline-flex items-center gap-1.5 font-medium text-text-primary">
-              <span>🇨🇭</span> {kunde.land || 'Schweiz'}
-            </span>
-          } />
-          <SettingsRow label="Telefon" value={kunde.telefon} />
-          <SettingsRow label="E-Mail" value={kunde.email} />
-          <SettingsRow label="Website" value={kunde.website} />
+          <SettingsRow 
+            label="Adresse" 
+            value={fullAddress || null} 
+            href={fullAddress ? `https://maps.apple.com/?q=${encodeURIComponent(fullAddress)}` : undefined}
+            icon={<IconLocation className="w-3.5 h-3.5 text-slate-500" />}
+            hideIfEmpty
+          />
+          <SettingsRow 
+            label="Telefon" 
+            value={kunde.telefon} 
+            href={kunde.telefon ? `tel:${kunde.telefon}` : undefined}
+            icon={<IconPhone className="w-3.5 h-3.5 text-slate-500" />}
+            hideIfEmpty
+          />
+          <SettingsRow 
+            label="E-Mail" 
+            value={kunde.email} 
+            href={kunde.email ? `mailto:${kunde.email}` : undefined}
+            icon={<IconMail className="w-3.5 h-3.5 text-slate-500" />}
+            hideIfEmpty
+          />
+          <SettingsRow 
+            label="Website" 
+            value={kunde.website} 
+            href={kunde.website ? (kunde.website.startsWith('http') ? kunde.website : `https://${kunde.website}`) : undefined}
+            icon={<IconGlobe className="w-3.5 h-3.5 text-slate-500" />}
+            hideIfEmpty
+          />
         </>
       }
     >
@@ -59,7 +86,7 @@ export default function KundeKontakt({
       <div className="md:col-span-2 space-y-1">
         <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">Land</label>
         <div className="w-full px-3 py-2 bg-neutral-100 border border-border rounded-lg text-sm text-text-primary flex items-center gap-2">
-          <span>🇨🇭</span>
+          <IconSwissFlag className="w-4 h-4 rounded-xs shrink-0" />
           <span className="font-semibold">Schweiz</span>
         </div>
       </div>

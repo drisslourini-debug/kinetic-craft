@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 100" fill="none">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37" />
+      <stop offset="50%" stop-color="#C59B27" />
+      <stop offset="100%" stop-color="#996515" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+  </defs>
+
+  <!-- Container for universal light/dark readability -->
+  <rect x="2" y="2" width="416" height="96" rx="16" fill="#0F172A" stroke="url(#goldGrad)" stroke-width="1.5" stroke-opacity="0.4" />
+
+  <!-- Emblem Left: Hexagon with precision craft lines and MM Monogram -->
+  <g transform="translate(18, 12)">
+    <!-- Hexagon Frame -->
+    <path d="M38 4 L68 21 L68 55 L38 72 L8 55 L8 21 Z" fill="url(#shieldGrad)" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linejoin="round" />
+    
+    <!-- Inner Precision Lines -->
+    <path d="M38 12 L60 25 L60 51 L38 64 L16 51 L16 25 Z" stroke="url(#goldGrad)" stroke-width="1" stroke-dasharray="2 2" fill="none" opacity="0.6" />
+    
+    <!-- Stylized MM (Muster Malerei) in Craft Gold -->
+    <text x="38" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="900" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="-1">MM</text>
+    
+    <!-- Swiss Mini Accent -->
+    <circle cx="38" cy="18" r="2.5" fill="#EF4444" />
+    <path d="M37 18 h2 M38 17 v2" stroke="#FFFFFF" stroke-width="0.8" />
+  </g>
+
+  <!-- Typography Right -->
+  <g transform="translate(104, 22)">
+    <!-- Company Name -->
+    <text x="0" y="32" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" fill="#FFFFFF" letter-spacing="-0.5">
+      MUSTER<tspan fill="#C59B27"> MALEREI</tspan>
+    </text>
+    
+    <!-- Industry Subtitle -->
+    <text x="2" y="52" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="700" fill="#94A3B8" letter-spacing="3.2">
+      MALER- &amp; GIPSERBETRIEB BERN AG
+    </text>
+  </g>
+</svg>

@@ -18,7 +18,7 @@ test.describe('Mobile Baustellen-Flow & Monteur-Szenario', () => {
     // 2. Login
     const emailInput = page.locator('input[type="email"]').first();
     await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-    await emailInput.fill('leandro@atelier-77.ch');
+    await emailInput.fill('max@muster-malerei.ch');
 
     const passwordInput = page.locator('input[type="password"]').first();
     await passwordInput.fill('Test1234');

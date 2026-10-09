@@ -20,15 +20,15 @@ async function saveBoth(pageOrLocator, filename) {
   console.log(`Saved: ${filename}`);
 }
 
-test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calendar & Workflows', async ({ page }) => {
+test('End-to-End Test: Muster Malerei Bern AG Profile, Dashboard, Zefix, Calendar & Workflows', async ({ page }) => {
   test.setTimeout(180000);
 
   await page.setViewportSize({ width: 1440, height: 900 });
 
   // -------------------------------------------------------------
-  // 1. Login with Leandro Lüthi's Credentials
+  // 1. Login with Max Muster's Credentials
   // -------------------------------------------------------------
-  console.log('1. Logging in as leandro@atelier-77.ch...');
+  console.log('1. Logging in as max@muster-malerei.ch...');
   await page.goto('/#login');
   await page.waitForLoadState('networkidle');
 
@@ -42,7 +42,7 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
   // Fill login form
   const emailInput = page.locator('input[type="email"]').first();
   await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-  await emailInput.fill('leandro@atelier-77.ch');
+  await emailInput.fill('max@muster-malerei.ch');
 
   const passwordInput = page.locator('input[type="password"]').first();
   await passwordInput.fill('Test1234');
@@ -51,16 +51,16 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
 
   // Wait for Dashboard to load with company greeting
   console.log('2. Waiting for Dashboard to load...');
-  await page.waitForSelector('text=Willkommen zurück, Leandro', { timeout: 15000 });
+  await page.waitForSelector('text=Willkommen zurück, Max', { timeout: 15000 });
   await page.waitForTimeout(2500);
 
   // Take Dashboard Screenshot (showing greeting, Bern weather, and calendar)
-  await saveBoth(page, 'leandro_01_dashboard.png');
+  await saveBoth(page, 'muster_01_dashboard.png');
 
   // Verify Weather Widget shows Bern
   const weatherWidget = page.locator('div:has-text("Bern")').first();
   if (await weatherWidget.isVisible().catch(() => false)) {
-    await saveBoth(weatherWidget, 'leandro_02_wetter_bern.png');
+    await saveBoth(weatherWidget, 'muster_02_wetter_bern.png');
   }
 
   // -------------------------------------------------------------
@@ -75,13 +75,13 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
   await firmaBtn.waitFor({ state: 'visible', timeout: 10000 });
   await firmaBtn.click();
   await page.waitForTimeout(800);
-  await saveBoth(page, 'leandro_03_einstellungen_firma.png');
+  await saveBoth(page, 'muster_03_einstellungen_firma.png');
 
   // Check Finanzen & Fristen
   const finanzenBtn = page.locator('button:has-text("Finanzen & Fristen")').first();
   await finanzenBtn.click();
   await page.waitForTimeout(800);
-  await saveBoth(page, 'leandro_04_einstellungen_finanzen_qr_iban.png');
+  await saveBoth(page, 'muster_04_einstellungen_finanzen_qr_iban.png');
 
   // -------------------------------------------------------------
   // 3. Kunden: Zefix Search & Customer Creation
@@ -107,33 +107,33 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
     await zefixInput.fill('Maler');
     await page.waitForTimeout(2500);
   }
-  await saveBoth(modal, 'leandro_05_zefix_firmensuche.png');
+  await saveBoth(modal, 'muster_05_zefix_firmensuche.png');
 
-  // Create a real Swiss client
+  // Create a fictional Swiss client
   const firmennameInput = modal.locator('input[placeholder*="Holzbau"]').first();
-  await firmennameInput.fill('Immo Bern AG');
+  await firmennameInput.fill('Muster Bau AG');
 
   const strasseInput = modal.locator('input[placeholder*="Strasse"], input[placeholder*="Adresse"]').first();
-  await strasseInput.fill('Aarbergergasse 20');
+  await strasseInput.fill('Mustergasse 12');
 
   const plzInput = modal.locator('input[placeholder*="00"]').first();
-  await plzInput.fill('3011');
+  await plzInput.fill('3000');
 
   const ortInput = modal.locator('input[placeholder*="rich"], input[placeholder*="Bern"]').first();
   await ortInput.fill('Bern');
 
   const emailClient = modal.locator('input[type="email"]').first();
-  await emailClient.fill('info@immo-bern.ch');
+  await emailClient.fill('info@musterbau.ch');
 
   const saveKundeBtn = modal.getByRole('button', { name: /Kunde erstellen/i });
   await saveKundeBtn.click();
   await page.waitForTimeout(1500);
 
   // Take screenshot of Kunden view with new customer
-  await saveBoth(page, 'leandro_06_kunde_erstellt.png');
+  await saveBoth(page, 'muster_06_kunde_erstellt.png');
 
   // -------------------------------------------------------------
-  // 4. Projekte: Create Project for Leandro
+  // 4. Projekte: Create Project for Muster
   // -------------------------------------------------------------
   console.log('5. Creating Project...');
   await page.locator('button:has-text("Projekte")').first().click();
@@ -147,7 +147,7 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
     const projektModal = page.locator('.bg-white.rounded-3xl, div[role="dialog"]').first();
     if (await projektModal.isVisible()) {
       const projektName = projektModal.locator('input[type="text"]').first();
-      await projektName.fill('Fassadenrenovation Landoltstrasse');
+      await projektName.fill('Muster Malerei Fassade');
 
       // Select Kunde in dropdown
       const kundeSelect = projektModal.locator('select').first();
@@ -157,7 +157,7 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
       await submitProjekt.click();
       await page.waitForTimeout(1500);
     }
-    await saveBoth(page, 'leandro_07_projekte_uebersicht.png');
+    await saveBoth(page, 'muster_07_projekte_uebersicht.png');
   }
 
   // -------------------------------------------------------------
@@ -166,7 +166,7 @@ test('End-to-End Test: Malerei Leandro Lüthi Profile, Dashboard, Zefix, Calenda
   console.log('6. Verifying Dashboard Terminkalender...');
   await page.locator('button:has-text("Dashboard")').first().click();
   await page.waitForTimeout(2000);
-  await saveBoth(page, 'leandro_08_dashboard_final.png');
+  await saveBoth(page, 'muster_08_dashboard_final.png');
 
-  console.log('All Leandro Lüthi tests and screenshots completed successfully!');
+  console.log('All Muster Malerei Bern AG tests and screenshots completed successfully!');
 });

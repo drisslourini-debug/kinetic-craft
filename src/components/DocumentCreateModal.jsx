@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateNextRechnungNr, generateNextOfferteNr } from '../lib/documentService'
+import { IconDocument, IconQrBill } from './icons/BrandIcons'
 
-export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate }) {
+export default function DocumentCreateModal({ 
+  type, 
+  isOpen, 
+  onClose, 
+  onNavigate,
+  onSuccess,
+  initialKundeId = '',
+  initialProjektId = '',
+  initialRechnungTyp = 'standard'
+}) {
   // type can be 'offerte' or 'rechnung'
   
   const [kunden, setKunden] = useState([])
@@ -11,6 +21,8 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
   
   const [selectedKundeId, setSelectedKundeId] = useState('')
   const [selectedProjektId, setSelectedProjektId] = useState('')
+  const [rechnungTyp, setRechnungTyp] = useState(initialRechnungTyp || 'standard') // 'standard' | 'akonto' | 'schluss'
+  const [akontoProzent, setAkontoProzent] = useState(30)
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   
@@ -27,18 +39,20 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
 
   const isOfferte = type === 'offerte'
   const docTypeLabel = isOfferte ? 'Offerte' : 'Rechnung'
-  const docTypeIcon = isOfferte ? '📄' : '🧾'
+  const docTypeIcon = isOfferte ? <IconDocument className="w-5 h-5 text-primary-600" /> : <IconQrBill className="w-5 h-5 text-primary-600" />
 
   useEffect(() => {
     if (isOpen) {
       loadInitialData()
-      setSelectedKundeId('')
-      setSelectedProjektId('')
+      setSelectedKundeId(initialKundeId ? String(initialKundeId) : '')
+      setSelectedProjektId(initialProjektId ? String(initialProjektId) : '')
+      setRechnungTyp(initialRechnungTyp || 'standard')
+      setAkontoProzent(30)
       setTitle('')
       setDate(new Date().toISOString().split('T')[0])
       setError('')
     }
-  }, [isOpen])
+  }, [isOpen, initialKundeId, initialProjektId, initialRechnungTyp])
 
   useEffect(() => {
     if (selectedKundeId && supabase) {
@@ -51,14 +65,24 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
     // Auto-update title if not manually changed
     if (selectedKundeId) {
       const kundeName = kunden.find(k => k.id === selectedKundeId)?.name || ''
+      const customPrefix = isOfferte 
+        ? 'Offerte' 
+        : (rechnungTyp === 'schluss' 
+          ? 'SIA 118 Schlussrechnung' 
+          : (rechnungTyp === 'akonto' ? `Akonto-Rechnung (${akontoProzent}%)` : 'Rechnung'))
+
       setTitle(prevTitle => {
-        if (!prevTitle || prevTitle.startsWith('Offerte für') || prevTitle.startsWith('Rechnung für')) {
-          return `${docTypeLabel} für ${kundeName}`
+        if (!prevTitle || 
+            prevTitle.startsWith('Offerte für') || 
+            prevTitle.startsWith('Rechnung für') ||
+            prevTitle.startsWith('SIA 118 Schlussrechnung für') ||
+            prevTitle.startsWith('Akonto-Rechnung')) {
+          return `${customPrefix} für ${kundeName}`
         }
         return prevTitle
       })
     }
-  }, [selectedKundeId, kunden, docTypeLabel])
+  }, [selectedKundeId, kunden, docTypeLabel, isOfferte, rechnungTyp, akontoProzent])
 
   async function loadInitialData() {
     if (!supabase) return
@@ -166,20 +190,76 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
         const faelligAm = new Date(new Date(date).getTime() + (settings?.zahlungsfrist_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         draftData.faellig_am = faelligAm
         draftData.daten.faellig_am = faelligAm
+
+        if (rechnungTyp === 'schluss') {
+          draftData.typ = 'schluss'
+          draftData.daten.is_schlussrechnung = true
+          
+          let akontos = []
+          if (selectedProjektId && supabase) {
+            try {
+              const { data: projInvoices } = await supabase
+                .from('rechnungen')
+                .select('id, rechnung_nr, rechnungsdatum, total, typ, status')
+                .eq('projekt_id', selectedProjektId)
+                .neq('status', 'Storniert')
+              
+              if (projInvoices && projInvoices.length > 0) {
+                akontos = projInvoices.map(r => ({
+                  rechnung_id: r.id,
+                  rechnung_nr: r.rechnung_nr || `RE-${r.id}`,
+                  datum: r.rechnungsdatum || null,
+                  betrag: parseFloat(r.total || 0),
+                  titel: r.typ === 'akonto' ? 'Akonto-Rechnung' : 'Bisherige Rechnung'
+                }))
+              }
+            } catch (pErr) {
+              console.warn('Could not load previous project invoices:', pErr)
+            }
+          }
+
+          draftData.daten.akonto_abzuege = akontos
+          draftData.daten.sia118 = {
+            aktiv: true,
+            rueckbehalt: {
+              aktiv: true,
+              prozent: 5.0,
+              abgeloestDurchGarantie: false,
+              basis: 'gesamtwerkpreis'
+            }
+          }
+          draftData.daten.texte = {
+            einleitungstext: 'Wir bedanken uns für das entgegengebrachte Vertrauen bei der Ausführung der Arbeiten und unterbreiten Ihnen hiermit die SIA 118 Schlussrechnung:',
+            schlusstext: 'Der fällige Schlussbetrag ist innert der vereinbarten Zahlungsfrist zu begleichen. Der Garantie-Rückbehalt von 5% wird nach Ablauf der 2-jährigen Rügefrist gemäss SIA 118 Art. 172 freigegeben.'
+          }
+        } else if (rechnungTyp === 'akonto') {
+          draftData.typ = 'akonto'
+          draftData.akonto_prozent = parseFloat(akontoProzent) || 30
+          draftData.daten.texte = {
+            einleitungstext: `Gemäss unserer Vereinbarung stellen wir Ihnen folgende Akontorechnung (${parseFloat(akontoProzent) || 30}%):`,
+            schlusstext: 'Bitte überweisen Sie den Betrag innert der Zahlungsfrist auf unser Konto.'
+          }
+        } else {
+          draftData.typ = 'standard'
+        }
       }
 
       const { data, error: insertErr } = await supabase
         .from(table)
         .insert([draftData])
-        .select()
+        .select('*, kunden(name), projekte(name, adresse)')
         
       if (insertErr) throw insertErr
       
       if (data && data.length > 0) {
-        onClose()
-        // Navigate immediately to the editor view
-        if (onNavigate) {
-          onNavigate(table, { [`${type}Id`]: data[0].id, edit: true })
+        const createdDoc = data[0]
+        if (onSuccess) {
+          onSuccess(createdDoc)
+        } else {
+          onClose()
+          if (onNavigate) {
+            onNavigate(table, { [`${type}Id`]: createdDoc.id, edit: true }, { replace: true })
+          }
         }
       }
     } catch (err) {
@@ -201,11 +281,6 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh] overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
           
-          {/* Mobile Pull Handle */}
-          <div className="w-full pt-3 pb-1.5 flex justify-center sm:hidden shrink-0 touch-action-manipulation cursor-pointer" onClick={onClose}>
-            <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
-          </div>
-
           {/* Header */}
           <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-5 border-b border-border bg-white sticky top-0 z-10">
             <div className="flex items-center gap-3">
@@ -351,6 +426,101 @@ export default function DocumentCreateModal({ type, isOpen, onClose, onNavigate 
                     </select>
                   )}
                 </div>
+
+                {!isOfferte && (
+                  <div>
+                    <label className="block text-sm font-bold text-text-primary mb-2">
+                      Rechnungstyp
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRechnungTyp('standard')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          rechnungTyp === 'standard'
+                            ? 'border-primary-500 bg-primary-50/50 ring-2 ring-primary-500/20'
+                            : 'border-border bg-surface hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="text-sm font-bold text-text-primary">Standard</div>
+                        <div className="text-xs text-text-secondary mt-0.5">Einzel- oder Gesamtrechnung</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRechnungTyp('akonto')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          rechnungTyp === 'akonto'
+                            ? 'border-primary-500 bg-primary-50/50 ring-2 ring-primary-500/20'
+                            : 'border-border bg-surface hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="text-sm font-bold text-text-primary">Akonto</div>
+                        <div className="text-xs text-text-secondary mt-0.5">Abschlagsrechnung mit %</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRechnungTyp('schluss')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                          rechnungTyp === 'schluss'
+                            ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+                            : 'border-border bg-surface hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-text-primary">SIA 118 Schluss</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Art. 181</span>
+                        </div>
+                        <div className="text-xs text-text-secondary mt-0.5">Akonto-Abzug & 5% Garantie</div>
+                      </button>
+                    </div>
+
+                    {rechnungTyp === 'akonto' && (
+                      <div className="mt-3 p-3 bg-primary-50/40 rounded-xl border border-primary-100 flex items-center justify-between flex-wrap gap-2">
+                        <label className="text-xs font-semibold text-text-secondary">
+                          Akonto-Anteil:
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          {[20, 30, 40, 50].map(pct => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => setAkontoProzent(pct)}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                                akontoProzent === pct
+                                  ? 'bg-primary-600 text-white border-primary-600'
+                                  : 'bg-white text-text-secondary border-border hover:bg-neutral-50'
+                              }`}
+                            >
+                              {pct}%
+                            </button>
+                          ))}
+                          <div className="flex items-center gap-1 ml-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max="100"
+                              value={akontoProzent}
+                              onChange={(e) => setAkontoProzent(parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 bg-white border border-border rounded-lg text-xs font-bold text-right"
+                            />
+                            <span className="text-xs text-text-secondary">%</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {rechnungTyp === 'schluss' && (
+                      <div className="mt-3 p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                        <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>
+                          <strong>SIA 118 Konformität:</strong> Frühere Akonto-Rechnungen des Projekts werden automatisch angerechnet. Ein 5% Garantie-Rückbehalt (SIA 118 Art. 181) wird berechnet oder kann durch Bankbürgschaft abgelöst werden.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-bold text-text-primary mb-2">

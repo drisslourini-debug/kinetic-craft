@@ -2,6 +2,7 @@
  * Centralized calculation utilities for document totals (Offerten & Rechnungen).
  * Used across DetailViews, PrintViews, WordGenerators, and the RechnungenWizard.
  */
+export { calculateSia118Schlussrechnung, roundToFiveRappen, calculateGarantieFreigabeDatum } from './sia118Helper'
 
 /**
  * Calculates the line-item total for a single position.

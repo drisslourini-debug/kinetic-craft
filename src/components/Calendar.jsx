@@ -63,7 +63,7 @@ export default function Calendar({ events = [], holidays = [], onDayClick }) {
         >
           <div className={`text-sm font-medium mb-1 ${isWeekend || isHoliday ? 'text-gray-500' : 'text-text-primary'}`}>
             {i}
-            {isHoliday && <span className="ml-1 text-[9px] text-red-400" title={isHoliday.localName || isHoliday.name}>🔴</span>}
+            {isHoliday && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 ml-1 align-middle" title={isHoliday.localName || isHoliday.name} />}
           </div>
           <div className="space-y-1">
             {dayEvents.slice(0, 3).map((ev, idx) => (

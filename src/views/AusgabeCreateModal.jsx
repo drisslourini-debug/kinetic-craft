@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import CameraCapture from '../components/CameraCapture'
 import { scanReceipt } from '../services/aiService'
+import { IconSparkles, IconPhotoScanner, IconCheck, IconWarning, IconRefresh } from '../components/icons/BrandIcons'
 
 export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData = null, autoTriggerScan = false }) {
   const [formData, setFormData] = useState({
@@ -245,7 +246,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 font-bold text-sm shrink-0">
-                    ✨
+                    <IconSparkles className="w-4 h-4 text-amber-600" />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-gray-900">KI-Belegeinlesung (Gemini Vision)</h4>
@@ -258,7 +259,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                     onClick={() => setShowCamera(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 hover:text-primary-600 hover:bg-gray-50 text-xs font-semibold rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
                   >
-                    <span>📸</span>
+                    <IconPhotoScanner className="w-4 h-4 text-gray-600" />
                     <span>Kamera</span>
                   </button>
                   <button
@@ -266,7 +267,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 cursor-pointer"
                   >
-                    <span>✨</span>
+                    <IconSparkles className="w-3.5 h-3.5 text-slate-950" />
                     <span>Beleg einlesen</span>
                   </button>
                 </div>
@@ -281,14 +282,14 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
 
               {aiScanSuccess && !isAiScanning && (
                 <div className="mt-3 pt-2 border-t border-emerald-500/20 flex items-center space-x-2 text-xs font-semibold text-emerald-700">
-                  <span>✓</span>
+                  <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Beleg erfolgreich erkannt! Bitte die vorausgefüllten Daten kurz prüfen.</span>
                 </div>
               )}
 
               {aiWarning && !isAiScanning && (
                 <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-800 flex items-start space-x-2">
-                  <span className="shrink-0 mt-0.5">⚠️</span>
+                  <IconWarning className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold">Prüfhinweis: </span>
                     <span>{aiWarning}</span>
@@ -300,7 +301,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
 
           {submitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-start gap-2">
-              <span className="shrink-0 mt-0.5">⚠️</span>
+              <IconWarning className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <p>{submitError}</p>
             </div>
           )}
@@ -311,7 +312,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">Titel / Verwendungszweck *</label>
                   {aiFields.titel && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI</span>
+                    </span>
                   )}
                 </div>
                 <input 
@@ -327,7 +331,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">Belegdatum *</label>
                   {aiFields.beleg_datum && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI</span>
+                    </span>
                   )}
                 </div>
                 <input 
@@ -345,7 +352,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">Kategorie *</label>
                   {aiFields.kategorie && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI</span>
+                    </span>
                   )}
                 </div>
                 <select 
@@ -365,7 +375,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">Projekt zuordnen (Optional)</label>
                   {aiFields.projekt_id && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI Match</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI Match</span>
+                    </span>
                   )}
                 </div>
                 <select 
@@ -387,7 +400,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">Betrag Brutto (Total) *</label>
                   {aiFields.betrag_brutto && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI</span>
+                    </span>
                   )}
                 </div>
                 <div className="relative">
@@ -407,7 +423,10 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-gray-700">MwSt Satz *</label>
                   {aiFields.mwst_satz && (
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>KI</span>
+                    </span>
                   )}
                 </div>
                 <select
@@ -460,7 +479,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                 onClick={() => setShowCamera(true)}
                 className="w-full mb-2 min-h-[48px] px-4 py-3 text-base sm:text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-colors cursor-pointer flex items-center justify-center gap-2 md:hidden"
               >
-                📸 Beleg fotografieren
+                <IconPhotoScanner className="w-5 h-5 text-primary-700 inline" />
+                <span>Beleg fotografieren</span>
               </button>
               
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:bg-gray-50 transition-colors relative cursor-pointer group">
@@ -492,7 +512,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                         }}
                         className="mt-2 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                       >
-                        <span>🔄</span>
+                        <IconRefresh className="w-3.5 h-3.5 text-amber-800" />
                         <span>Mit KI neu einlesen</span>
                       </button>
                     </div>

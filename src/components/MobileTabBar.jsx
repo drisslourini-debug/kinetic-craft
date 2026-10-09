@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import BottomSheet from './ui/BottomSheet';
+import { IconNav } from './icons/BrandIcons';
 
 export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -8,41 +9,41 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   let currentMainTabs = [
-    { id: 'dashboard', label: 'Home', icon: '📊' },
-    { id: 'kalender', label: 'Kalender', icon: '📅' },
-    { id: 'projekte', label: 'Projekte', icon: '🏗️' },
-    { id: 'kunden', label: 'Kunden', icon: '👥' },
+    { id: 'dashboard', label: 'Home' },
+    { id: 'kalender', label: 'Kalender' },
+    { id: 'projekte', label: 'Projekte' },
+    { id: 'kunden', label: 'Kunden' },
   ];
 
   let currentMenuItems = [
-    { id: 'offerten', label: 'Offerten', icon: '📄', desc: 'Angebote & Kalkulationen' },
-    { id: 'rechnungen', label: 'Rechnungen', icon: '💰', desc: 'Fakturierung & QR-Rechnung' },
-    { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉', desc: 'Einnahmen, Ausgaben & MWST' },
-    { id: 'dateien', label: 'Dateien & Pläne', icon: '📁', desc: 'Baudokumentation & Uploads' },
-    { id: 'katalog', label: 'Leistungskatalog', icon: '🏷️', desc: 'Preise & Positionen' },
-    { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️', desc: 'Firma, Bank & Layout' },
+    { id: 'offerten', label: 'Offerten', desc: 'Angebote & Kalkulationen' },
+    { id: 'rechnungen', label: 'Rechnungen', desc: 'Fakturierung & QR-Rechnung' },
+    { id: 'buchhaltung', label: 'Buchhaltung', desc: 'Einnahmen, Ausgaben & MWST' },
+    { id: 'dateien', label: 'Dateien & Pläne', desc: 'Baudokumentation & Uploads' },
+    { id: 'katalog', label: 'Leistungskatalog', desc: 'Preise & Positionen' },
+    { id: 'einstellungen', label: 'Einstellungen', desc: 'Firma, Bank & Layout' },
   ];
 
   if (userRole === 'monteur') {
     currentMainTabs = [
-      { id: 'kalender', label: 'Kalender', icon: '📅' },
-      { id: 'projekte', label: 'Projekte', icon: '🏗️' },
-      { id: 'dateien', label: 'Fotos & Pläne', icon: '📷' },
-      { id: 'kunden', label: 'Kunden', icon: '👥' },
+      { id: 'kalender', label: 'Kalender' },
+      { id: 'projekte', label: 'Projekte' },
+      { id: 'dateien', label: 'Fotos & Pläne' },
+      { id: 'kunden', label: 'Kunden' },
     ];
     currentMenuItems = [
-      { id: 'dashboard', label: 'Home', icon: '📊', desc: 'Übersicht' },
-      { id: 'katalog', label: 'Katalog', icon: '🏷️', desc: 'Material & Arbeit' },
-      { id: 'einstellungen', label: 'Mein Profil', icon: '⚙️', desc: 'Benutzerkonto' },
+      { id: 'dashboard', label: 'Home', desc: 'Übersicht' },
+      { id: 'katalog', label: 'Katalog', desc: 'Material & Arbeit' },
+      { id: 'einstellungen', label: 'Mein Profil', desc: 'Benutzerkonto' },
     ];
   } else if (userRole === 'treuhand') {
     currentMainTabs = [
-      { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
-      { id: 'kunden', label: 'Kunden', icon: '👥' },
-      { id: 'rechnungen', label: 'Rechnungen', icon: '🧾' },
+      { id: 'buchhaltung', label: 'Buchhaltung' },
+      { id: 'kunden', label: 'Kunden' },
+      { id: 'rechnungen', label: 'Rechnungen' },
     ];
     currentMenuItems = [
-      { id: 'dateien', label: 'Archiv', icon: '📁', desc: 'Export & Belege' },
+      { id: 'dateien', label: 'Archiv', desc: 'Export & Belege' },
     ];
   }
 
@@ -124,7 +125,9 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-2xl shrink-0">{item.icon}</span>
+                    <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200/70 flex items-center justify-center shrink-0">
+                      <IconNav id={item.id} className="w-5 h-5 text-amber-800" />
+                    </div>
                     <div className="min-w-0">
                       <span className={`text-sm block truncate ${isActive ? 'text-white font-bold' : 'text-text-primary font-semibold'}`}>
                         {item.label}
@@ -155,7 +158,9 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             }}
             className="w-full flex items-center justify-center gap-2.5 p-3.5 rounded-2xl text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 font-semibold text-sm transition-all active:scale-[0.98] min-h-[48px] touch-action-manipulation cursor-pointer"
           >
-            <span className="text-lg">🚪</span>
+            <svg className="w-5 h-5 text-red-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
             <span>Abmelden</span>
           </button>
         </div>
@@ -173,8 +178,8 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
                 onClick={() => handleTabClick(tab.id)}
                 className="flex-1 flex flex-col items-center justify-center h-full min-h-[48px] touch-action-manipulation relative active:scale-90 transition-transform cursor-pointer"
               >
-                <span className={`text-xl transition-all duration-200 ${isActive ? 'scale-115 -translate-y-0.5' : 'opacity-65'}`}>
-                  {tab.icon}
+                <span className={`transition-all duration-200 ${isActive ? 'scale-110 -translate-y-0.5' : 'opacity-70'}`}>
+                  <IconNav id={tab.id} className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-slate-600'}`} />
                 </span>
                 <span className={`text-[11px] font-semibold mt-0.5 transition-colors ${isActive ? 'text-primary-600 font-bold' : 'text-text-secondary'}`}>
                   {tab.label}
@@ -192,9 +197,9 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             onClick={() => setIsMenuOpen(true)}
             className="flex-1 flex flex-col items-center justify-center h-full min-h-[48px] touch-action-manipulation relative active:scale-90 transition-transform cursor-pointer"
           >
-            <span className={`text-xl transition-all duration-200 ${isMenuOpen ? 'scale-115 text-primary-600' : 'opacity-65'}`}>
-              ☰
-            </span>
+            <svg className={`w-5 h-5 transition-all duration-200 ${isMenuOpen ? 'scale-110 text-primary-600' : 'text-slate-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
             <span className={`text-[11px] font-semibold mt-0.5 ${isMenuOpen ? 'text-primary-600 font-bold' : 'text-text-secondary'}`}>
               Menü
             </span>
@@ -219,7 +224,7 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             </div>
             
             <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              Möchtest du dich wirklich vom Atelier 77 Dashboard abmelden?
+              Möchtest du dich wirklich vom Dashboard abmelden?
             </p>
 
             <div className="grid grid-cols-2 gap-3">

@@ -67,13 +67,13 @@ function addHoursToTime(timeStr, hours) {
  * Generates an iCalendar (.ics) string for an array of appointments.
  */
 export function generateIcsCalendar(termine = [], options = {}) {
-  const calendarName = options.calendarTitle || 'Atelier 77 Termine';
-  const firmenname = options.firmenname || 'Atelier 77';
+  const calendarName = options.calendarTitle || 'Muster Malerei Termine';
+  const firmenname = options.firmenname || 'Muster Malerei Bern AG';
   
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Atelier 77//Terminkalender//DE',
+    'PRODID:-//Muster Malerei Bern AG//Terminkalender//DE',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcalText(calendarName)}`,
@@ -86,7 +86,7 @@ export function generateIcsCalendar(termine = [], options = {}) {
     const isAllDay = Boolean(t.ganztaegig || (!t.startzeit && !t.endzeit));
     const dtStart = formatIcalDate(t.datum, t.startzeit, isAllDay);
     const dtEnd = getIcalEnd(t.datum, t.end_datum, t.startzeit, t.endzeit, isAllDay);
-    const uid = `termin-${t.id || Math.random().toString(36).substring(2)}@atelier77.ch`;
+    const uid = `termin-${t.id || Math.random().toString(36).substring(2)}@muster-malerei.ch`;
 
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${uid}`);
@@ -136,7 +136,7 @@ export function getGoogleCalendarUrl(termin) {
   const endStr = getIcalEnd(termin.datum, termin.end_datum, termin.startzeit, termin.endzeit, isAllDay);
 
   const datesParam = `${startStr}/${endStr}`;
-  const title = termin.titel || 'Termin Atelier 77';
+  const title = termin.titel || 'Termin Muster Malerei';
 
   const descParts = [];
   if (termin.typ) descParts.push(`Kategorie: ${termin.typ}`);

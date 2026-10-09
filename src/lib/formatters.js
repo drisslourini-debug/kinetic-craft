@@ -22,6 +22,17 @@ export function formatCurrency(val) {
 }
 
 /**
+ * Splits a value into currency code and formatted amount string for high-precision split rendering
+ * @returns {{ currency: string, amount: string }}
+ */
+export function splitCurrency(val) {
+  return {
+    currency: 'CHF',
+    amount: formatMoney(val)
+  }
+}
+
+/**
  * Formats a date string to Swiss short format (e.g. 30.07.2026)
  * @param {string} dateStr - ISO date string or parseable date
  * @returns {string} Formatted date or '—' for empty/invalid input

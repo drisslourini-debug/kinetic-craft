@@ -1,5 +1,17 @@
 import { useState } from 'react'
 import { formatDate } from '../../lib/formatters'
+import {
+  IconEye,
+  IconLock,
+  IconEdit,
+  IconDocument,
+  IconDuplicate,
+  IconRuler,
+  IconTeam,
+  IconQrBill,
+  IconTrash,
+  IconRefresh
+} from '../icons/BrandIcons'
 
 export default function OfferteHeader({
   offerte,
@@ -74,7 +86,8 @@ export default function OfferteHeader({
             }`}
             title="Split-Screen Live-Vorschau (nur Desktop)"
           >
-            {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+            <IconEye className="w-4 h-4" />
+            <span>{showLivePreview ? 'Live-Vorschau an' : 'Live-Vorschau aus'}</span>
           </button>
         )}
         {/* Lock Edit Button for certain statuses */}
@@ -89,7 +102,17 @@ export default function OfferteHeader({
             }`}
             title={['Versendet', 'Akzeptiert', 'Abgelehnt', 'Verrechnet'].includes(status) ? 'Im aktuellen Status gesperrt' : 'Offerte bearbeiten'}
           >
-            {['Versendet', 'Akzeptiert', 'Abgelehnt', 'Verrechnet'].includes(status) ? '🔒 Gesperrt' : '✏️ Offerte bearbeiten'}
+            {['Versendet', 'Akzeptiert', 'Abgelehnt', 'Verrechnet'].includes(status) ? (
+              <>
+                <IconLock className="w-4 h-4" />
+                <span>Gesperrt</span>
+              </>
+            ) : (
+              <>
+                <IconEdit className="w-4 h-4" />
+                <span>Offerte bearbeiten</span>
+              </>
+            )}
           </button>
         )}
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -107,6 +130,7 @@ export default function OfferteHeader({
             <button 
               onClick={() => setShowActionMenu(!showActionMenu)}
               className="w-12 h-12 sm:w-10 sm:h-10 min-h-[48px] flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors cursor-pointer"
+              aria-label="Aktionsmenü"
             >
               <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
             </button>
@@ -124,7 +148,8 @@ export default function OfferteHeader({
                       onClick={() => setShowActionMenu(false)}
                       className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-xl sm:text-lg">📄</span> Google Doc öffnen
+                      <IconDocument className="w-4 h-4 text-primary-600 shrink-0" />
+                      <span>Google Doc öffnen</span>
                     </a>
                   )}
                   <button 
@@ -132,7 +157,8 @@ export default function OfferteHeader({
                     disabled={isEditing}
                     className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                   >
-                    <span className="text-xl sm:text-lg">📋</span> Duplizieren
+                    <IconDuplicate className="w-4 h-4 text-text-secondary shrink-0" />
+                    <span>Duplizieren</span>
                   </button>
 
                   <button 
@@ -140,7 +166,8 @@ export default function OfferteHeader({
                     disabled={isEditing}
                     className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                   >
-                    <span className="text-xl sm:text-lg">📐</span> Aufmass / Besichtigung planen
+                    <IconRuler className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Aufmass / Besichtigung planen</span>
                   </button>
 
                   <button 
@@ -148,7 +175,8 @@ export default function OfferteHeader({
                     disabled={isEditing}
                     className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                   >
-                    <span className="text-xl sm:text-lg">👥</span> Kundentermin im Kalender
+                    <IconTeam className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span>Kundentermin im Kalender</span>
                   </button>
 
                   {status === 'Akzeptiert' && (
@@ -157,7 +185,8 @@ export default function OfferteHeader({
                       disabled={isEditing}
                       className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-xl sm:text-lg">🧾</span> In Rechnung umwandeln
+                      <IconQrBill className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>In Rechnung umwandeln</span>
                     </button>
                   )}
                   <button 
@@ -172,8 +201,12 @@ export default function OfferteHeader({
                     disabled={isEditing}
                     className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 mt-1 border-t border-border pt-3 sm:pt-2 cursor-pointer"
                   >
-                    <span className="text-xl sm:text-lg">{offerte.is_archived ? '♻️' : '🗑️'}</span> 
-                    {offerte.is_archived ? 'Wiederherstellen' : 'Archivieren'}
+                    {offerte.is_archived ? (
+                      <IconRefresh className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <IconTrash className="w-4 h-4 text-red-600 shrink-0" />
+                    )}
+                    <span>{offerte.is_archived ? 'Wiederherstellen' : 'Archivieren'}</span>
                   </button>
                 </div>
               </div>

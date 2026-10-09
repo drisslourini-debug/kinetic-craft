@@ -1,4 +1,15 @@
 import { formatDate, formatMoney } from '../../lib/formatters'
+import {
+  IconUser,
+  IconHammer,
+  IconDocument,
+  IconTag,
+  IconCreditCard,
+  IconLegal,
+  IconMoney,
+  IconCheck,
+  IconCalendar
+} from '../icons/BrandIcons'
 
 export default function RechnungStammdaten({
   rechnung,
@@ -30,7 +41,10 @@ export default function RechnungStammdaten({
           <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
           
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>👤</span> Kunde</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-1.5">
+              <IconUser className="w-3.5 h-3.5" />
+              <span>Kunde</span>
+            </label>
             <div 
               className="mt-1.5 font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
               onClick={() => kunde && onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
@@ -39,7 +53,10 @@ export default function RechnungStammdaten({
           </div>
 
           <div className="pt-4 border-t border-border">
-            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>🏗️</span> Projekt / Baustelle</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-1.5">
+              <IconHammer className="w-3.5 h-3.5" />
+              <span>Projekt / Baustelle</span>
+            </label>
             <div 
               className="mt-1.5 font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
               onClick={() => projekt && onNavigate && onNavigate('projekte', { projektId: projekt.id })}
@@ -49,7 +66,10 @@ export default function RechnungStammdaten({
 
           {rechnung.offerte_id && (
             <div className="pt-4 border-t border-border">
-              <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>📄</span> Offerte</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-1.5">
+                <IconDocument className="w-3.5 h-3.5" />
+                <span>Offerte</span>
+              </label>
               <button 
                 onClick={() => onNavigate && onNavigate('offerten', { offerteId: rechnung.offerte_id })}
                 className="mt-1.5 text-sm text-primary-600 hover:text-primary-800 underline cursor-pointer"
@@ -60,10 +80,21 @@ export default function RechnungStammdaten({
           )}
 
           <div className="pt-4 border-t border-border">
-            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-2"><span>💰</span> Rechnungstyp</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-primary-600 mb-3 flex items-center gap-1.5">
+              <IconTag className="w-3.5 h-3.5" />
+              <span>Rechnungstyp</span>
+            </label>
             <div className="mt-1.5 text-sm text-text-primary capitalize font-medium">
-              {rechnung.typ || 'gesamt'}
-              {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+              {(rechnung.typ === 'schluss' || rechnung.daten?.is_schlussrechnung || rechnung.daten?.sia118?.aktiv) ? (
+                <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs inline-block">
+                  SIA 118 Schlussrechnung
+                </span>
+              ) : (
+                <>
+                  {rechnung.typ || 'gesamt'}
+                  {rechnung.typ === 'akonto' && rechnung.akonto_prozent && ` (${rechnung.akonto_prozent}%)`}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -77,7 +108,8 @@ export default function RechnungStammdaten({
               <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
-                    <span>💳</span> Zahlungseingänge
+                    <IconCreditCard className="w-5 h-5 text-emerald-600" />
+                    <span>Zahlungseingänge</span>
                   </h3>
                   <div className="text-right">
                     <div className="text-sm font-semibold text-text-primary">
@@ -99,7 +131,11 @@ export default function RechnungStammdaten({
                     <div key={z.id} className="flex items-center justify-between p-3 bg-surface rounded-xl border border-border">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${z.typ === 'Ausbuchung' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                          {z.typ === 'Ausbuchung' ? '⚖️' : '↓'}
+                          {z.typ === 'Ausbuchung' ? (
+                            <IconLegal className="w-4 h-4" />
+                          ) : (
+                            <IconMoney className="w-4 h-4" />
+                          )}
                         </div>
                         <div>
                           <div className="font-bold text-text-primary text-sm">{formatDate(z.datum)}</div>
@@ -134,16 +170,18 @@ export default function RechnungStammdaten({
                   <div className="flex flex-col gap-3 sm:gap-2">
                     <button 
                       onClick={() => setShowPaymentForm(true)}
-                      className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center text-base sm:text-sm"
+                      className="w-full min-h-[48px] py-3 flex items-center justify-center gap-2 sm:py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center text-base sm:text-sm"
                     >
-                      💰 Zahlung eingegangen
+                      <IconMoney className="w-4 h-4" />
+                      <span>Zahlung eingegangen</span>
                     </button>
                     {rechnung.daten?.zahlungen?.length > 0 && (
                       <button 
                         onClick={onWriteOff}
-                        className="w-full min-h-[48px] py-3 flex items-center justify-center sm:py-2 bg-white border border-amber-200 text-amber-700 font-bold rounded-xl hover:bg-amber-50 transition-colors cursor-pointer text-center text-base sm:text-sm"
+                        className="w-full min-h-[48px] py-3 flex items-center justify-center gap-2 sm:py-2 bg-white border border-amber-200 text-amber-700 font-bold rounded-xl hover:bg-amber-50 transition-colors cursor-pointer text-center text-base sm:text-sm"
                       >
-                        ⚖️ Restbetrag ausbuchen (Skonto)
+                        <IconLegal className="w-4 h-4" />
+                        <span>Restbetrag ausbuchen (Skonto)</span>
                       </button>
                     )}
                   </div>
@@ -191,7 +229,8 @@ export default function RechnungStammdaten({
             {status === 'Bezahlt' && (!rechnung.daten?.zahlungen || rechnung.daten.zahlungen.length === 0) && rechnung.bezahlt_am && (
               <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 shadow-sm space-y-2">
                 <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
-                  <span>✅</span> Vollständig bezahlt
+                  <IconCheck className="w-5 h-5 text-emerald-600" />
+                  <span>Vollständig bezahlt</span>
                 </h3>
                 <p className="text-emerald-700 text-sm">
                   Zahlungseingang: {formatDate(rechnung.bezahlt_am)}
@@ -205,7 +244,8 @@ export default function RechnungStammdaten({
             {status === 'Bezahlt' && rechnung.daten?.zahlungen?.length > 0 && (
               <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 shadow-sm flex items-center justify-between">
                 <h3 className="font-bold text-emerald-800 flex items-center gap-2">
-                  <span>✅</span> Vollständig bezahlt
+                  <IconCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Vollständig bezahlt</span>
                 </h3>
                 <span className="text-sm font-bold text-emerald-700">CHF {formatMoney(rechnung.bezahlt)}</span>
               </div>
@@ -245,11 +285,11 @@ export default function RechnungStammdaten({
                 <button
                   type="button"
                   onClick={() => onNavigate('kalender', { date: rechnung.faellig_am || rechnung.daten?.faellig_am })}
-                  className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1.5 cursor-pointer transition-colors"
                   title="Im Kalender ansehen"
                 >
-                  <span>📅 Im Kalender ansehen</span>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  <IconCalendar className="w-3.5 h-3.5" />
+                  <span>Im Kalender ansehen</span>
                 </button>
               )}
             </div>

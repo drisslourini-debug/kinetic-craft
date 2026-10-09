@@ -7,7 +7,7 @@ test.describe('End-to-End Workflow: Lead-to-Cash & GeBüV Compliance', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     // 1. Login
-    console.log('1. Login als leandro@atelier-77.ch...');
+    console.log('1. Login als max@muster-malerei.ch...');
     await page.goto('/#login');
     await page.waitForLoadState('networkidle');
 
@@ -19,7 +19,7 @@ test.describe('End-to-End Workflow: Lead-to-Cash & GeBüV Compliance', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-    await emailInput.fill('leandro@atelier-77.ch');
+    await emailInput.fill('max@muster-malerei.ch');
 
     const passwordInput = page.locator('input[type="password"]').first();
     await passwordInput.fill('Test1234');
@@ -57,7 +57,13 @@ test.describe('End-to-End Workflow: Lead-to-Cash & GeBüV Compliance', () => {
     // 3. Rechnungs-Modul & QR-Bill Prüfung
     console.log('3. Navigiere zu Rechnungen...');
     await page.locator('button:has-text("Rechnungen")').first().click();
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(500);
+
+    const discardBtn = page.getByRole('button', { name: /Änderungen verwerfen/i });
+    if (await discardBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await discardBtn.click();
+      await page.waitForTimeout(1000);
+    }
 
     // Erste existierende Rechnung öffnen
     const firstInvoiceRow = page.locator('table tbody tr, .divide-y > div, div[role="row"]').first();
@@ -68,7 +74,7 @@ test.describe('End-to-End Workflow: Lead-to-Cash & GeBüV Compliance', () => {
       console.log('✅ RechnungDetailView geöffnet.');
 
       // Prüfe Status und GeBüV-Elemente
-      const statusBadge = page.locator('text=Bezahlt, text=Entwurf, text=Versendet').first();
+      const statusBadge = page.locator('select').first();
       await expect(statusBadge).toBeVisible();
 
       // Öffne Druckansicht / QR-Bill
@@ -80,6 +86,13 @@ test.describe('End-to-End Workflow: Lead-to-Cash & GeBüV Compliance', () => {
         // Prüfe ob QR-Bill Container gerendert wird
         const qrContainer = page.locator('canvas, svg, div:has-text("Zahlteil")').first();
         console.log('QR-Bill gerendert:', await qrContainer.isVisible().catch(() => false));
+
+        // Schliesse Druckansicht
+        const closePrintBtn = page.locator('button:has-text("Zurück"), button:has-text("←")').first();
+        if (await closePrintBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await closePrintBtn.click();
+          await page.waitForTimeout(1000);
+        }
       }
     }
 

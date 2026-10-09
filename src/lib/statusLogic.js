@@ -10,19 +10,20 @@
 export function calculateRechnungStatus(rechnung, currentDate = new Date()) {
   const currentStatus = rechnung.status;
 
+  // 1. GeBüV-geschützte End-Zustände (Bezahlt & Storniert sind strikt unveränderlich)
+  if (currentStatus === 'Bezahlt') return 'Bezahlt';
+  if (currentStatus === 'Storniert') return 'Storniert';
+
   // Float-Sicherheit
   const total = parseFloat(rechnung.total || 0);
   const bezahlt = parseFloat(rechnung.bezahlt || 0);
   
-  // 1. Bezahlt (Höchste Priorität)
-  // Wenn bis auf einen Rappen (Rundungsdifferenz) alles bezahlt ist
+  // 2. Bezahlt über Zahlungsbetrag (Höchste Priorität für offene Rechnungen)
   if (bezahlt > 0 && bezahlt >= total - 0.01) {
     return 'Bezahlt';
   }
 
-  // 2. Geschützte Status (Manuelle End-Zustände oder Entwürfe)
-  // Nur erlaubt, wenn die Rechnung NICHT vollständig bezahlt ist.
-  if (currentStatus === 'Storniert') return 'Storniert';
+  // 3. Geschützte Status (Entwürfe)
   if (currentStatus === 'Entwurf') {
     // Eine Rechnung mit Teilzahlungen oder Mahnungen sollte eigentlich kein Entwurf mehr sein,
     // aber zumindest darf sie nicht voll bezahlt sein.

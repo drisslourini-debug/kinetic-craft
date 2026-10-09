@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconClock, IconCheck, IconClose, IconCreditCard } from '../icons/BrandIcons'
 
 export default function LizenzVerwaltung({ tenant, settings }) {
   const [selectedBillingCycle, setSelectedBillingCycle] = useState('monthly') // 'monthly' | 'yearly'
@@ -17,8 +18,8 @@ export default function LizenzVerwaltung({ tenant, settings }) {
       {!isPro && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0">
-              ⏳
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <IconClock className="w-5 h-5 text-amber-700" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-amber-950">
@@ -87,13 +88,16 @@ export default function LizenzVerwaltung({ tenant, settings }) {
             <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Inkludierte Module</span>
             <div className="space-y-2 mt-3 text-xs">
               <div className="flex items-center gap-2 text-emerald-700 font-medium">
-                <span>✓</span> Schweizer QR-Rechnungen (nach ISO 20022)
+                <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Schweizer QR-Rechnungen (nach ISO 20022)</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-700 font-medium">
-                <span>✓</span> Treuhand- & Buchhaltungsexport
+                <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Treuhand- & Buchhaltungsexport</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-700 font-medium">
-                <span>✓</span> Unbegrenzte Kunden & Offerten
+                <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Unbegrenzte Kunden & Offerten</span>
               </div>
             </div>
           </div>
@@ -143,11 +147,26 @@ export default function LizenzVerwaltung({ tenant, settings }) {
                 CHF 0 <span className="text-xs font-normal text-text-secondary">/ Monat</span>
               </div>
               <ul className="space-y-2 text-xs text-text-secondary">
-                <li className="flex items-center gap-2">✓ Bis zu 20 Kunden</li>
-                <li className="flex items-center gap-2">✓ Standard Offerten & Rechnungen</li>
-                <li className="flex items-center gap-2">✓ Schweizer QR-Code Generierung</li>
-                <li className="flex items-center gap-2 text-gray-400">✗ Eigenes Briefpapier-Layout & Branding</li>
-                <li className="flex items-center gap-2 text-gray-400">✗ Treuhand-Portal & Exporte</li>
+                <li className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Bis zu 20 Kunden</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Standard Offerten & Rechnungen</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Schweizer QR-Code Generierung</span>
+                </li>
+                <li className="flex items-center gap-2 text-gray-400">
+                  <IconClose className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span>Eigenes Briefpapier-Layout & Branding</span>
+                </li>
+                <li className="flex items-center gap-2 text-gray-400">
+                  <IconClose className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <span>Treuhand-Portal & Exporte</span>
+                </li>
               </ul>
             </div>
             <button 
@@ -174,12 +193,30 @@ export default function LizenzVerwaltung({ tenant, settings }) {
                 {selectedBillingCycle === 'yearly' ? 'CHF 44.00' : 'CHF 49.00'} <span className="text-xs font-normal text-text-secondary">/ Monat</span>
               </div>
               <ul className="space-y-2 text-xs text-text-primary">
-                <li className="flex items-center gap-2 font-medium">✓ Unbegrenzte Kunden & Projekte</li>
-                <li className="flex items-center gap-2 font-medium">✓ Unbegrenzte Offerten & QR-Rechnungen</li>
-                <li className="flex items-center gap-2 font-medium">✓ Vollwertige Buchhaltung & MWST-Abrechnung</li>
-                <li className="flex items-center gap-2 font-medium">✓ Treuhand-Zugänge inklusive</li>
-                <li className="flex items-center gap-2 font-medium">✓ Eigenes Briefpapier, Firmenlogo & Farben</li>
-                <li className="flex items-center gap-2 font-medium">✓ Word- & PDF-Export mit Firmen-Design</li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Unbegrenzte Kunden & Projekte</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Unbegrenzte Offerten & QR-Rechnungen</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Vollwertige Buchhaltung & MWST-Abrechnung</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Treuhand-Zugänge inklusive</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Eigenes Briefpapier, Firmenlogo & Farben</span>
+                </li>
+                <li className="flex items-center gap-2 font-medium">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Word- & PDF-Export mit Firmen-Design</span>
+                </li>
               </ul>
             </div>
             <button
@@ -207,7 +244,9 @@ export default function LizenzVerwaltung({ tenant, settings }) {
             <span className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-1">Zahlungsmittel</span>
             <div className="p-4 bg-surface rounded-xl border border-border flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">💳</span>
+                <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+                  <IconCreditCard className="w-5 h-5 text-primary-600" />
+                </div>
                 <div>
                   <p className="text-xs font-bold text-text-primary">Stripe Self-Service</p>
                   <p className="text-[11px] text-text-secondary">Sichere Kreditkartenzahlung & TWINT</p>
@@ -230,7 +269,13 @@ export default function LizenzVerwaltung({ tenant, settings }) {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-border animate-scale-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-text-primary">Abonnement verwalten</h3>
-              <button onClick={() => setShowUpgradeModal(false)} className="text-text-secondary hover:text-text-primary text-xl">✕</button>
+              <button 
+                onClick={() => setShowUpgradeModal(false)} 
+                className="text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                aria-label="Schliessen"
+              >
+                <IconClose className="w-5 h-5" />
+              </button>
             </div>
             <p className="text-sm text-text-secondary mb-4">
               Für die sichere Aktivierung und Verwaltung des Stripe-Kundenportals kontaktiere uns direkt oder starte den Checkout:

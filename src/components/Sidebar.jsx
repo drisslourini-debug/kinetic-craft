@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { IconNav } from './icons/BrandIcons'
+import KineticLogoMark from './KineticLogoMark'
+
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'kunden', label: 'Kunden', icon: '👥' },
-  { id: 'projekte', label: 'Projekte', icon: '🏗️' },
-  { id: 'kalender', label: 'Kalender', icon: '📅' },
-  { id: 'offerten', label: 'Offerten', icon: '📄' },
-  { id: 'rechnungen', label: 'Rechnungen', icon: '🧾' },
-  { id: 'buchhaltung', label: 'Buchhaltung', icon: '📉' },
-  { id: 'dateien', label: 'Archiv', icon: '📁' },
-  { id: 'katalog', label: 'Katalog', icon: '🏷️' },
-  { id: 'einstellungen', label: 'Einstellungen', icon: '⚙️' },
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'kunden', label: 'Kunden' },
+  { id: 'projekte', label: 'Projekte' },
+  { id: 'kalender', label: 'Kalender' },
+  { id: 'offerten', label: 'Offerten' },
+  { id: 'rechnungen', label: 'Rechnungen' },
+  { id: 'buchhaltung', label: 'Buchhaltung' },
+  { id: 'dateien', label: 'Archiv' },
+  { id: 'katalog', label: 'Katalog' },
+  { id: 'einstellungen', label: 'Einstellungen' },
 ]
 
 export default function Sidebar({ activeView, onNavigate, userRole, globalSettings, userName }) {
@@ -43,29 +46,49 @@ export default function Sidebar({ activeView, onNavigate, userRole, globalSettin
       <aside
         className={`
           hidden md:flex
-          fixed top-0 left-0 z-40 h-screen w-64 bg-sidebar flex-col
-          md:sticky md:top-0
+          h-full w-60 lg:w-64 bg-sidebar flex-col shrink-0
+          border-r border-white/[0.08] select-none
         `}
       >
         {/* Brand */}
-        <div className="flex flex-col items-center justify-center px-6 py-8 border-b border-white/10">
-          {globalSettings?.logo_url ? (
-            <img 
-              src={globalSettings.logo_url} 
-              alt={globalSettings.firmenname || "Logo"} 
-              className="w-32 h-auto object-contain brightness-0 invert opacity-90 drop-shadow-md" 
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextElementSibling.style.display = 'flex';
-              }}
-            />
-          ) : null}
-          <div 
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-2"
-            style={{ display: globalSettings?.logo_url ? 'none' : 'flex' }}
+        <div className="px-4 py-5 border-b border-white/[0.07] flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => onNavigate('dashboard')}
+            className="w-full flex items-center justify-center cursor-pointer group focus:outline-none transition-transform hover:scale-[1.02]"
+            title="Zum Dashboard"
           >
-            {globalSettings?.firmenname ? globalSettings.firmenname.substring(0,2).toUpperCase() : 'CRM'}
-          </div>
+            {globalSettings?.logo_url ? (
+              <img 
+                src={globalSettings.logo_url} 
+                alt={globalSettings.firmenname || "Firmenlogo"} 
+                className="max-h-12 w-auto max-w-[200px] object-contain drop-shadow-sm transition-opacity group-hover:opacity-95" 
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div 
+              className="flex items-center gap-3"
+              style={{ display: globalSettings?.logo_url ? 'none' : 'flex' }}
+            >
+              <KineticLogoMark className="w-9 h-9 text-white shrink-0 group-hover:rotate-3 transition-transform" />
+              <div className="flex flex-col text-left">
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="font-extrabold text-base tracking-tight text-white">Kinetic</span>
+                  <span className="font-bold text-base tracking-tight text-amber-400">Craft</span>
+                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                    CRM
+                  </span>
+                </div>
+                <span className="text-[10px] font-medium text-white/50 mt-1 tracking-wide">
+                  by Kinetic Schweiz
+                </span>
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* Navigation */}
@@ -77,39 +100,51 @@ export default function Sidebar({ activeView, onNavigate, userRole, globalSettin
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
-                  transition-all duration-200 cursor-pointer
+                  w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium
+                  transition-all duration-150 cursor-pointer group text-left
                   ${isActive
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/25'
-                    : 'text-text-sidebar hover:bg-sidebar-hover hover:text-white'
+                    ? 'bg-white/[0.08] text-white font-semibold border border-white/[0.06] shadow-2xs'
+                    : 'text-text-sidebar hover:bg-white/[0.04] hover:text-white'
                   }
                 `}
               >
-                <span className="text-lg">{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="shrink-0 transition-transform group-hover:scale-105">
+                  <IconNav 
+                    id={item.id} 
+                    className={`w-4 h-4 transition-colors ${isActive ? 'text-primary-400' : 'text-zinc-400 group-hover:text-zinc-200'}`} 
+                  />
+                </span>
+                <span className="truncate">{item.label}</span>
+                {isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-400 shadow-[0_0_8px_rgba(196,161,98,0.6)]" />
+                )}
               </button>
             )
           })}
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-4 border-t border-white/10">
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white text-xs font-bold uppercase">
+        <div className="px-3 py-3 border-t border-white/[0.07] bg-white/[0.01]">
+          <div className="flex items-center justify-between p-2 rounded-xl hover:bg-white/[0.03] transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-white/10 flex items-center justify-center text-white text-[11px] font-bold uppercase shrink-0">
                 {userRole === 'treuhand' ? 'TH' : (userName ? userName.substring(0,2) : 'AD')}
               </div>
               <div className="min-w-0">
-                <p className="text-white text-sm font-medium truncate">{userRole === 'treuhand' ? 'Treuhand' : (userName || 'Admin')}</p>
-                <p className="text-text-sidebar text-xs opacity-50 uppercase">{userRole === 'treuhand' ? 'Zugang' : globalSettings?.firmenname || 'Firma'}</p>
+                <p className="text-white text-xs font-semibold truncate leading-tight">
+                  {userRole === 'treuhand' ? 'Treuhand' : (userName || 'Admin')}
+                </p>
+                <p className="text-text-sidebar/60 text-[10px] uppercase font-mono tracking-wider truncate mt-0.5">
+                  {userRole === 'treuhand' ? 'Treuhand-Zugang' : 'Betriebsleitung'}
+                </p>
               </div>
             </div>
             <button 
               onClick={() => setShowLogoutModal(true)}
-              className="p-2 text-text-sidebar hover:text-white hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-text-sidebar hover:text-rose-400 hover:bg-white/[0.05] rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
               title="Abmelden"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>

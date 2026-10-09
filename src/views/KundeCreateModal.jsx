@@ -4,6 +4,7 @@ import AddressAutocomplete from '../components/AddressAutocomplete'
 import ZefixAutocomplete from '../components/ZefixAutocomplete'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { ANREDE_OPTIONS, generateNextCustomerNumber } from '../lib/customerNaming'
+import { IconUser, IconSearch, IconCheck, IconBuilding, IconLocation, IconNotes, IconSwissFlag } from '../components/icons/BrandIcons'
 
 const KUNDENTYPEN = [
   'Privatperson',
@@ -145,7 +146,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
       />
 
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
-        <div className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up max-h-[92dvh] sm:max-h-[90vh] border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
+        <div role="dialog" aria-modal="true" className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up max-h-[92dvh] sm:max-h-[90vh] border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
           
           {/* Mobile Pull Handle */}
           <div className="w-full pt-3 pb-1.5 flex justify-center sm:hidden shrink-0 touch-action-manipulation cursor-pointer" onClick={onClose}>
@@ -156,7 +157,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
           <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-border bg-surface/50 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center text-xl shrink-0 border border-primary-200/60">
-                👤
+                <IconUser className="w-5 h-5 text-primary-600" />
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-text-primary">Neuen Kunden anlegen</h2>
@@ -176,7 +177,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
             <div className="flex-1 p-6 space-y-6 overflow-y-auto" ref={parent}>
               {error && (
                 <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-center gap-3">
-                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   {error}
                 </div>
               )}
@@ -188,7 +189,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   onClick={() => setShowZefix(!showZefix)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-base">🔍</span>
+                    <IconSearch className="w-4 h-4 text-primary-600 shrink-0" />
                     <h3 className="text-sm font-bold text-text-primary">Firmensuche (Handelsregister Zefix)</h3>
                   </div>
                   <svg className={`w-4 h-4 text-text-secondary transition-transform ${showZefix ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,7 +214,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                     />
                     {zefixSuccess && (
                       <div className="mt-2 text-xs text-emerald-600 font-semibold flex items-center gap-1.5">
-                        ✓ Daten aus dem Handelsregister übernommen
+                        <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Daten aus dem Handelsregister übernommen</span>
                       </div>
                     )}
                   </div>
@@ -223,7 +225,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
               {/* Stammdaten Section */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                  <span>🏢</span> Stammdaten
+                  <IconBuilding className="w-4 h-4 text-primary-600 shrink-0" />
+                  <span>Stammdaten</span>
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -310,7 +313,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
               {/* Kontakt & Adresse Section */}
               <div className="space-y-4 pt-3 border-t border-border">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                  <span>📍</span> Kontakt & Adresse
+                  <IconLocation className="w-4 h-4 text-primary-600 shrink-0" />
+                  <span>Kontakt & Adresse</span>
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -400,7 +404,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-text-secondary mb-1">Land</label>
                     <div className="w-full px-3.5 py-3 sm:py-2 bg-surface border border-border rounded-xl text-text-primary text-base sm:text-xs flex items-center gap-2">
-                      <span>🇨🇭</span>
+                      <IconSwissFlag className="w-4 h-4 rounded-xs shrink-0" />
                       <span className="font-semibold">Schweiz</span>
                     </div>
                   </div>
@@ -410,7 +414,8 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
               {/* Notizen Section */}
               <div className="space-y-3 pt-3 border-t border-border">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1.5">
-                  <span>📝</span> Interne Notizen
+                  <IconNotes className="w-4 h-4 text-primary-600 shrink-0" />
+                  <span>Interne Notizen</span>
                 </h3>
                 <textarea 
                   value={formData.notizen}

@@ -3,6 +3,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import {
   paginateDocument,
+  paginateMahnung,
   FoldAndPunchMarks,
   ContinuationHeader,
   DocumentFooter,
@@ -120,7 +121,7 @@ describe('A4DocumentLayout - Visual Components', () => {
         pageNum={1}
         totalPages={2}
         settings={{
-          firmenname: 'Atelier 77',
+          firmenname: 'Muster Malerei Bern AG',
           uid: 'CHE-123.456.789',
           strasse: 'Dorfstrasse 10',
           plz_ort: '3000 Bern'
@@ -144,3 +145,55 @@ describe('A4DocumentLayout - Visual Components', () => {
     expect(container.textContent).not.toContain('–')
   })
 })
+
+describe('A4DocumentLayout - paginateMahnung', () => {
+  it('keeps short dunning letter on a single page', () => {
+    const pages = paginateMahnung({
+      einleitung: 'Wir erlauben uns, Sie freundlich an die Begleichung der Rechnung zu erinnern.',
+      hasBisherigeZahlung: false,
+      hasSpesen: false,
+      hasVerzugszins: false,
+      mahnhinweis: '',
+      schlussformel: 'Besten Dank für Ihre prompte Überweisung.',
+      hasSignature: true
+    })
+
+    expect(pages.length).toBe(1)
+    expect(pages[0].showForderungen).toBe(true)
+    expect(pages[0].showClosing).toBe(true)
+  })
+
+  it('splits full Stufe 3 dunning letter with SchKG warning across 2 pages without orphan closing', () => {
+    const pages = paginateMahnung({
+      einleitung: 'Trotz mehrfacher Mahnungen ist die Forderung aus der Rechnung RE-2026-3002 noch immer nicht beglichen worden.\n\nWir setzen Ihnen hiermit eine letzte Frist bis zum 13.10.2026 zur Begleichung des Gesamtbetrags.',
+      hasBisherigeZahlung: true,
+      hasSpesen: true,
+      hasVerzugszins: true,
+      mahnhinweis: 'WICHTIGER RECHTSHINWEIS:\nSollte die Zahlung bis zum genannten Datum nicht bei uns eingegangen sein, werden wir ohne weitere Vorankündigung das offizielle BETREIBUNGSBEGEHREN beim zuständigen Betreibungsamt nach Art. 67 SchKG einreichen.',
+      schlussformel: 'Nutzen Sie diese letzte Gelegenheit zur gütlichen Einigung und Vermeidung eines Betreibungsverfahrens.',
+      hasSignature: true
+    })
+
+    expect(pages.length).toBe(2)
+    // Page 1 has intro and claims table
+    expect(pages[0].showForderungen).toBe(true)
+    expect(pages[0].showHinweis).toBe(false)
+    expect(pages[0].showClosing).toBe(false)
+
+    // Page 2 has legal warning and closing signature
+    expect(pages[1].showForderungen).toBe(false)
+    expect(pages[1].showHinweis).toBe(true)
+    expect(pages[1].showClosing).toBe(true)
+  })
+
+  it('respects forcePageBreak', () => {
+    const pages = paginateMahnung({
+      einleitung: 'Kurzer Text',
+      schlussformel: 'Kurzer Schluss',
+      forcePageBreak: true
+    })
+
+    expect(pages.length).toBe(2)
+  })
+})
+

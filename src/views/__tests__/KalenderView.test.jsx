@@ -28,7 +28,12 @@ vi.mock('../../lib/supabase', () => ({
                 datum: '2026-09-15',
                 typ: 'Montage',
                 status: 'Geplant',
-                ganztaegig: true
+                ganztaegig: true,
+                ort: 'Bahnhofstrasse 1, Zürich',
+                kunden: {
+                  name: 'Muster AG',
+                  telefon: '044 123 45 67'
+                }
               }
             ],
             error: null
@@ -147,5 +152,59 @@ describe('KalenderView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Rechnung öffnen/i)).toBeInTheDocument();
     });
+  });
+
+  it('renders mobile calendar and allows toggling between month and week strip', async () => {
+    render(<KalenderView onNavigate={vi.fn()} viewParams={{ date: '2026-09-15' }} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/▲ Auf 1 Woche minimieren/i)).toBeInTheDocument();
+    });
+
+    const toggleBtn = screen.getByText(/▲ Auf 1 Woche minimieren/i);
+    fireEvent.click(toggleBtn);
+
+    expect(screen.getByText(/▼ Ganzen Monat anzeigen/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText(/▼ Ganzen Monat anzeigen/i));
+    expect(screen.getByText(/▲ Auf 1 Woche minimieren/i)).toBeInTheDocument();
+  });
+
+  it('opens and closes mobile filter bottom sheet', async () => {
+    render(<KalenderView onNavigate={vi.fn()} viewParams={{ date: '2026-09-15' }} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/^Filter$/i)).toBeInTheDocument();
+    });
+
+    const filterBtn = screen.getByText(/^Filter$/i);
+    fireEvent.click(filterBtn);
+
+    expect(screen.getByText(/Kalender-Filter/i)).toBeInTheDocument();
+    expect(screen.getByText(/Kategorie \/ Typ/i)).toBeInTheDocument();
+
+    const closeBtn = screen.getByTitle(/Schliessen/i);
+    fireEvent.click(closeBtn);
+
+    expect(screen.queryByText(/Kalender-Filter/i)).not.toBeInTheDocument();
+  });
+
+  it('renders day agenda with quick actions for route and call', async () => {
+    render(<KalenderView onNavigate={vi.fn()} viewParams={{ date: '2026-09-15' }} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Test Montage/i).length).toBeGreaterThan(0);
+    });
+
+    const routeLink = screen.getByRole('link', { name: /Route/i });
+    expect(routeLink).toBeInTheDocument();
+    expect(routeLink.getAttribute('href')).toContain('Bahnhofstrasse%201%2C%20Z%C3%BCrich');
+
+    const callLink = screen.getByRole('link', { name: /Anrufen/i });
+    expect(callLink).toBeInTheDocument();
+    expect(callLink.getAttribute('href')).toBe('tel:044 123 45 67');
+
+    const completeBtn = screen.getByRole('button', { name: /^Erledigt$/i });
+    expect(completeBtn).toBeInTheDocument();
   });
 });

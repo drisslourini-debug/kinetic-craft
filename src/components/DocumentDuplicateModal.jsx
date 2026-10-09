@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateNextRechnungNr } from '../lib/documentService'
+import { IconDuplicate, IconClose } from './icons/BrandIcons'
 
 /**
  * Unified modal for duplicating both Offerten and Rechnungen.
@@ -158,13 +159,13 @@ export default function DocumentDuplicateModal({ type, currentDocument, onClose,
       <div className="bg-surface w-full max-w-md rounded-2xl shadow-2xl relative z-10 flex flex-col animate-scale-in">
         <div className="px-6 py-5 border-b border-border flex items-center justify-between">
           <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-            <span>📋</span> {label} duplizieren
+            <IconDuplicate className="w-5 h-5 text-amber-600 shrink-0" /> {label} duplizieren
           </h2>
           <button 
             onClick={onClose}
             className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 text-text-secondary hover:text-text-primary rounded-full hover:bg-neutral-100 transition-colors flex items-center justify-center"
           >
-            ✕
+            <IconClose className="w-5 h-5" />
           </button>
         </div>
 

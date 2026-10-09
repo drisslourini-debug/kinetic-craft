@@ -7,13 +7,14 @@ import { calculateDocumentTotals } from '../lib/calculations'
 import { EINHEITEN } from '../lib/constants'
 import { generateNextRechnungNr, parseZahlungsfrist } from '../lib/documentService'
 import AddressAutocomplete from './AddressAutocomplete'
+import { IconWarning, IconEye } from './icons/BrandIcons'
 const RechnungPrintView = lazy(() => import('../views/RechnungPrintView'))
 
 const STEPS = [
-  { id: 1, label: 'Kunde', icon: '👤' },
-  { id: 2, label: 'Details', icon: '📄' },
-  { id: 3, label: 'Leistungen', icon: '🔨' },
-  { id: 4, label: 'Abschluss', icon: '✅' },
+  { id: 1, label: 'Kunde' },
+  { id: 2, label: 'Details' },
+  { id: 3, label: 'Leistungen' },
+  { id: 4, label: 'Abschluss' },
 ]
 
 
@@ -81,14 +82,14 @@ function flattenBloecke(bloecke) {
 }
 
 const CATEGORY_STYLES = [
-  { icon: '🎨', color: 'bg-primary-50 text-primary-600 border-primary-200 hover:bg-primary-100 hover:border-primary-400', accent: 'border-l-primary-500 bg-primary-50/20' },
-  { icon: '🧱', color: 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-400', accent: 'border-l-slate-500 bg-slate-50/20' },
-  { icon: '🏗️', color: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-400', accent: 'border-l-amber-500 bg-amber-50/20' },
-  { icon: '✨', color: 'bg-teal-50 text-teal-600 border-teal-200 hover:bg-teal-100 hover:border-teal-400', accent: 'border-l-teal-500 bg-teal-50/20' },
-  { icon: '⏱️', color: 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400', accent: 'border-l-emerald-500 bg-emerald-50/20' },
-  { icon: '🚀', color: 'bg-sky-50 text-sky-600 border-sky-200 hover:bg-sky-100 hover:border-sky-400', accent: 'border-l-sky-500 bg-sky-50/20' },
-  { icon: '💎', color: 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-400', accent: 'border-l-indigo-500 bg-indigo-50/20' },
-  { icon: '📦', color: 'bg-violet-50 text-violet-600 border-violet-200 hover:bg-violet-100 hover:border-violet-400', accent: 'border-l-violet-500 bg-violet-50/20' },
+  { color: 'bg-primary-50 text-primary-600 border-primary-200 hover:bg-primary-100 hover:border-primary-400', accent: 'border-l-primary-500 bg-primary-50/20' },
+  { color: 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-400', accent: 'border-l-slate-500 bg-slate-50/20' },
+  { color: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-400', accent: 'border-l-amber-500 bg-amber-50/20' },
+  { color: 'bg-teal-50 text-teal-600 border-teal-200 hover:bg-teal-100 hover:border-teal-400', accent: 'border-l-teal-500 bg-teal-50/20' },
+  { color: 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-400', accent: 'border-l-emerald-500 bg-emerald-50/20' },
+  { color: 'bg-sky-50 text-sky-600 border-sky-200 hover:bg-sky-100 hover:border-sky-400', accent: 'border-l-sky-500 bg-sky-50/20' },
+  { color: 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-400', accent: 'border-l-indigo-500 bg-indigo-50/20' },
+  { color: 'bg-violet-50 text-violet-600 border-violet-200 hover:bg-violet-100 hover:border-violet-400', accent: 'border-l-violet-500 bg-violet-50/20' },
 ]
 
 function getCategoryStyle(kategorie) {
@@ -272,8 +273,9 @@ function StepKunde({ data, onChange, errors, kundenList }) {
             </div>
           )}
           {errors.kunde && (
-            <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-              <span>⚠️</span> {errors.kunde}
+            <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1.5">
+              <IconWarning className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <span>{errors.kunde}</span>
             </p>
           )}
         </div>
@@ -320,8 +322,9 @@ function StepKunde({ data, onChange, errors, kundenList }) {
                     }`}
                   />
                   {errors.projekt && (
-                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                      <span>⚠️</span> {errors.projekt}
+                    <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1.5">
+                      <IconWarning className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      <span>{errors.projekt}</span>
                     </p>
                   )}
                 </div>
@@ -526,7 +529,7 @@ function BlockPositionCard({ pos, index, kategorie, totalCount, onUpdate, onRemo
       {/* Hybrid Template Loader (invisible label, subtle design) */}
       <div className="mb-2">
         <select defaultValue="" onChange={handleCatalogSelect} className="w-full px-3 py-2 bg-gray-50 border border-transparent rounded-lg text-base text-text-secondary font-medium hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all cursor-pointer" >
-          <option value="" disabled>📖 Vorlage aus Katalog laden...</option>
+          <option value="" disabled>Vorlage aus Katalog laden...</option>
           {catalogItems.map((item, i) => (
             <option key={i} value={String(i)}>{item.titel}</option>
           ))}
@@ -804,8 +807,9 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
       </div>
 
       {errors.leistungen && (
-        <p className="text-xs text-red-500 flex items-center gap-1 px-1">
-          <span>⚠️</span> {errors.leistungen}
+        <p className="text-xs text-red-500 flex items-center gap-1.5 px-1">
+          <IconWarning className="w-3.5 h-3.5 text-red-500 shrink-0" />
+          <span>{errors.leistungen}</span>
         </p>
       )}
 
@@ -1374,7 +1378,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
         <footer className="shrink-0 bg-surface-card border-t border-border px-4 sm:px-8 py-4 sm:py-5">
           {submitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-start gap-2">
-              <span className="shrink-0 mt-0.5">⚠️</span>
+              <IconWarning className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
               <p>Fehler beim Speichern: {submitError}</p>
             </div>
           )}
@@ -1426,7 +1430,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
                   </>
                 ) : (
                   <>
-                    <span className="text-lg sm:text-base">👀</span>
+                    <IconEye className="w-4 h-4" />
                     Vorschau generieren
                   </>
                 )}

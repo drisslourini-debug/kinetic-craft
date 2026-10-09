@@ -48,7 +48,7 @@ describe('icalGenerator', () => {
     expect(ics).toContain('VERSION:2.0');
     expect(ics).toContain('X-WR-CALNAME:Test Kalender');
     expect(ics).toContain('BEGIN:VEVENT');
-    expect(ics).toContain('UID:termin-42@atelier77.ch');
+    expect(ics).toContain('UID:termin-42@muster-malerei.ch');
     expect(ics).toContain('SUMMARY:Montage Küche');
     expect(ics).toContain('DTSTART:20260920T090000');
     expect(ics).toContain('DTEND:20260920T160000');

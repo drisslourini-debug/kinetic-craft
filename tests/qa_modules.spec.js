@@ -18,12 +18,12 @@ test.describe('QA A-Z Module Testing', () => {
       console.log('DIALOG:', dialog.message());
       dialog.accept();
     });
-    // Navigate to Dashboard and Login if necessary
-    await page.goto('/');
-    const isLoginPage = await page.locator('input[type="email"]').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
-    if (isLoginPage) {
-      await page.locator('input[type="email"]').fill('lourinidriss@gmail.com');
-      await page.locator('input[type="password"]').fill('Test1234');
+    // Navigate to Login if necessary
+    await page.goto('/#login');
+    const emailInput = page.locator('input[type="email"]').first();
+    if (await emailInput.isVisible({ timeout: 4000 }).catch(() => false)) {
+      await emailInput.fill('max@muster-malerei.ch');
+      await page.locator('input[type="password"]').first().fill('Test1234');
       await page.getByRole('button', { name: /Anmelden/i }).click();
     }
     // Wait for the Sidebar to load
@@ -161,7 +161,7 @@ test.describe('QA A-Z Module Testing', () => {
     await unternehmenBtn.click();
     
     await page.locator('button[title="Bearbeiten"]').first().click();
-    await fillInput(page, 'Name des Unternehmens', 'Atelier 77 Test');
+    await fillInput(page, 'Name des Unternehmens', 'Muster Malerei Test');
     await page.getByRole('button', { name: 'Speichern' }).first().click();
     
     // wait for save to complete (we can check if the button stops spinning or if there's a success toast)

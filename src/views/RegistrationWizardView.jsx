@@ -1,10 +1,34 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { injectThemeVariables } from '../utils/colors'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 import ZefixAutocomplete from '../components/ZefixAutocomplete'
 import { BRANCHEN, finalizeTenantRegistration } from '../services/onboardingService'
 import KineticLogoMark from '../components/KineticLogoMark'
+import {
+  TradeIcon,
+  IconSwissFlag,
+  IconQrBill,
+  IconFlash,
+  IconPalette,
+  IconShieldCheck,
+  IconDatenschutz,
+  IconCreditCard,
+  IconSearch,
+  IconDigitalSignature,
+  IconLightbulb,
+  IconUser,
+  IconBuilding,
+  IconCheck,
+} from '../components/icons/BrandIcons'
+import {
+  calculatePasswordStrength,
+  registrationStep1Schema,
+  registrationStep2Schema,
+  validateWithSchema,
+} from '../lib/validation/authSchemas'
+import { normalizeSwissPhone } from '../lib/validation/phoneValidation'
+import { normalizeSwissUid } from '../lib/validation/uidValidation'
 
 const COLOR_PRESETS = [
   { name: 'Handwerk Gold (Standard)', value: '#b88a38' },
@@ -44,45 +68,57 @@ const SWISS_CANTONS = [
   { code: 'ZH', name: 'Zürich' },
 ]
 
-function calculatePasswordStrength(pass) {
-  if (!pass) return { score: 0, label: '', color: 'bg-gray-200' }
-  let score = 0
-  if (pass.length >= 8) score += 1
-  if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1
-  if (/[0-9]/.test(pass)) score += 1
-  if (/[^A-Za-z0-9]/.test(pass) || pass.length >= 12) score += 1
+const DRAFT_STORAGE_KEY = 'kinetic_registration_draft_v1'
 
-  switch (score) {
-    case 1:
-      return { score: 1, label: 'Schwach', color: 'bg-red-500' }
-    case 2:
-      return { score: 2, label: 'Mittel', color: 'bg-amber-500' }
-    case 3:
-      return { score: 3, label: 'Gut', color: 'bg-blue-500' }
-    case 4:
-      return { score: 4, label: 'Sehr stark', color: 'bg-emerald-500' }
-    default:
-      return { score: 0, label: 'Zu kurz (mind. 8 Zeichen)', color: 'bg-red-400' }
+function loadSavedDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (e) {
+    console.warn('Could not read registration draft:', e)
   }
+  return null
 }
 
 function mapRegistrationError(err) {
   if (!err) return null
   const msg = typeof err === 'string' ? err : (err.message || '')
   if (msg.includes('User already registered')) {
-    return 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits. Bitte melde dich an.'
+    return 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits. Bitte melden Sie sich an.'
   }
   if (msg.includes('Password should be at least')) {
-    return 'Das Passwort muss mindestens 8 Zeichen lang sein.'
+    return 'Das Passwort muss für Schweizer Finanzsoftware-Sicherheit mindestens 12 Zeichen lang sein.'
   }
   if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
-    return 'Zu viele Registrierungsversuche in kurzer Zeit. Bitte warte einen Moment.'
+    return 'Zu viele Registrierungsversuche in kurzer Zeit. Bitte warten Sie einen Moment.'
   }
-  return msg || 'Registrierung fehlgeschlagen. Bitte prüfe deine Eingaben.'
+  return msg || 'Registrierung fehlgeschlagen. Bitte prüfen Sie Ihre Eingaben.'
 }
 
-export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLogin, onBackToLanding }) {
-  const [step, setStep] = useState(1)
+export default function RegistrationWizardView({ 
+  onRegistrationSuccess, 
+  onGoToLogin, 
+  onBackToLanding,
+  onOpenImpressum,
+  onOpenDatenschutz
+}) {
+  const initialDraft = useRef(loadSavedDraft()).current
+
+  const [step, setStep] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    if (hash.includes('step=')) {
+      const match = hash.match(/step=(\d+)/)
+      if (match && match[1]) {
+        const s = parseInt(match[1], 10)
+        if (s >= 1 && s <= 3) return s
+      }
+    }
+    if (initialDraft?.step && initialDraft.step >= 1 && initialDraft.step <= 3) {
+      return initialDraft.step
+    }
+    return 1
+  })
+
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [inviteToken, setInviteToken] = useState(null)
@@ -104,29 +140,54 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
     }
   }, [])
 
-  // Comprehensive Form State
-  const [formData, setFormData] = useState({
-    // Step 1: User & Security
-    vorname: '',
-    nachname: '',
-    email: '',
-    password: '',
-    telefon: '',
-    agbAccepted: false,
-    
-    // Step 2: Company & Swiss Location
-    firmenname: '',
-    uid: '',
-    strasse: '',
-    plz: '',
-    ort: '',
-    kanton: 'BE',
-    
-    // Step 3: Trade, Branding & Demo
-    branche: 'maler_gipser',
-    primary_color: '#b88a38',
-    createDemoData: true
+  // Comprehensive Form State initialized with draft
+  const [formData, setFormData] = useState(() => {
+    const defaults = {
+      // Step 1: User & Security
+      vorname: '',
+      nachname: '',
+      email: '',
+      password: '',
+      telefon: '',
+      agbAccepted: false,
+      
+      // Step 2: Company & Swiss Location
+      firmenname: '',
+      uid: '',
+      strasse: '',
+      plz: '',
+      ort: '',
+      kanton: 'BE',
+      
+      // Step 3: Trade, Branding & Demo
+      branche: 'maler_gipser',
+      primary_color: '#b88a38',
+      createDemoData: true,
+    }
+    if (initialDraft?.formData) {
+      return { ...defaults, ...initialDraft.formData }
+    }
+    return defaults
   })
+
+  // Auto-persist draft to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        step,
+        formData,
+      }))
+    } catch {
+      // ignore
+    }
+  }, [formData, step])
+
+  const changeStep = (newStep) => {
+    setStep(newStep)
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#register?step=${newStep}`
+    }
+  }
 
   const passwordStrength = calculatePasswordStrength(formData.password)
 
@@ -149,7 +210,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setError('Bitte wähle eine gültige Bilddatei (PNG, JPG, SVG, WebP).')
+      setError('Bitte wählen Sie eine gültige Bilddatei (PNG, JPG, SVG, WebP).')
       return
     }
 
@@ -185,44 +246,65 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
     if (step === 1) {
       if (inviteToken) {
         const fullName = `${formData.vorname} ${formData.nachname}`.trim()
-        if (!fullName || !cleanEmail || !formData.password || formData.password.length < 6) {
-          setError('Bitte Vor- und Nachname, eine gültige E-Mail sowie ein Passwort (mind. 6 Zeichen) eingeben.')
+        if (!fullName || !cleanEmail || !formData.password || formData.password.length < 12) {
+          setError('Bitte Vor- und Nachname, eine gültige E-Mail sowie ein Passwort mit mindestens 12 Zeichen eingeben.')
           return
         }
         handleRegister(new Event('submit'))
         return
       }
 
-      if (!formData.vorname.trim() || !formData.nachname.trim()) {
-        setError('Bitte gib deinen Vor- und Nachnamen ein.')
+      const val1 = validateWithSchema(registrationStep1Schema, {
+        fullName: `${formData.vorname} ${formData.nachname}`.trim(),
+        email: cleanEmail,
+        password: formData.password,
+      })
+
+      if (!val1.isValid) {
+        setError(val1.errorMessage)
         return
       }
-      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-        setError('Bitte gib eine gültige geschäftliche E-Mail-Adresse ein.')
-        return
-      }
-      if (!formData.password || formData.password.length < 8) {
-        setError('Das Passwort muss für Schweizer Sicherheitsstandards mindestens 8 Zeichen lang sein.')
-        return
-      }
+
       if (!formData.agbAccepted) {
-        setError('Bitte stimme den AGB und den Schweizer Datenschutzbestimmungen (revDSG) zu.')
+        setError('Bitte bestätigen Sie die AGB und die Schweizer Datenschutzbestimmungen (DSG).')
         return
       }
     }
 
     if (step === 2) {
-      if (!formData.firmenname.trim()) {
-        setError('Bitte gib deinen Firmen- oder Betriebsnamen ein.')
+      const val2 = validateWithSchema(registrationStep2Schema, {
+        firmenname: formData.firmenname,
+        ort: formData.ort,
+        kanton: formData.kanton,
+        strasse: formData.strasse,
+        plz: formData.plz,
+        telefon: formData.telefon,
+        uid: formData.uid,
+        gewerk: formData.branche,
+      })
+
+      if (!val2.isValid) {
+        setError(val2.errorMessage)
         return
       }
-      if (!formData.ort.trim()) {
-        setError('Bitte gib mindestens den Standort (Ort) deiner Firma an.')
-        return
+
+      // Normalization of phone and UID
+      if (formData.telefon) {
+        const phoneNorm = normalizeSwissPhone(formData.telefon)
+        if (phoneNorm.isValid) {
+          setFormData(prev => ({ ...prev, telefon: phoneNorm.national }))
+        }
+      }
+
+      if (formData.uid) {
+        const uidNorm = normalizeSwissUid(formData.uid)
+        if (uidNorm.isValid) {
+          setFormData(prev => ({ ...prev, uid: uidNorm.formatted }))
+        }
       }
     }
 
-    setStep(step + 1)
+    changeStep(step + 1)
   }
 
   const handleRegister = async (e) => {
@@ -249,7 +331,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
       })
 
       if (authError) throw authError
-      if (!authData.user) throw new Error('Registrierung fehlgeschlagen. Bitte versuche es erneut.')
+      if (!authData.user) throw new Error('Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.')
 
       const userId = authData.user.id
 
@@ -318,11 +400,15 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
       }
 
       // Success Navigation
+      try {
+        sessionStorage.removeItem(DRAFT_STORAGE_KEY)
+      } catch {}
+
       if (authData.session) {
         onRegistrationSuccess(authData.session)
       } else {
         // Fallback if email confirmation is required
-        setStep(4)
+        changeStep(4)
       }
     } catch (err) {
       console.error('Registration error:', err)
@@ -333,9 +419,9 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
   }
 
   const stepTitles = [
-    { num: 1, label: 'Konto', icon: '👤' },
-    { num: 2, label: 'Firma', icon: '🏢' },
-    { num: 3, label: 'Handwerk & Design', icon: '🎨' }
+    { num: 1, label: 'Konto' },
+    { num: 2, label: 'Firma' },
+    { num: 3, label: 'Handwerk & Design' }
   ]
 
   return (
@@ -360,7 +446,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-white/90 mb-6">
-            <span>🇨🇭</span>
+            <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
             <span>Entwickelt für das Schweizer Handwerk</span>
           </div>
 
@@ -375,8 +461,8 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
         {/* Feature Highlights */}
         <div className="relative z-10 space-y-4 my-8">
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 text-base">
-              🧾
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <IconQrBill className="w-5 h-5 text-amber-300" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Schweizer QR-Rechnung</h3>
@@ -385,8 +471,8 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-yellow-500/20 text-yellow-300 flex items-center justify-center shrink-0 text-base">
-              ⚡
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <IconFlash className="w-5 h-5 text-amber-300" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Zefix & GeoAdmin Integration</h3>
@@ -395,12 +481,12 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           </div>
 
           <div className="flex items-start gap-3.5 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-xs">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-300 flex items-center justify-center shrink-0 text-base">
-              🎨
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <IconPalette className="w-5 h-5 text-amber-300" />
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">Vollwertige Schweizer PDF-Offerten</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Elegante A4-Layouts mit deinem Logo, MWST-Abrechnung und Firmen-Design.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Elegante A4-Layouts mit Ihrem Logo, MWST-Abrechnung und Firmen-Design.</p>
             </div>
           </div>
         </div>
@@ -409,20 +495,20 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
         <div className="relative z-10 pt-6 border-t border-white/10">
           <div className="grid grid-cols-2 gap-3 text-xs text-neutral-400">
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>🇨🇭 Gehostet in der Schweiz</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconSwissFlag className="w-3.5 h-3.5 rounded shrink-0" /> Schweizer DSG & ISO 27001</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>🔒 256-Bit SSL Verschlüsselung</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" /> 256-Bit SSL Verschlüsselung</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>🛡️ Schweizer revDSG konform</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconDatenschutz className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Schweizer Datenschutz (DSG)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-bold">✓</span>
-              <span>💳 Keine Kreditkarte nötig</span>
+              <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex items-center gap-1.5"><IconCreditCard className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Keine Kreditkarte nötig</span>
             </div>
           </div>
         </div>
@@ -463,7 +549,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
             </h2>
             <p className="text-sm text-text-secondary mt-1">
               {inviteToken 
-                ? 'Erstelle dein persönliches Login für das Team.' 
+                ? 'Erstellen Sie Ihr persönliches Login für das Team.' 
                 : 'In 2 Minuten startklar. Keine Kreditkarte erforderlich.'}
             </p>
           </div>
@@ -476,12 +562,12 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <div key={s.num} className="flex items-center gap-2">
                     <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                       step === s.num
-                        ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white shadow-sm ring-2 ring-amber-200'
+                        ? 'bg-amber-700 text-white shadow-sm ring-2 ring-amber-300'
                         : step > s.num
                           ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-gray-100 text-gray-400'
                     }`}>
-                      {step > s.num ? '✓' : s.num}
+                      {step > s.num ? <IconCheck className="w-3.5 h-3.5" /> : s.num}
                     </span>
                     <span className={`text-xs font-bold hidden sm:inline ${
                       step >= s.num ? 'text-text-primary' : 'text-text-secondary/50'
@@ -496,7 +582,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <div 
                     key={i} 
                     className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                      step >= i ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600' : 'bg-gray-100'
+                      step >= i ? 'bg-amber-700' : 'bg-gray-100'
                     }`} 
                   />
                 ))}
@@ -521,10 +607,10 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
               <div className="space-y-4 animate-fade-in">
                 <div>
                   <h3 className="text-lg font-bold text-text-primary">
-                    {inviteToken ? 'Dein Benutzerkonto' : 'Schritt 1: Dein persönliches Profil'}
+                    {inviteToken ? 'Ihr Benutzerkonto' : 'Schritt 1: Ihr persönliches Profil'}
                   </h3>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    Mit diesen Angaben wirst du als Inhaber/Ansprechpartner auf Dokumenten geführt.
+                    Mit diesen Angaben werden Sie als Inhaber/Ansprechpartner auf Dokumenten geführt.
                   </p>
                 </div>
 
@@ -585,7 +671,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       autoComplete="new-password"
                       value={formData.password}
                       onChange={e => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Mindestens 8 Zeichen"
+                      placeholder="Mindestens 12 Zeichen"
                       className="w-full pl-3.5 pr-11 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                     <button
@@ -617,7 +703,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-text-secondary">
                         <span>Sicherheit: <strong>{passwordStrength.label}</strong></span>
-                        <span>Mind. 8 Zeichen</span>
+                        <span>Mind. 12 Zeichen (Finanzsoftware-Standard)</span>
                       </div>
                     </div>
                   )}
@@ -629,19 +715,19 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs text-text-secondary font-semibold">
-                      🇨🇭 +41
+                      <IconSwissFlag className="w-3.5 h-3.5 rounded shrink-0 mr-1" /> +41
                     </div>
                     <input
                       type="tel"
                       value={formData.telefon}
                       onChange={e => setFormData({ ...formData, telefon: e.target.value })}
-                      placeholder="79 123 45 67"
+                      placeholder="079 123 45 67"
                       className="w-full pl-16 pr-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-text-primary text-sm placeholder:text-gray-400"
                     />
                   </div>
                 </div>
 
-                {/* Legal revDSG Checkbox */}
+                {/* Legal DSG Checkbox */}
                 <div className="pt-2">
                   <label className="flex items-start gap-2.5 cursor-pointer select-none">
                     <input
@@ -651,7 +737,23 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       className="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer shrink-0"
                     />
                     <span className="text-xs text-text-secondary leading-normal">
-                      Ich akzeptiere die <strong>AGB</strong> und die <strong>Datenschutzerklärung</strong> nach neuem Schweizer Datenschutzgesetz (revDSG).
+                      Ich akzeptiere die{' '}
+                      <button 
+                        type="button" 
+                        onClick={onOpenImpressum} 
+                        className="text-amber-800 font-bold underline hover:text-amber-900 cursor-pointer"
+                      >
+                        Nutzungsbedingungen
+                      </button>
+                      {' '}und die{' '}
+                      <button 
+                        type="button" 
+                        onClick={onOpenDatenschutz} 
+                        className="text-amber-800 font-bold underline hover:text-amber-900 cursor-pointer"
+                      >
+                        Datenschutzerklärung
+                      </button>
+                      {' '}nach Schweizer Datenschutzgesetz (DSG).
                     </span>
                   </label>
                 </div>
@@ -660,7 +762,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-bold rounded-xl shadow-md shadow-amber-900/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <span>{inviteToken ? 'Einladung jetzt annehmen' : 'Weiter zu Firmendaten'}</span>
                     <span>→</span>
@@ -674,10 +776,10 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
               <div className="space-y-4 animate-fade-in">
                 <div>
                   <h3 className="text-lg font-bold text-text-primary">
-                    Schritt 2: Dein Betrieb & Schweizer Standort
+                    Schritt 2: Ihr Betrieb & Schweizer Standort
                   </h3>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    Wird oben auf deinen Offerten, Rechnungen und im QR-Zahlteil gedruckt.
+                    Wird oben auf Ihren Offerten, Rechnungen und im QR-Zahlteil gedruckt.
                   </p>
                 </div>
 
@@ -690,7 +792,8 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       !isManualCompany ? 'bg-white text-text-primary shadow-xs' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <span>🔍 Im Zefix Handelsregister suchen</span>
+                    <IconSearch className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Im Zefix Handelsregister suchen</span>
                   </button>
                   <button
                     type="button"
@@ -699,7 +802,8 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       isManualCompany ? 'bg-white text-text-primary shadow-xs' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <span>✍️ Manuell erfassen</span>
+                    <IconDigitalSignature className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+                    <span>Manuell erfassen</span>
                   </button>
                 </div>
 
@@ -713,8 +817,9 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                       onSelect={handleZefixSelect}
                       className="w-full px-3.5 py-2.5 bg-amber-50/30 border border-amber-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-text-primary text-sm placeholder:text-gray-400"
                     />
-                    <p className="text-[11px] text-text-secondary mt-1">
-                      💡 Gibt automatisch Firmenname, UID und Sitz aus dem Handelsregister des Bundes ein.
+                    <p className="text-[11px] text-text-secondary mt-1 flex items-center gap-1.5">
+                      <IconLightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Gibt automatisch Firmenname, UID und Sitz aus dem Handelsregister des Bundes ein.</span>
                     </p>
                   </div>
                 )}
@@ -821,7 +926,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                 <div className="flex gap-3 pt-3">
                   <button
                     type="button"
-                    onClick={() => setStep(1)}
+                    onClick={() => changeStep(1)}
                     className="w-1/3 py-3 bg-gray-100 text-text-secondary font-bold rounded-xl hover:bg-gray-200 transition-colors cursor-pointer"
                   >
                     Zurück
@@ -829,7 +934,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="w-2/3 py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-2/3 py-3.5 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-bold rounded-xl shadow-md shadow-amber-900/20 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <span>Weiter zu Handwerk & Design</span>
                     <span>→</span>
@@ -846,14 +951,14 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                     Schritt 3: Branche, Branding & Musterdaten
                   </h3>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    Wähle dein Handwerk. Wir passen deine Vorlagen und das Design sofort an.
+                    Wählen Sie Ihr Handwerk. Wir passen Ihre Vorlagen und das Design sofort an.
                   </p>
                 </div>
 
                 {/* Trade / Branch Tile Grid */}
                 <div>
                   <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-2">
-                    In welchem Bereich bist du tätig?
+                    In welchem Bereich sind Sie tätig?
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {BRANCHEN.map(b => {
@@ -869,7 +974,11 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                               : 'border-border bg-gray-50/50 hover:bg-white hover:border-gray-300'
                           }`}
                         >
-                          <span className="text-xl">{b.icon}</span>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected ? 'bg-amber-100 text-amber-900' : 'bg-gray-100 text-slate-700'
+                          }`}>
+                            <TradeIcon tradeId={b.id} className="w-4 h-4" />
+                          </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-bold text-text-primary truncate">{b.name}</p>
                           </div>
@@ -899,7 +1008,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                         title={preset.name}
                       >
                         {formData.primary_color.toLowerCase() === preset.value.toLowerCase() && (
-                          <span className="text-white text-xs font-bold">✓</span>
+                          <IconCheck className="w-3.5 h-3.5 text-white" />
                         )}
                       </button>
                     ))}
@@ -972,7 +1081,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                         Mit Schweizer Musterdaten für meine Branche starten (empfohlen)
                       </span>
                       <span className="text-[11px] text-amber-900/80 leading-tight block mt-0.5">
-                        Erstellt 1 Musterkunden und 1 fertige Muster-Offerte in CHF, damit du das System sofort ausprobieren kannst. Mit 1 Klick wieder entfernbar.
+                        Erstellt 1 Musterkunden und 1 fertige Muster-Offerte in CHF, damit Sie das System sofort ausprobieren können. Mit 1 Klick wieder entfernbar.
                       </span>
                     </div>
                   </label>
@@ -981,7 +1090,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
+                    onClick={() => changeStep(2)}
                     disabled={isLoading}
                     className="w-1/3 py-3.5 bg-gray-100 text-text-secondary font-bold rounded-xl hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50"
                   >
@@ -990,7 +1099,7 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-2/3 flex justify-center items-center gap-2 py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-wait cursor-pointer text-sm"
+                    className="w-2/3 flex justify-center items-center gap-2 py-3.5 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-bold rounded-xl shadow-md shadow-amber-900/20 active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-wait cursor-pointer text-sm"
                   >
                     {isLoading ? (
                       <>
@@ -1001,7 +1110,10 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
                         <span>Konto wird eingerichtet...</span>
                       </>
                     ) : (
-                      <span>CRM jetzt starten 🇨🇭</span>
+                      <span className="inline-flex items-center gap-2">
+                        <span>CRM jetzt starten</span>
+                        <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
+                      </span>
                     )}
                   </button>
                 </div>
@@ -1011,20 +1123,20 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
             {/* STEP 4: Email Verification Notice Fallback */}
             {step === 4 && (
               <div className="text-center py-6 animate-fade-in space-y-5">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto text-3xl font-bold">
-                  ✓
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
+                  <IconCheck className="w-8 h-8 text-emerald-600" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-text-primary mb-2">Fast geschafft!</h3>
                   <p className="text-sm text-text-secondary max-w-sm mx-auto">
-                    Wir haben dir eine Bestätigungs-E-Mail an <strong>{formData.email}</strong> gesendet. Bitte klicke auf den Link in der E-Mail, um dein Konto zu aktivieren.
+                    Wir haben Ihnen eine Bestätigungs-E-Mail an <strong>{formData.email}</strong> gesendet. Bitte klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren.
                   </p>
                 </div>
                 <div className="pt-2 flex flex-col gap-2.5 max-w-xs mx-auto">
                   <button
                     type="button"
                     onClick={onGoToLogin}
-                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-md shadow-amber-500/20 transition-colors cursor-pointer"
+                    className="w-full py-3.5 bg-amber-700 hover:bg-amber-800 active:bg-amber-900 text-white font-bold rounded-xl shadow-md shadow-amber-900/20 transition-colors cursor-pointer"
                   >
                     Zurück zur Anmeldung
                   </button>
@@ -1037,16 +1149,34 @@ export default function RegistrationWizardView({ onRegistrationSuccess, onGoToLo
           {/* Footer Navigation */}
           {step < 4 && (
             <p className="mt-6 text-center text-sm text-text-secondary font-medium">
-              Du hast bereits einen Account?{' '}
+              Sie haben bereits ein Konto?{' '}
               <button 
                 type="button"
                 onClick={onGoToLogin} 
-                className="text-amber-600 hover:text-amber-800 font-bold transition-colors cursor-pointer"
+                className="text-amber-700 hover:text-amber-800 font-bold transition-colors cursor-pointer underline underline-offset-2"
               >
                 Hier anmelden
               </button>
             </p>
           )}
+
+          <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-center gap-4 text-xs text-text-secondary">
+            <button
+              type="button"
+              onClick={onOpenImpressum}
+              className="hover:text-text-primary transition-colors cursor-pointer"
+            >
+              Impressum
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={onOpenDatenschutz}
+              className="hover:text-text-primary transition-colors cursor-pointer"
+            >
+              Datenschutz
+            </button>
+          </div>
 
         </div>
       </div>

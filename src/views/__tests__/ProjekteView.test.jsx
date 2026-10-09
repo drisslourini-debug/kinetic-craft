@@ -41,21 +41,21 @@ describe('ProjekteView Calendar Integration', () => {
     render(<ProjekteView onNavigate={onNavigateMock} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dachstockausbau Winterthur')).toBeInTheDocument()
+      expect(screen.getAllByText('Dachstockausbau Winterthur').length).toBeGreaterThan(0)
     })
 
     // Find the 3-dots button for the project
     const buttons = screen.getAllByRole('button')
-    const menuBtn = buttons.find(b => b.querySelector('svg circle') || b.querySelector('svg path'))
+    const menuBtn = buttons.find(b => b.getAttribute('aria-label') === 'Aktionsmenü' || b.getAttribute('title') === 'Aktionsmenü') || buttons.find(b => b.querySelector('svg circle') || b.querySelector('svg path'))
     fireEvent.click(menuBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Im Kalender anzeigen/i)).toBeInTheDocument()
-      expect(screen.getByText(/Termin erfassen/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Im Kalender anzeigen/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/Termin erfassen/i).length).toBeGreaterThan(0)
     })
 
     // Click "Im Kalender anzeigen"
-    const calLink = screen.getByText(/Im Kalender anzeigen/i)
+    const calLink = screen.getAllByText(/Im Kalender anzeigen/i)[0]
     fireEvent.click(calLink)
 
     expect(onNavigateMock).toHaveBeenCalledWith('kalender', {
@@ -69,18 +69,18 @@ describe('ProjekteView Calendar Integration', () => {
     render(<ProjekteView onNavigate={onNavigateMock} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Dachstockausbau Winterthur')).toBeInTheDocument()
+      expect(screen.getAllByText('Dachstockausbau Winterthur').length).toBeGreaterThan(0)
     })
 
     const buttons = screen.getAllByRole('button')
-    const menuBtn = buttons.find(b => b.querySelector('svg circle') || b.querySelector('svg path'))
+    const menuBtn = buttons.find(b => b.getAttribute('aria-label') === 'Aktionsmenü' || b.getAttribute('title') === 'Aktionsmenü') || buttons.find(b => b.querySelector('svg circle') || b.querySelector('svg path'))
     fireEvent.click(menuBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/Termin erfassen/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Termin erfassen/i).length).toBeGreaterThan(0)
     })
 
-    const createTerminBtn = screen.getByText(/Termin erfassen/i)
+    const createTerminBtn = screen.getAllByText(/Termin erfassen/i)[0]
     fireEvent.click(createTerminBtn)
 
     expect(onNavigateMock).toHaveBeenCalledWith('kalender', {

@@ -11,6 +11,8 @@ import { useEffect, useRef } from 'react'
 export function useModalHistory(isOpen, onClose, modalName = 'modal') {
   const isPushedRef = useRef(false)
   const isPoppingRef = useRef(false)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (isOpen) {
@@ -33,7 +35,7 @@ export function useModalHistory(isOpen, onClose, modalName = 'modal') {
         if (isPushedRef.current) {
           isPushedRef.current = false
           isPoppingRef.current = true
-          onClose()
+          onCloseRef.current?.()
           setTimeout(() => {
             isPoppingRef.current = false
           }, 50)
@@ -54,5 +56,5 @@ export function useModalHistory(isOpen, onClose, modalName = 'modal') {
     } else {
       isPushedRef.current = false
     }
-  }, [isOpen, onClose, modalName])
+  }, [isOpen, modalName])
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { checkOnboardingStatus, cleanupDemoData } from '../../services/onboardingService'
+import { IconSwissFlag, IconLightbulb, IconCheck } from '../icons/BrandIcons'
 
 export default function OnboardingChecklistWidget({ 
   globalSettings, 
@@ -12,7 +13,9 @@ export default function OnboardingChecklistWidget({
   const [isLoading, setIsLoading] = useState(true)
   const [isCleaning, setIsCleaning] = useState(false)
   const [isMinimized, setIsMinimized] = useState(() => {
-    return localStorage.getItem('a77_onboarding_minimized') === 'true'
+    const saved = localStorage.getItem('a77_onboarding_minimized')
+    if (saved !== null) return saved === 'true'
+    return typeof window !== 'undefined' && window.innerWidth < 768
   })
   const [isDismissed, setIsDismissed] = useState(() => {
     return localStorage.getItem('a77_onboarding_dismissed') === 'true'
@@ -99,43 +102,51 @@ export default function OnboardingChecklistWidget({
   }
 
   return (
-    <div className="mb-8 bg-white border border-primary-200/80 rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
+    <div className="mb-4 sm:mb-8 bg-white border border-primary-200/80 rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
       {/* Top Banner Header */}
-      <div className="bg-gradient-to-r from-primary-50 via-amber-50/40 to-white px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-primary-100">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
-            🇨🇭
+      <div 
+        className={`bg-gradient-to-r from-primary-50 via-amber-50/40 to-white px-3.5 py-2.5 sm:px-5 sm:py-4 flex items-center justify-between gap-2.5 border-b border-primary-100 ${
+          isMinimized ? 'cursor-pointer hover:bg-primary-50/50' : ''
+        }`}
+        onClick={isMinimized ? toggleMinimize : undefined}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+            <IconSwissFlag className="w-5 h-5 rounded-xs" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-text-primary text-base">
-                Erste Schritte im Kinetic Craft CRM
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="font-bold text-text-primary text-xs sm:text-base truncate">
+                <span className="sm:hidden">Erste Schritte im CRM</span>
+                <span className="hidden sm:inline">Erste Schritte im Kinetic Craft CRM</span>
               </h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800">
-                {status?.completedCount || 0} von {status?.totalSteps || 5} erledigt ({status?.progressPercent || 0}%)
+              <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 shrink-0">
+                {status?.completedCount || 0}/{status?.totalSteps || 5} ({status?.progressPercent || 0}%)
               </span>
             </div>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Richte deinen Betrieb ein, um rechtskonforme Offerten und Schweizer QR-Rechnungen zu erstellen.
-            </p>
+            {!isMinimized && (
+              <p className="text-[11px] sm:text-xs text-text-secondary mt-0.5 leading-snug">
+                Richte deinen Betrieb ein, um rechtskonforme Offerten und Schweizer QR-Rechnungen zu erstellen.
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
             onClick={toggleMinimize}
-            className="px-2.5 py-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+            className="px-2 py-1 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
           >
             {isMinimized ? (
               <>
-                <span>Aufklappen</span>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                <span className="hidden sm:inline">Aufklappen</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </>
             ) : (
               <>
-                <span>Minimieren</span>
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                <span className="hidden sm:inline">Minimieren</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
               </>
             )}
           </button>
@@ -145,6 +156,7 @@ export default function OnboardingChecklistWidget({
             onClick={handleDismiss}
             className="p-1.5 text-text-secondary/60 hover:text-text-secondary hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
             title="Diesen Leitfaden ausblenden"
+            aria-label="Leitfaden ausblenden"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -175,7 +187,7 @@ export default function OnboardingChecklistWidget({
           {status?.hasDemoData && (
             <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-start sm:items-center gap-2 text-amber-900 font-medium">
-                <span className="text-base">💡</span>
+                <IconLightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
                 <span>
                   <strong>Schweizer Musterdaten aktiv:</strong> Wir haben eine Beispiel-Offerte und einen Test-Kunden für deine Branche hinterlegt. Du kannst diese jederzeit rückstandslos bereinigen.
                 </span>
@@ -208,7 +220,7 @@ export default function OnboardingChecklistWidget({
                       ? 'bg-emerald-600 text-white' 
                       : 'bg-gray-100 text-text-secondary border border-gray-300'
                   }`}>
-                    {step.completed ? '✓' : idx + 1}
+                    {step.completed ? <IconCheck className="w-3.5 h-3.5" /> : idx + 1}
                   </div>
                   <div>
                     <h4 className={`text-sm font-semibold leading-tight ${step.completed ? 'text-text-secondary' : 'text-text-primary'}`}>
@@ -238,7 +250,7 @@ export default function OnboardingChecklistWidget({
                 {step.completed && (
                   <span className="self-end text-xs font-bold text-emerald-600 flex items-center gap-1">
                     <span>Erledigt</span>
-                    <span>✓</span>
+                    <IconCheck className="w-3.5 h-3.5" />
                   </span>
                 )}
               </div>

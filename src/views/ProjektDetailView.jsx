@@ -8,12 +8,42 @@ import { ProjektStammdatenBlock, ProjektTermineBlock, ProjektNotizenBlock } from
 import { getTerminTypConfig, getTerminStatusConfig } from '../lib/kalenderConstants'
 import TerminModal from '../components/kalender/TerminModal'
 import TerminDetailModal from '../components/kalender/TerminDetailModal'
+import RapportCreateModal from '../components/rapport/RapportCreateModal'
+import RapportDetailModal from '../components/rapport/RapportDetailModal'
+import ZeiterfassungTab from '../components/zeiterfassung/ZeiterfassungTab'
+import { convertRapportToInvoiceItems, calculateRapportTotal } from '../lib/rapportToInvoice'
+import { generateNextRechnungNr } from '../lib/documentService'
+import { timeEntriesToRapportHours, timeEntriesToInvoiceItems } from '../lib/timeTrackingService'
+import {
+  IconLocation,
+  IconUser,
+  IconDocument,
+  IconMoney,
+  IconClock,
+  IconFolder,
+  IconCalendar,
+  IconRapport,
+  IconHammer,
+  IconNotes,
+  IconCheck,
+  IconEdit,
+  IconWarning,
+  IconTag,
+  IconImage,
+  IconAttachment,
+  IconBriefcase,
+  IconWorker,
+  IconDigitalSignature,
+  IconPrinter,
+  IconFlash,
+  TerminTypIcon
+} from '../components/icons/BrandIcons'
 
 // ----------------------
 // MAIN COMPONENT
 // ----------------------
 
-export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate, userRole, initialTab }) {
+export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate, userRole, initialTab, userName = '' }) {
   const [parent] = useAutoAnimate()
   const [projekt, setProjekt] = useState(initialProjekt)
   const [offerten, setOfferten] = useState([])
@@ -21,12 +51,18 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
   const [ausgaben, setAusgaben] = useState([])
   const [dateien, setDateien] = useState([])
   const [termine, setTermine] = useState([])
+  const [rapporte, setRapporte] = useState([])
+  const [zeiterfassungCount, setZeiterfassungCount] = useState(0)
+  const [initialRapportHours, setInitialRapportHours] = useState(null)
+  const [selectedTimeEntriesForConversion, setSelectedTimeEntriesForConversion] = useState(null)
   const [kunde, setKunde] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState(initialTab || 'projektdaten')
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
   const [selectedTerminForDetail, setSelectedTerminForDetail] = useState(null)
+  const [isRapportCreateOpen, setIsRapportCreateOpen] = useState(false)
+  const [selectedRapport, setSelectedRapport] = useState(null)
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
   const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
@@ -108,6 +144,28 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         } catch (tErr) {
           console.warn('Error loading project termine:', tErr)
         }
+
+        // Load reports (rapporte)
+        try {
+          let rapList = []
+          if (supabase) {
+            const { data: rapData, error: rapErr } = await supabase
+              .from('rapporte')
+              .select('*')
+              .eq('projekt_id', projekt.id)
+              .order('datum', { ascending: false })
+            if (!rapErr && rapData) rapList = rapData
+          }
+          const stored = JSON.parse(localStorage.getItem('atelier77_rapporte') || '[]')
+          const localRap = stored.filter(r => String(r.projekt_id) === String(projekt.id))
+          const merged = [...rapList]
+          localRap.forEach(lr => {
+            if (!merged.some(m => String(m.id) === String(lr.id))) merged.push(lr)
+          })
+          setRapporte(merged)
+        } catch (rErr) {
+          console.warn('Error loading rapporte:', rErr)
+        }
       } catch (err) {
         console.error('Error loading projekt details:', err)
       } finally {
@@ -117,6 +175,201 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
     
     loadDetails()
   }, [projekt?.id, projekt?.kunden_id])
+
+  const refreshProjektRapporte = async () => {
+    try {
+      let rapList = []
+      if (supabase && projekt?.id) {
+        const { data: rapData, error: rapErr } = await supabase
+          .from('rapporte')
+          .select('*')
+          .eq('projekt_id', projekt.id)
+          .order('datum', { ascending: false })
+        if (!rapErr && rapData) rapList = rapData
+      }
+      const stored = JSON.parse(localStorage.getItem('atelier77_rapporte') || '[]')
+      const localRap = stored.filter(r => String(r.projekt_id) === String(projekt?.id))
+      const merged = [...rapList]
+      localRap.forEach(lr => {
+        if (!merged.some(m => String(m.id) === String(lr.id))) merged.push(lr)
+      })
+      setRapporte(merged)
+    } catch (e) {
+      console.warn('Failed to refresh rapporte:', e)
+    }
+  }
+
+  const refreshZeiterfassungCount = async () => {
+    if (!projekt?.id) return
+    try {
+      let dbCount = 0
+      if (supabase) {
+        try {
+          const { count, error } = await supabase
+            .from('zeiterfassung')
+            .select('*', { count: 'exact', head: true })
+            .eq('projekt_id', projekt.id)
+          if (!error && typeof count === 'number') dbCount = count
+        } catch {}
+      }
+      const stored = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+      const localForProject = stored.filter(e => String(e.projekt_id) === String(projekt.id))
+      setZeiterfassungCount(Math.max(dbCount, localForProject.length))
+    } catch {
+      setZeiterfassungCount(0)
+    }
+  }
+
+  useEffect(() => {
+    refreshZeiterfassungCount()
+    const handleTimeCreated = () => refreshZeiterfassungCount()
+    window.addEventListener('a77-time-entry-created', handleTimeCreated)
+    return () => window.removeEventListener('a77-time-entry-created', handleTimeCreated)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projekt?.id])
+
+  const handleCreateRapportFromHours = (selectedEntries) => {
+    const hours = timeEntriesToRapportHours(selectedEntries)
+    setInitialRapportHours(hours)
+    setSelectedTimeEntriesForConversion(selectedEntries)
+    setIsRapportCreateOpen(true)
+  }
+
+  const handleCreateInvoiceFromHours = async (selectedEntries) => {
+    try {
+      const items = timeEntriesToInvoiceItems(selectedEntries, projekt.name)
+      const nextNr = await generateNextRechnungNr(supabase)
+      const totalAmount = items.reduce((sum, item) => sum + (item.total || 0), 0)
+
+      const newInvoiceData = {
+        rechnung_nr: nextNr,
+        projekt_id: projekt.id,
+        kunden_id: projekt.kunden_id,
+        status: 'Entwurf',
+        total: totalAmount,
+        bezahlt: 0,
+        rechnungsdatum: new Date().toISOString().split('T')[0],
+        daten: {
+          titel: `Arbeitsaufwand Projekt ${projekt.name}`,
+          leistungen: items,
+          konditionen: { zahlungsziel: 30, mwst: 8.1, rabatt: 0 }
+        }
+      }
+
+      let createdInvoice = null
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('rechnungen')
+          .insert([newInvoiceData])
+          .select('*, kunden(name), projekte(name, adresse)')
+          .single()
+        if (!error && data) createdInvoice = data
+      }
+
+      if (!createdInvoice) {
+        createdInvoice = { ...newInvoiceData, id: `local_re_${Date.now()}` }
+      }
+
+      // Mark time entries as 'verrechnet'
+      const entryIds = selectedEntries.map(e => String(e.id))
+      if (supabase) {
+        for (const entry of selectedEntries) {
+          if (typeof entry.id === 'number') {
+            try {
+              await supabase.from('zeiterfassung').update({ status: 'verrechnet', rechnung_id: createdInvoice.id }).eq('id', entry.id)
+            } catch {}
+          }
+        }
+      }
+      const stored = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+      const updated = stored.map(e => entryIds.includes(String(e.id)) ? { ...e, status: 'verrechnet', rechnung_id: createdInvoice.id } : e)
+      localStorage.setItem('atelier77_zeiterfassung', JSON.stringify(updated))
+      window.dispatchEvent(new CustomEvent('a77-time-entry-created'))
+
+      showToast('success', `${selectedEntries.length} Zeiteinträge in Rechnung ${nextNr} überführt!`)
+      if (onNavigate) {
+        onNavigate('rechnungen', { rechnungId: createdInvoice.id, edit: true })
+      }
+    } catch (err) {
+      console.error('Fehler bei der Rechnungsübernahme aus Zeiterfassung:', err)
+      showToast('error', 'Fehler beim Erstellen der Rechnung.')
+    }
+  }
+
+  const handleConvertRapportToInvoice = async (rapport) => {
+    try {
+      const items = convertRapportToInvoiceItems(rapport)
+      const nextNr = await generateNextRechnungNr(supabase)
+      const totalAmount = items.reduce((sum, item) => sum + (item.total || 0), 0)
+
+      const rechnungsdatum = new Date().toISOString().split('T')[0]
+      const faelligAm = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+
+      const newInvoiceData = {
+        rechnung_nr: nextNr,
+        projekt_id: projekt.id,
+        kunden_id: projekt.kunden_id,
+        status: 'Entwurf',
+        total: totalAmount,
+        bezahlt: 0,
+        rechnungsdatum,
+        faellig_am: faelligAm,
+        zahlungsfrist_tage: 30,
+        daten: {
+          titel: `Regiearbeiten gemäss ${rapport.rapport_nr}`,
+          leistungen: items,
+          konditionen: { zahlungsziel: 30, mwst: 8.1, rabatt: 0 },
+          rapport_id: rapport.id,
+          rapport_nr: rapport.rapport_nr
+        }
+      }
+
+      let createdInvoice = null
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('rechnungen')
+            .insert([newInvoiceData])
+            .select('*, kunden(name), projekte(name, adresse)')
+          if (!error && data && data.length > 0) createdInvoice = data[0]
+        } catch (dbErr) {
+          console.warn('Supabase invoice insert fallback:', dbErr)
+        }
+      }
+
+      if (!createdInvoice) {
+        createdInvoice = { ...newInvoiceData, id: `local_re_${Date.now()}` }
+      }
+
+      // Mark rapport as 'Verrechnet'
+      if (supabase && rapport.id && !String(rapport.id).startsWith('local_')) {
+        try {
+          await supabase
+            .from('rapporte')
+            .update({ status: 'Verrechnet' })
+            .eq('id', rapport.id)
+        } catch (updErr) {
+          console.warn('Status update in remote DB failed, fallback to local:', updErr)
+        }
+      }
+      try {
+        const stored = JSON.parse(localStorage.getItem('atelier77_rapporte') || '[]')
+        const updated = stored.map(r => String(r.id) === String(rapport.id) ? { ...r, status: 'Verrechnet' } : r)
+        localStorage.setItem('atelier77_rapporte', JSON.stringify(updated))
+      } catch (e) {
+        console.warn('Could not update localStorage for rapport:', e)
+      }
+
+      await refreshProjektRapporte()
+      showToast('success', `Rapport ${rapport.rapport_nr} erfolgreich in Rechnung ${nextNr} überführt!`)
+      if (onNavigate) {
+        onNavigate('rechnungen', { rechnungId: createdInvoice.id, edit: true })
+      }
+    } catch (err) {
+      console.error('Fehler bei der Rechnungsübernahme:', err)
+      showToast('error', 'Fehler beim Erstellen der Rechnung.')
+    }
+  }
 
   const refreshProjektTermine = async () => {
     if (!supabase || !projekt?.id) return
@@ -354,10 +607,193 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
 
   return (
     <div className="space-y-6 max-w-[1600px] pb-16">
-      {/* Header mit Zurück-Button & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ---------------- MOBILE HEADER (< md) ---------------- */}
+      <div className="md:hidden space-y-3 pt-1">
+        <div className="flex items-center justify-between">
+          <button 
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700 hover:text-primary-800 active:scale-95 transition-transform cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+            <span>Projekte</span>
+          </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Weitere Aktionen"
+              onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-text-secondary hover:text-text-primary active:scale-95 transition-all cursor-pointer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+            </button>
+            {isHeaderMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                  <div className="p-1">
+                    {projekt.is_archived ? (
+                      <button 
+                        type="button"
+                        onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
+                      >
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Aus Archiv wiederherstellen
+                      </button>
+                    ) : (
+                      <button 
+                        type="button"
+                        onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
+                      >
+                        <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        Projekt archivieren
+                      </button>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      Unwiderruflich löschen
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+              projekt.status === 'In Arbeit'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                : projekt.status === 'Abgeschlossen'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                  : 'bg-primary-50 text-primary-700 border border-primary-200/60'
+            }`}>
+              {projekt.status || 'Aktiv'}
+            </span>
+            {projekt.kategorie && (
+              <span className="text-[10px] font-medium text-text-muted bg-gray-100 px-2 py-0.5 rounded-full">
+                {projekt.kategorie}
+              </span>
+            )}
+          </div>
+          <h1 className="text-xl font-bold text-text-primary tracking-tight leading-snug">
+            {projekt.name}
+          </h1>
+          <p className="text-xs text-text-secondary mt-1 flex items-center gap-1.5 truncate">
+            <IconLocation className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+            <span className="truncate">{projekt.adresse || 'Keine Baustellenadresse'}</span>
+          </p>
+          {kunde && (
+            <p 
+              onClick={() => onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
+              className="text-xs font-semibold text-primary-700 hover:underline mt-1 flex items-center gap-1.5 cursor-pointer"
+            >
+              <IconUser className="w-3.5 h-3.5 text-primary-700 shrink-0" />
+              <span>{kunde.firmenname ? `${kunde.firmenname} (${kunde.name})` : kunde.name}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Mobile Quick Action Row */}
+        {projekt.status !== 'Abgeschlossen' && projekt.status !== 'Abgebrochen' && userRole !== 'treuhand' && (
+          <div className="bg-white border border-gray-200/70 rounded-2xl p-2.5 shadow-2xs">
+            <div className="grid grid-cols-4 gap-1">
+              <button 
+                type="button"
+                onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconDocument className="w-5 h-5 text-amber-700" />
+                </div>
+                <span className="text-[11px] font-medium text-text-primary tracking-tight">Offerte</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconMoney className="w-5 h-5 text-emerald-600" />
+                </div>
+                <span className="text-[11px] font-medium text-text-primary tracking-tight">Rechnung</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setTerminModalInitial({
+                    datum: new Date().toISOString().split('T')[0],
+                    projekt_id: projekt.id,
+                    kunden_id: projekt.kunden_id,
+                    ort: projekt.adresse || ''
+                  });
+                  setIsTerminModalOpen(true);
+                }}
+                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconClock className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-[11px] font-medium text-text-primary tracking-tight">Termin</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => setActiveTab('dateien')}
+                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-stone-500/10 text-stone-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconFolder className="w-5 h-5 text-stone-700" />
+                </div>
+                <span className="text-[11px] font-medium text-text-primary tracking-tight">Datei</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Financial Glance Card */}
+        {(rechnungen.length > 0 || ausgaben.length > 0) && (
+          <div className="bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs grid grid-cols-3 gap-2 text-center">
+            <div>
+              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Einnahmen</span>
+              <span className="text-sm font-bold text-emerald-600 truncate block mt-0.5">
+                {formatCurrency(rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0))}
+              </span>
+            </div>
+            <div className="border-x border-gray-100 px-1">
+              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Ausgaben</span>
+              <span className="text-sm font-bold text-red-600 truncate block mt-0.5">
+                {formatCurrency(ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0))}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Rendite</span>
+              <span className="text-sm font-bold text-blue-600 truncate block mt-0.5">
+                {formatCurrency(
+                  rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0) - 
+                  ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0)
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ---------------- DESKTOP HEADER (>= md) ---------------- */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
+            type="button"
             onClick={onBack}
             className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer flex items-center justify-center"
           >
@@ -369,9 +805,16 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
             <div className="flex items-center gap-3">
               <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{projekt.name}</h2>
             </div>
-            <p className="text-text-secondary mt-1 flex items-center gap-2">
-              <span>{projekt.adresse ? `📍 ${projekt.adresse}` : 'Keine Baustellenadresse'}</span>
-            </p>
+            <div className="text-text-secondary mt-1 flex items-center gap-2">
+              {projekt.adresse ? (
+                <span className="flex items-center gap-1.5">
+                  <IconLocation className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                  <span>{projekt.adresse}</span>
+                </span>
+              ) : (
+                <span>Keine Baustellenadresse</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -379,18 +822,21 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         {projekt.status !== 'Abgeschlossen' && projekt.status !== 'Abgebrochen' && userRole !== 'treuhand' && (
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
             <button 
+              type="button"
               onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
               className="px-4 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
             >
               <span>+</span> Neue Offerte
             </button>
             <button 
+              type="button"
               onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
               className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
             >
               + Neue Rechnung
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('dateien')}
               className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
             >
@@ -399,6 +845,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
             
             <div className="relative">
               <button
+                type="button"
                 aria-label="Weitere Aktionen"
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                 className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
@@ -412,6 +859,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     <div className="p-1">
                     {projekt.is_archived ? (
                       <button 
+                        type="button"
                         onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
                         className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
                       >
@@ -420,6 +868,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                       </button>
                     ) : (
                       <button 
+                        type="button"
                         onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
                         className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
                       >
@@ -428,6 +877,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                       </button>
                     )}
                     <button 
+                      type="button"
                       onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -447,8 +897,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
       {projekt.is_archived && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
-              📁
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <IconFolder className="w-5 h-5 text-amber-800" />
             </div>
             <div>
               <p className="text-sm font-bold text-amber-900">Dieses Projekt ist archiviert.</p>
@@ -456,6 +906,7 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
             </div>
           </div>
           <button
+            type="button"
             onClick={handleRestore}
             disabled={isSaving}
             className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -466,9 +917,9 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         </div>
       )}
 
-      {/* Projektrendite Summary */}
+      {/* Projektrendite Summary - Desktop Only */}
       {(rechnungen.length > 0 || ausgaben.length > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="hidden md:grid grid-cols-3 gap-4 mb-6">
           <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex flex-col justify-center">
             <div className="text-sm text-emerald-600 font-semibold mb-1">Einnahmen (Bezahlt)</div>
             <div className="text-2xl font-bold text-emerald-700">{formatCurrency(rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0))}</div>
@@ -489,31 +940,36 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         </div>
       )}
 
-      {/* Tabs - Segmented Control */}
-      <div className="flex bg-neutral-100/90 p-1.5 rounded-2xl border border-neutral-200/80 overflow-x-auto hide-scrollbar gap-1.5 w-fit max-w-full">
+      {/* Tabs - Apple Segmented Scroll-Pill Leiste */}
+      <div className="flex bg-gray-100/90 p-1 rounded-xl border border-gray-200/50 overflow-x-auto hide-scrollbar gap-1 w-full sm:w-fit">
         {[
           { id: 'projektdaten', label: 'Projektdaten' },
-          { id: 'termine', label: '📅 Termine', count: termine.length },
+          { id: 'termine', label: 'Termine', icon: IconCalendar, count: termine.length },
+          { id: 'zeiterfassung', label: 'Zeiten', icon: IconClock, count: zeiterfassungCount },
+          { id: 'rapporte', label: 'Rapporte', icon: IconRapport, count: rapporte.length },
           { id: 'offerten', label: 'Offerten', count: offerten.length },
           { id: 'rechnungen', label: 'Rechnungen', count: rechnungen.length },
           { id: 'ausgaben', label: 'Ausgaben', count: ausgaben.length },
           { id: 'dateien', label: 'Dateien', count: dateien.length },
         ].map(tab => {
           const isActive = activeTab === tab.id
+          const TabIcon = tab.icon
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => { setActiveTab(tab.id); setEditState(null); }}
-              className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 isActive 
                   ? 'bg-white text-text-primary shadow-xs' 
-                  : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
+              {TabIcon && <TabIcon className="w-3.5 h-3.5" />}
               <span>{tab.label}</span>
               {typeof tab.count === 'number' && (
-                <span className={`px-1.5 py-0.5 text-[11px] rounded-md font-medium transition-colors ${
-                  isActive ? 'bg-neutral-100 text-neutral-800' : 'bg-neutral-200/70 text-neutral-600'
+                <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                  isActive ? 'bg-primary-100 text-primary-800' : 'bg-gray-200/70 text-gray-500'
                 }`}>
                   {tab.count}
                 </span>
@@ -583,12 +1039,17 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
               <div className="bg-surface-card border border-border rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">📅</span>
+                    <IconCalendar className="w-5 h-5 text-primary-600" />
                     <h3 className="text-lg font-bold text-text-primary">Einsätze & Termine</h3>
                   </div>
                   <p className="text-xs text-text-secondary mt-1">
                     Projektlaufzeit: <strong>{formatDate(projekt.startdatum)}</strong> bis <strong>{formatDate(projekt.enddatum)}</strong>
-                    {projekt.adresse && <span className="ml-2">📍 {projekt.adresse}</span>}
+                    {projekt.adresse && (
+                      <span className="ml-2 inline-flex items-center gap-1">
+                        <IconLocation className="w-3.5 h-3.5 text-primary-500" />
+                        <span>{projekt.adresse}</span>
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -598,7 +1059,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     onClick={() => onNavigate && onNavigate('kalender', { projektId: projekt.id })}
                     className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span>📆</span> Im Hauptkalender öffnen
+                    <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                    <span>Im Hauptkalender öffnen</span>
                   </button>
                   <button
                     type="button"
@@ -622,8 +1084,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
               {/* Termine List */}
               {termine.length === 0 ? (
                 <div className="bg-surface-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center gap-3">
-                  <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-2xl text-primary-600 mb-1">
-                    🔨
+                  <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 mb-1">
+                    <IconHammer className="w-7 h-7 text-primary-600" />
                   </div>
                   <h3 className="text-base font-bold text-text-primary">Keine Termine für dieses Projekt erfasst</h3>
                   <p className="text-xs text-text-secondary max-w-sm">
@@ -659,8 +1121,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                         className="p-4 bg-surface-card hover:bg-gray-50/80 border border-border hover:border-primary-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-xs cursor-pointer"
                       >
                         <div className="flex items-start gap-3.5">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${typConf.badgeClass}`}>
-                            {typConf.icon}
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${typConf.badgeClass}`}>
+                            <TerminTypIcon typ={t.typ} className="w-5 h-5" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
@@ -676,21 +1138,29 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                             </div>
 
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary mt-1.5">
-                              <span>
-                                📅 {formatDate(t.datum)}
-                                {t.end_datum && t.end_datum !== t.datum && ` bis ${formatDate(t.end_datum)}`}
+                              <span className="inline-flex items-center gap-1">
+                                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>
+                                  {formatDate(t.datum)}
+                                  {t.end_datum && t.end_datum !== t.datum && ` bis ${formatDate(t.end_datum)}`}
+                                </span>
                               </span>
-                              <span>
-                                ⏰ {t.ganztaegig ? 'Ganztägig' : `${t.startzeit || '08:00'} – ${t.endzeit || '12:00'} Uhr`}
+                              <span className="inline-flex items-center gap-1">
+                                <IconClock className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>{t.ganztaegig ? 'Ganztägig' : `${t.startzeit || '08:00'} – ${t.endzeit || '12:00'} Uhr`}</span>
                               </span>
                               {t.ort && (
-                                <span>📍 {t.ort}</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <IconLocation className="w-3.5 h-3.5 text-text-secondary" />
+                                  <span>{t.ort}</span>
+                                </span>
                               )}
                             </div>
 
                             {t.beschreibung && (
-                              <p className="text-xs text-text-secondary mt-1 line-clamp-1">
-                                📝 {t.beschreibung}
+                              <p className="text-xs text-text-secondary mt-1 line-clamp-1 flex items-center gap-1.5">
+                                <IconNotes className="w-3.5 h-3.5 text-text-secondary shrink-0" />
+                                <span>{t.beschreibung}</span>
                               </p>
                             )}
                           </div>
@@ -705,9 +1175,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                                 e.stopPropagation();
                                 handleStatusChangeTermin(t.id, 'Erledigt');
                               }}
-                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                             >
-                              ✓ Erledigt
+                              <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Erledigt</span>
                             </button>
                           )}
                           <button
@@ -717,9 +1188,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                               setTerminModalInitial(t);
                               setIsTerminModalOpen(true);
                             }}
-                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
                           >
-                            ✏️ Bearbeiten
+                            <IconEdit className="w-3.5 h-3.5 text-text-secondary" />
+                            <span>Bearbeiten</span>
                           </button>
                         </div>
                       </div>
@@ -770,7 +1242,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                               Offerte {off.offerte_nr || `#${off.id}`}
                             </div>
                             <div className="text-text-secondary text-sm flex items-center gap-2 mt-1">
-                              <span>📅 Erstellt am {formatDate(off.created_at)}</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>Erstellt am {formatDate(off.created_at)}</span>
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -810,17 +1285,51 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     <h3 className="text-lg font-bold text-text-primary">Noch keine Rechnungen für dieses Projekt</h3>
                     <p className="text-text-secondary mt-1">Erstelle deine erste Rechnung, sobald Leistungen erbracht wurden.</p>
                   </div>
-                  <button 
-                    onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-                    className="mt-2 w-full sm:w-auto min-h-[48px] px-5 py-3 sm:py-2.5 bg-primary-600 text-white rounded-xl text-base sm:text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer relative z-10"
-                    style={{ display: userRole === 'treuhand' ? 'none' : 'block' }}
-                  >
-                    + Erste Rechnung erstellen
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 mt-2">
+                    <button 
+                      onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id, rechnungTyp: 'standard' })}
+                      className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold shadow-md shadow-primary-600/20 hover:bg-primary-700 active:scale-95 transition-all cursor-pointer relative z-10"
+                      style={{ display: userRole === 'treuhand' ? 'none' : 'block' }}
+                    >
+                      + Erste Rechnung erstellen
+                    </button>
+                    <button 
+                      onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create_schluss', projektId: projekt.id, kundeId: projekt.kunden_id, rechnungTyp: 'schluss' })}
+                      className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-sm font-bold transition-all cursor-pointer relative z-10 flex items-center justify-center gap-1.5"
+                      style={{ display: userRole === 'treuhand' ? 'none' : 'flex' }}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      + SIA 118 Schlussrechnung
+                    </button>
+                  </div>
                   <div className="absolute -left-8 -bottom-8 w-40 h-40 border border-emerald-100 rounded-lg transform -rotate-12 bg-emerald-50/20 z-0 pointer-events-none"></div>
                 </div>
               ) : (
-                <div className="grid gap-4">
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-surface-card p-3 rounded-xl border border-border">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                      {rechnungen.length} {rechnungen.length === 1 ? 'Rechnung' : 'Rechnungen'}
+                    </span>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id, rechnungTyp: 'standard' })}
+                        className="flex-1 sm:flex-none px-3.5 py-2 bg-surface hover:bg-neutral-100 text-text-primary text-xs font-bold rounded-lg border border-border transition-colors cursor-pointer"
+                        style={{ display: userRole === 'treuhand' ? 'none' : 'block' }}
+                      >
+                        + Rechnung
+                      </button>
+                      <button
+                        onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create_schluss', projektId: projekt.id, kundeId: projekt.kunden_id, rechnungTyp: 'schluss' })}
+                        className="flex-1 sm:flex-none px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        style={{ display: userRole === 'treuhand' ? 'none' : 'flex' }}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        + SIA 118 Schlussrechnung
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
                   {rechnungen.map(re => (
                     <div 
                       key={re.id} 
@@ -834,12 +1343,30 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           </div>
                           <div>
-                            <div className="font-bold text-base sm:text-lg text-text-primary flex items-center gap-2">
-                              {re.rechnung_nr || `Rechnung #${re.id}`}
+                            <div className="font-bold text-base sm:text-lg text-text-primary flex items-center gap-2 flex-wrap">
+                              <span>{re.rechnung_nr || `Rechnung #${re.id}`}</span>
+                              {(re.typ === 'schluss' || re.daten?.is_schlussrechnung || re.daten?.sia118?.aktiv) && (
+                                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  SIA 118 Schlussrechnung
+                                </span>
+                              )}
+                              {re.typ === 'akonto' && (
+                                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                  Akonto {re.akonto_prozent ? `(${re.akonto_prozent}%)` : ''}
+                                </span>
+                              )}
                             </div>
                             <div className="text-text-secondary text-sm flex flex-col sm:flex-row gap-1 sm:gap-3 mt-1">
-                              <span>📅 Vom {formatDate(re.created_at)}</span>
-                              {re.faellig_am && <span className="font-medium text-amber-700">⚠️ Fällig: {formatDate(re.faellig_am)}</span>}
+                              <span className="inline-flex items-center gap-1.5">
+                                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>Vom {formatDate(re.created_at)}</span>
+                              </span>
+                              {re.faellig_am && (
+                                <span className="font-medium text-amber-700 inline-flex items-center gap-1">
+                                  <IconWarning className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Fällig: {formatDate(re.faellig_am)}</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -864,9 +1391,10 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
           {/* TAB: AUSGABEN */}
           {activeTab === 'ausgaben' && (
@@ -892,8 +1420,16 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                             <div className="font-bold text-base sm:text-lg text-text-primary flex items-center gap-2">
                               {ausgabe.titel}
                             </div>
-                            <div className="text-text-secondary text-sm mt-1">
-                              📅 {formatDate(ausgabe.beleg_datum)} | 🏷️ {ausgabe.kategorie}
+                            <div className="text-text-secondary text-sm mt-1 flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1.5">
+                                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>{formatDate(ausgabe.beleg_datum)}</span>
+                              </span>
+                              <span className="text-text-muted">|</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <IconTag className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>{ausgabe.kategorie}</span>
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -986,7 +1522,15 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
                         )}
                       </div>
                       <div className="flex-1 flex flex-col items-center justify-center mb-3 pt-2">
-                        <div className="text-4xl mb-2">{datei.typ?.includes('pdf') ? '📄' : datei.typ?.includes('image') ? '🖼️' : '📎'}</div>
+                        <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mb-2">
+                          {datei.typ?.includes('pdf') ? (
+                            <IconDocument className="w-7 h-7 text-red-600" />
+                          ) : datei.typ?.includes('image') ? (
+                            <IconImage className="w-7 h-7 text-blue-600" />
+                          ) : (
+                            <IconAttachment className="w-7 h-7 text-text-secondary" />
+                          )}
+                        </div>
                         <h3 className="text-sm font-semibold text-gray-900 text-center line-clamp-2 w-full break-words" title={datei.name}>{datei.name}</h3>
                       </div>
                       <div className="mt-auto border-t border-gray-100 pt-3 flex justify-between text-[10px] text-gray-500">
@@ -1000,6 +1544,194 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
             </div>
           )}
 
+          {/* TAB: ZEITERFASSUNG */}
+          {activeTab === 'zeiterfassung' && (
+            <ZeiterfassungTab
+              projekt={projekt}
+              kunde={kunde}
+              userRole={userRole}
+              userName={userName}
+              onShowToast={showToast}
+              onCreateRapportFromHours={handleCreateRapportFromHours}
+              onCreateInvoiceFromHours={handleCreateInvoiceFromHours}
+            />
+          )}
+
+          {/* TAB: RAPPORTE */}
+          {activeTab === 'rapporte' && (
+            <div className="animate-fade-in-up space-y-6">
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-card p-4 sm:p-5 rounded-2xl border border-border">
+                <div>
+                  <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <IconRapport className="w-5 h-5 text-primary-600 shrink-0" />
+                    <span>Regierapporte & Baustellenberichte</span>
+                  </h3>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Erfasse Arbeitszeiten und Material direkt vor Ort beim Kunden und lasse sie sofort digital unterschreiben.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsRapportCreateOpen(true)}
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md shadow-primary-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+                    style={{ display: userRole === 'treuhand' ? 'none' : 'flex' }}
+                  >
+                    <span>+</span> Neuer Regierapport
+                  </button>
+                </div>
+              </div>
+
+              {/* Rapporte List */}
+              {rapporte.length === 0 ? (
+                <div className="bg-surface-card rounded-2xl border border-dashed border-border p-12 text-center flex flex-col items-center justify-center gap-3">
+                  <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 mb-1">
+                    <IconRapport className="w-7 h-7 text-primary-600" />
+                  </div>
+                  <h3 className="text-base font-bold text-text-primary">Keine Regierapporte für dieses Projekt erfasst</h3>
+                  <p className="text-xs text-text-secondary max-w-sm">
+                    Erfasse Regiearbeiten, Materialeinsatz und hole direkt auf der Baustelle per Tablet oder Smartphone die rechtsgültige Kundenunterschrift ein.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsRapportCreateOpen(true)}
+                    className="mt-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                    style={{ display: userRole === 'treuhand' ? 'none' : 'block' }}
+                  >
+                    + Ersten Regierapport erfassen
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rapporte.map((rap) => {
+                    const stundenArr = Array.isArray(rap.stunden) ? rap.stunden : []
+                    const totalStunden = stundenArr.reduce((sum, s) => sum + (parseFloat(s.stunden) || 0), 0)
+                    const materialArr = Array.isArray(rap.material) ? rap.material : []
+                    const totalBetrag = calculateRapportTotal(rap)
+
+                    const isSigned = rap.status === 'Unterschrieben' || Boolean(rap.unterschrift_data)
+                    const isBilled = rap.status === 'Verrechnet'
+
+                    return (
+                      <div
+                        key={rap.id}
+                        onClick={() => setSelectedRapport(rap)}
+                        className="p-5 bg-surface-card hover:bg-gray-50/80 border border-border hover:border-primary-300 rounded-2xl flex flex-col justify-between transition-all shadow-xs cursor-pointer group"
+                      >
+                        <div>
+                          {/* Card Header: Rapport Nr & Status Badge */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <span className="font-mono text-xs font-bold text-primary-700 bg-primary-50 px-2 py-0.5 rounded-lg border border-primary-100">
+                              {rap.rapport_nr || 'Rapport'}
+                            </span>
+                            {isBilled ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200 inline-flex items-center gap-1">
+                                <IconBriefcase className="w-3 h-3 text-blue-700" />
+                                <span>Verrechnet</span>
+                              </span>
+                            ) : isSigned ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200 inline-flex items-center gap-1">
+                                <IconCheck className="w-3 h-3 text-emerald-700" />
+                                <span>Unterschrieben</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 inline-flex items-center gap-1">
+                                <IconClock className="w-3 h-3 text-amber-700" />
+                                <span>Entwurf</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Date & Monteur */}
+                          <div className="flex items-center gap-3 text-xs text-text-secondary mb-2">
+                            <span className="inline-flex items-center gap-1">
+                              <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                              <span>{formatDate(rap.datum)}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <IconWorker className="w-3.5 h-3.5 text-text-secondary" />
+                              <span>{rap.monteur_name || 'Monteur'}</span>
+                            </span>
+                          </div>
+
+                          {/* Description */}
+                          {rap.beschreibung ? (
+                            <p className="text-xs text-text-primary line-clamp-2 mb-3 bg-gray-50/60 p-2 rounded-lg border border-gray-100">
+                              {rap.beschreibung}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-text-secondary italic mb-3">Keine Tätigkeitsbeschreibung angegeben</p>
+                          )}
+
+                          {/* Metrics chips */}
+                          <div className="grid grid-cols-3 gap-2 py-2 border-t border-b border-gray-100 text-center mb-3">
+                            <div>
+                              <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">Stunden</div>
+                              <div className="text-xs font-bold text-text-primary">{totalStunden} h</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">Material</div>
+                              <div className="text-xs font-bold text-text-primary">{materialArr.length} Pos.</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">Total</div>
+                              <div className="text-xs font-bold text-emerald-700">{formatCurrency(totalBetrag)}</div>
+                            </div>
+                          </div>
+
+                          {/* Signature notice */}
+                          <div className="text-[11px] mb-3">
+                            {isSigned ? (
+                              <span className="text-emerald-700 flex items-center gap-1 font-medium">
+                                <IconDigitalSignature className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                                <span>Signiert durch {rap.unterzeichner_name || kunde?.name || 'Kunde'}</span>
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 flex items-center gap-1 font-medium">
+                                <IconWarning className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Nicht unterschrieben</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Actions Footer */}
+                        <div className="pt-2 border-t border-border flex items-center justify-between gap-2 mt-auto">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedRapport(rap)
+                            }}
+                            className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-text-primary rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <IconPrinter className="w-3.5 h-3.5 text-text-secondary" />
+                            <span>Druck & Details</span>
+                          </button>
+
+                          {isSigned && !isBilled && userRole !== 'treuhand' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleConvertRapportToInvoice(rap)
+                              }}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                            >
+                              <IconFlash className="w-3.5 h-3.5 text-white" />
+                              <span>In Rechnung</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
 
@@ -1007,8 +1739,8 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
       {showArchiveWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowArchiveWarning(false)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              📁
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+              <IconFolder className="w-6 h-6 text-amber-600" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Projekt archivieren?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -1103,7 +1835,11 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? (
+            <IconWarning className="w-4 h-4 text-red-600 shrink-0" />
+          ) : (
+            <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          )}
           <span>{feedbackToast.text}</span>
         </div>
       )}
@@ -1135,6 +1871,52 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
         onDelete={handleDeleteTermin}
         onStatusChange={handleStatusChangeTermin}
         onNavigate={onNavigate}
+      />
+
+      {/* Rapport Create Modal */}
+      <RapportCreateModal
+        isOpen={isRapportCreateOpen}
+        onClose={() => {
+          setIsRapportCreateOpen(false)
+          setInitialRapportHours(null)
+          setSelectedTimeEntriesForConversion(null)
+        }}
+        projekt={projekt}
+        kunde={kunde}
+        userName={userName}
+        initialStunden={initialRapportHours}
+        onSaveSuccess={async (newRapport) => {
+          if (selectedTimeEntriesForConversion && selectedTimeEntriesForConversion.length > 0) {
+            const entryIds = selectedTimeEntriesForConversion.map(e => String(e.id))
+            if (supabase) {
+              for (const entry of selectedTimeEntriesForConversion) {
+                if (typeof entry.id === 'number') {
+                  try {
+                    await supabase.from('zeiterfassung').update({ status: 'im_rapport', rapport_id: newRapport.id }).eq('id', entry.id)
+                  } catch {}
+                }
+              }
+            }
+            const stored = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+            const updated = stored.map(e => entryIds.includes(String(e.id)) ? { ...e, status: 'im_rapport', rapport_id: newRapport.id } : e)
+            localStorage.setItem('atelier77_zeiterfassung', JSON.stringify(updated))
+            window.dispatchEvent(new CustomEvent('a77-time-entry-created'))
+            setSelectedTimeEntriesForConversion(null)
+          }
+          setInitialRapportHours(null)
+          await refreshProjektRapporte()
+          showToast('success', `Rapport ${newRapport.rapport_nr || ''} erfolgreich gespeichert!`)
+        }}
+      />
+
+      {/* Rapport Detail / Print Modal */}
+      <RapportDetailModal
+        isOpen={Boolean(selectedRapport)}
+        onClose={() => setSelectedRapport(null)}
+        rapport={selectedRapport}
+        projekt={projekt}
+        kunde={kunde}
+        onConvertToInvoice={handleConvertRapportToInvoice}
       />
     </div>
   )

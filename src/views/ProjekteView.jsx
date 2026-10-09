@@ -6,8 +6,9 @@ import { navigateBack } from '../lib/router'
 import ProjektDetailView from './ProjektDetailView'
 import ProjektCreateModal from './ProjektCreateModal'
 import StatCard from '../components/StatCard'
+import { IconMic, IconFolder, IconBauunternehmung, IconLocation, IconCalendar, IconClock, IconUser, IconWarning, IconCheck } from '../components/icons/BrandIcons'
 
-export default function ProjekteView({ onNavigate, viewParams, userRole }) {
+export default function ProjekteView({ onNavigate, viewParams, userRole, userName }) {
   const [parent] = useAutoAnimate()
   const [projekte, setProjekte] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -41,7 +42,18 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         if (data) {
           setProjekte(data)
           if (viewParams?.projektId) {
-            const p = data.find(x => x.id === viewParams.projektId)
+            let p = data.find(x => String(x.id) === String(viewParams.projektId))
+            if (!p && import.meta.env.DEV) {
+              p = {
+                id: viewParams.projektId,
+                name: 'Umbau Villa Zürichberg',
+                adresse: 'Bergstrasse 42, 8032 Zürich',
+                status: 'In Arbeit',
+                kunden_id: 'k-1',
+                created_at: new Date().toISOString(),
+                kunden: { name: 'Meier Architektur AG' }
+              }
+            }
             if (p) setSelectedProjekt(p)
           }
         }
@@ -57,9 +69,19 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedProjekt with viewParams
   useEffect(() => {
-    if (!projekte.length) return
     if (viewParams?.projektId) {
-      const p = projekte.find(x => x.id === viewParams.projektId)
+      let p = projekte.find(x => String(x.id) === String(viewParams.projektId))
+      if (!p && import.meta.env.DEV) {
+        p = {
+          id: viewParams.projektId,
+          name: 'Umbau Villa Zürichberg',
+          adresse: 'Bergstrasse 42, 8032 Zürich',
+          status: 'In Arbeit',
+          kunden_id: 'k-1',
+          created_at: new Date().toISOString(),
+          kunden: { name: 'Meier Architektur AG' }
+        }
+      }
       if (p && (!selectedProjekt || selectedProjekt.id !== p.id)) {
         setSelectedProjekt(p)
       }
@@ -88,6 +110,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         projekt={selectedProjekt} 
         onNavigate={onNavigate}
         userRole={userRole}
+        userName={userName}
         initialTab={viewParams?.activeTab || 'projektdaten'}
         onBack={() => {
           navigateBack('projekte')
@@ -182,8 +205,40 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ---------------- MOBILE HEADER (< md) ---------------- */}
+      <div className="md:hidden flex items-center justify-between gap-3 pt-1">
+        <div>
+          <p className="text-[12px] font-semibold text-text-muted uppercase tracking-wider">
+            {stats.total} {stats.total === 1 ? 'Projekt' : 'Projekte'}
+          </p>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight mt-0.5">
+            Projekte & Objekte
+          </h1>
+        </div>
+        {userRole !== 'treuhand' && (
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+              className="w-10 h-10 rounded-full bg-amber-500/10 active:bg-amber-500/20 text-amber-700 flex items-center justify-center active:scale-95 transition-transform cursor-pointer border border-amber-500/20"
+              title="Projekt per Sprache (KI) erfassen"
+            >
+              <IconMic className="w-5 h-5 text-amber-600" />
+            </button>
+            <button 
+              type="button"
+              onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+              className="w-10 h-10 rounded-full bg-primary-600 active:bg-primary-700 text-white flex items-center justify-center text-xl font-bold shadow-xs active:scale-95 transition-transform cursor-pointer"
+              title="Neues Projekt"
+            >
+              +
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ---------------- DESKTOP HEADER (>= md) ---------------- */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Projekte & Objekte</h2>
           <p className="text-text-secondary mt-1">Alle Baustellen und Projekte auf einen Blick.</p>
@@ -191,14 +246,16 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         {userRole !== 'treuhand' && (
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
             <button 
+              type="button"
               onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl active:scale-[0.97] transition-all shadow-md shadow-amber-500/20 cursor-pointer"
               title="Projekt per Spracheingabe einsprechen"
             >
-              <span>🎙️</span>
+              <IconMic className="w-4 h-4 text-slate-950" />
               <span>Per Sprache (KI)</span>
             </button>
             <button 
+              type="button"
               onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
             >
@@ -210,7 +267,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
       </div>
 
       {/* Stats Cards (Desktop) */}
-      <div className="hidden sm:grid grid-cols-3 gap-6">
+      <div className="hidden md:grid grid-cols-3 gap-6">
         {/* Tile 1: Alle Projekte */}
         <StatCard 
           title="Alle Projekte"
@@ -239,36 +296,288 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         />
       </div>
 
-      {/* Mobile Segmented Control für Pipeline-Stufen */}
-      <div className="flex sm:hidden p-1 bg-neutral-100/90 rounded-2xl border border-border mb-3 touch-action-manipulation">
-        {[
-          { id: '', label: 'Alle', count: stats.total },
-          { id: 'In Arbeit', label: 'In Arbeit', count: stats.inArbeit },
-          { id: 'Abgeschlossen', label: 'Fertig', count: stats.abgeschlossen },
-        ].map((tab) => {
-          const isSelected = (filterStatus || '') === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setFilterStatus(tab.id)}
-              className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer ${
-                isSelected 
-                  ? 'bg-surface-card text-primary-700 shadow-xs' 
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-primary-100 text-primary-800 font-bold' : 'bg-neutral-200 text-text-secondary'}`}>
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+      {/* ---------------- MOBILE CONTROLS & APPLE INSET CARDS (< md) ---------------- */}
+      <div className="md:hidden space-y-3">
+        {/* Apple Segmented Control */}
+        <div className="bg-gray-100/90 p-1 rounded-xl flex items-center gap-1 border border-gray-200/50">
+          {[
+            { id: '', label: 'Alle', count: stats.total },
+            { id: 'In Arbeit', label: 'In Arbeit', count: stats.inArbeit },
+            { id: 'Abgeschlossen', label: 'Fertig', count: stats.abgeschlossen },
+          ].map((tab) => {
+            const isSelected = (filterStatus || '') === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-tab={tab.id || 'all'}
+                onClick={() => setFilterStatus(tab.id)}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  isSelected 
+                    ? 'bg-white text-text-primary shadow-xs' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isSelected 
+                    ? 'bg-primary-100 text-primary-800' 
+                    : 'bg-gray-200/70 text-gray-500'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Mobile Apple Search & Filter Bar */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Suchen nach Name, Adresse, Kunde..."
+              className="w-full pl-9 pr-8 py-2 bg-gray-100/80 focus:bg-white border border-gray-200/70 rounded-xl text-xs text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-sm leading-none cursor-pointer"
+                title="Suche zurücksetzen"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer border ${
+              showArchived
+                ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
+                : 'bg-white text-text-secondary border-gray-200/70'
+            }`}
+          >
+            <IconFolder className="w-4 h-4" />
+            <span>Archiv</span>
+          </button>
+        </div>
+
+        {/* Mobile Apple Inset Card List */}
+        {isLoading ? (
+          <div className="space-y-2.5">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-2xl p-4 border border-gray-200/70 shadow-2xs animate-pulse">
+                <div className="h-5 bg-gray-200/70 rounded w-1/3 mb-2"></div>
+                <div className="h-4 bg-gray-200/50 rounded w-2/3 mb-3"></div>
+                <div className="h-4 bg-gray-200/40 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProjekte.length === 0 ? (
+          <div className="bg-white border border-gray-200/70 rounded-2xl p-8 text-center shadow-2xs">
+            <IconBauunternehmung className="w-10 h-10 text-text-muted mb-2 mx-auto" />
+            <p className="text-base font-semibold text-text-primary">Keine Projekte gefunden</p>
+            <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder erstelle ein neues Projekt.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {filteredProjekte.map((p) => {
+              const statusBorder = p.status === 'In Arbeit' 
+                ? 'border-l-emerald-500' 
+                : p.status === 'Abgeschlossen' 
+                  ? 'border-l-blue-500' 
+                  : 'border-l-primary-500';
+
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => onNavigate ? onNavigate('projekte', { projektId: p.id }) : setSelectedProjekt(p)}
+                  className={`bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs active:scale-[0.99] transition-all cursor-pointer flex flex-col gap-2.5 border-l-4 ${statusBorder} relative`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        {p.is_archived ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
+                            <IconFolder className="w-3.5 h-3.5" /> Archiv
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            p.status === 'In Arbeit'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                              : p.status === 'Abgeschlossen'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                                : 'bg-primary-50 text-primary-700 border border-primary-200/60'
+                          }`}>
+                            {p.status === 'In Arbeit' && (
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                              </span>
+                            )}
+                            {p.status || 'Aktiv'}
+                          </span>
+                        )}
+                        {p.kategorie && (
+                          <span className="text-[10px] font-medium text-text-muted bg-gray-100 px-2 py-0.5 rounded-full">
+                            {p.kategorie}
+                          </span>
+                        )}
+                      </div>
+
+                      {p.adresse ? (
+                        <>
+                          <h3 className="text-sm font-bold text-text-primary truncate flex items-center gap-1">
+                            <IconLocation className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                            <span>{p.adresse}</span>
+                          </h3>
+                          <p className="text-xs text-text-secondary truncate mt-0.5 font-medium">
+                            {p.name}
+                          </p>
+                        </>
+                      ) : (
+                        <h3 className="text-sm font-bold text-text-primary truncate flex items-center gap-1">
+                          <IconBauunternehmung className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                          <span>{p.name}</span>
+                        </h3>
+                      )}
+                    </div>
+
+                    <div className="relative shrink-0">
+                      <button 
+                        type="button"
+                        aria-label="Aktionsmenü"
+                        title="Aktionsmenü"
+                        onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
+                        className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-gray-100 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                      </button>
+                      
+                      {activeMenuId === p.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                          <div className="absolute right-0 mt-1 w-52 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                            <div className="p-1">
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedProjekt(p); }} 
+                                className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                Details anzeigen
+                              </button>
+
+                              <button 
+                                type="button"
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setActiveMenuId(null); 
+                                  if (onNavigate) onNavigate('kalender', { date: p.startdatum || undefined, projektId: p.id }); 
+                                }} 
+                                className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>Im Kalender anzeigen</span>
+                              </button>
+
+                              <button 
+                                type="button"
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setActiveMenuId(null); 
+                                  if (onNavigate) onNavigate('kalender', { action: 'create', projektId: p.id, date: p.startdatum || new Date().toISOString().split('T')[0] }); 
+                                }} 
+                                className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <IconClock className="w-3.5 h-3.5 text-text-secondary" />
+                                <span>Termin erfassen</span>
+                              </button>
+
+                              {userRole !== 'treuhand' && (
+                                <>
+                                  {p.is_archived ? (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => handleRestoreProjekt(p.id, e)} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                      Wiederherstellen
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmProjekt(p); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                      Archivieren
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-text-secondary pt-0.5">
+                    <span className="flex items-center gap-1.5 truncate font-medium">
+                      <IconUser className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                      <span className="truncate">{p.kunden?.name || 'Kein Kunde'}</span>
+                    </span>
+                    {p.startdatum && (
+                      <span className="shrink-0 text-text-muted flex items-center gap-1">
+                        <IconCalendar className="w-3 h-3 text-text-muted shrink-0" />
+                        <span>{formatDate(p.startdatum)}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onNavigate) onNavigate('kalender', { projektId: p.id, date: p.startdatum });
+                      }}
+                      className="text-text-secondary hover:text-text-primary font-medium flex items-center gap-1 cursor-pointer"
+                    >
+                      <IconCalendar className="w-3.5 h-3.5 text-text-muted" />
+                      <span>Kalender</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onNavigate) onNavigate('projekte', { projektId: p.id });
+                        else setSelectedProjekt(p);
+                      }}
+                      className="font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      Details anzeigen →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* 2026 SaaS Datatable Card */}
-      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+      {/* ---------------- DESKTOP ONLY: DATATABLE (>= md) ---------------- */}
+      <div className="hidden md:block bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         
         {/* Integrated Toolbar */}
         <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -331,8 +640,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
           </div>
         ) : filteredProjekte.length === 0 ? (
           <div className="text-center py-16 px-4 text-text-secondary">
-            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
-              🏗️
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl text-primary-600">
+              <IconBauunternehmung className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold text-text-primary">Keine Projekte gefunden</p>
             <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder lege ein neues Projekt an.</p>
@@ -352,7 +661,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                   {p.adresse ? (
                     <>
                       <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
-                        <span className="lg:hidden text-primary-500">📍</span> {p.adresse}
+                        <IconLocation className="w-3.5 h-3.5 text-primary-500 lg:hidden shrink-0" />
+                        <span>{p.adresse}</span>
                       </div>
                       <div className="text-xs text-text-secondary truncate mt-0.5 font-medium">
                         {p.name}
@@ -360,14 +670,16 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                     </>
                   ) : (
                     <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
-                      <span className="lg:hidden text-primary-500">🏗️</span> {p.name}
+                      <IconBauunternehmung className="w-3.5 h-3.5 text-primary-500 lg:hidden shrink-0" />
+                      <span>{p.name}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Mobile Kunde / Desktop Kunde */}
-                <div className="text-sm text-text-secondary truncate flex items-center gap-1 mt-1 lg:mt-0">
-                  <span className="lg:hidden">👤</span> {p.kunden?.name || '-'}
+                <div className="text-sm text-text-secondary truncate flex items-center gap-1.5 mt-1 lg:mt-0">
+                  <IconUser className="w-3.5 h-3.5 text-text-muted lg:hidden shrink-0" />
+                  <span>{p.kunden?.name || '-'}</span>
                 </div>
 
                 {/* Kategorie (Desktop) */}
@@ -392,7 +704,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                 <div className="absolute bottom-4 right-4 lg:relative lg:bottom-0 lg:right-0 lg:flex lg:items-center lg:justify-center">
                   {p.is_archived ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                      <span>📁</span> Archiv
+                      <IconFolder className="w-3.5 h-3.5" /> Archiv
                     </span>
                   ) : (
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusColor[p.status] || 'bg-gray-100 text-gray-700'}`}>
@@ -412,6 +724,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                   <div className="relative">
                     <button 
                       type="button"
+                      aria-label="Aktionsmenü"
+                      title="Aktionsmenü"
                       onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === p.id ? null : p.id); }}
                       className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
                     >
@@ -441,8 +755,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                               }} 
                               className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <span className="text-xs">📅</span>
-                              Im Kalender anzeigen
+                              <IconCalendar className="w-3.5 h-3.5 text-text-secondary" />
+                              <span>Im Kalender anzeigen</span>
                             </button>
 
                             <button 
@@ -454,8 +768,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
                               }} 
                               className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                             >
-                              <span className="text-xs">⏱️</span>
-                              Termin erfassen
+                              <IconClock className="w-3.5 h-3.5 text-text-secondary" />
+                              <span>Termin erfassen</span>
                             </button>
 
                             {userRole !== 'treuhand' && (
@@ -507,7 +821,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setArchiveConfirmProjekt(null)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              📁
+              <IconFolder className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Projekt archivieren?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -555,26 +869,12 @@ export default function ProjekteView({ onNavigate, viewParams, userRole }) {
         />
       )}
 
-      {/* Mobile Floating Action Button (FAB) */}
-      {userRole !== 'treuhand' && (
-        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 sm:hidden">
-          <button
-            type="button"
-            onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
-            className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-90 text-white shadow-xl shadow-emerald-600/35 flex items-center justify-center text-2xl font-bold transition-all touch-action-manipulation cursor-pointer"
-            aria-label="Neues Projekt anlegen"
-          >
-            +
-          </button>
-        </div>
-      )}
-
       {/* Feedback Toast */}
       {feedbackToast && (
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
       )}

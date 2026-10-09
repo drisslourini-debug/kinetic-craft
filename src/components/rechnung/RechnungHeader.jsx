@@ -1,5 +1,13 @@
 import { useState } from 'react'
 import { formatDate } from '../../lib/formatters'
+import {
+  IconEye,
+  IconEdit,
+  IconWarning,
+  IconDuplicate,
+  IconPackage,
+  IconRefresh
+} from '../icons/BrandIcons'
 
 export default function RechnungHeader({
   rechnung,
@@ -79,7 +87,8 @@ export default function RechnungHeader({
               }`}
               title="Split-Screen Live-Vorschau (nur Desktop)"
             >
-              {showLivePreview ? '👁️ Live-Vorschau an' : '👁️ Live-Vorschau aus'}
+              <IconEye className="w-4 h-4" />
+              <span>{showLivePreview ? 'Live-Vorschau an' : 'Live-Vorschau aus'}</span>
             </button>
           )}
           {!isEditing && userRole !== 'treuhand' && (
@@ -87,7 +96,8 @@ export default function RechnungHeader({
               onClick={onStartEditing}
               className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] font-bold text-base sm:text-sm bg-surface border border-primary-200 text-primary-700 rounded-xl hover:bg-primary-50 transition-colors cursor-pointer shadow-sm"
             >
-              ✏️ Rechnung bearbeiten
+              <IconEdit className="w-4 h-4" />
+              <span>Rechnung bearbeiten</span>
             </button>
           )}
           {(status === 'Überfällig' || status === 'Gemahnt') && !isEditing && userRole !== 'treuhand' && (
@@ -95,7 +105,8 @@ export default function RechnungHeader({
               onClick={onGenerateMahnung}
               className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] font-bold text-base sm:text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors shadow-md shadow-red-600/20 active:scale-[0.98] cursor-pointer"
             >
-              ⚠️ Mahnung generieren
+              <IconWarning className="w-4 h-4" />
+              <span>Mahnung generieren</span>
             </button>
           )}
           <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -112,6 +123,7 @@ export default function RechnungHeader({
               <button 
                 onClick={() => setShowActionMenu(!showActionMenu)}
                 className="w-12 h-12 sm:w-10 sm:h-10 min-h-[48px] flex items-center justify-center bg-surface border border-border text-text-secondary rounded-xl hover:text-text-primary hover:bg-neutral-50 transition-colors cursor-pointer"
+                aria-label="Aktionsmenü"
               >
                 <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
               </button>
@@ -126,7 +138,8 @@ export default function RechnungHeader({
                       disabled={isDirty || isEditing}
                       className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-text-primary hover:bg-neutral-100 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <span className="text-xl sm:text-lg">📋</span> Duplizieren
+                      <IconDuplicate className="w-4 h-4 text-text-secondary shrink-0" />
+                      <span>Duplizieren</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -140,7 +153,12 @@ export default function RechnungHeader({
                       disabled={isEditing}
                       className="w-full text-left px-4 py-3 sm:px-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 mt-1 border-t border-border pt-3 sm:pt-2 cursor-pointer"
                     >
-                      <span className="text-xl sm:text-lg">📦</span> {rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}
+                      {rechnung.is_archived ? (
+                        <IconRefresh className="w-4 h-4 text-amber-700 shrink-0" />
+                      ) : (
+                        <IconPackage className="w-4 h-4 text-amber-700 shrink-0" />
+                      )}
+                      <span>{rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}</span>
                     </button>
                   </div>
                 </div>

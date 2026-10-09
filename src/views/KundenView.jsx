@@ -6,6 +6,8 @@ import { navigateBack } from '../lib/router'
 import KundeDetailView from './KundeDetailView'
 import KundeCreateModal from './KundeCreateModal'
 import StatCard from '../components/StatCard'
+import StatusBadge from '../components/ui/StatusBadge'
+import { IconFolder, IconTeam, IconLocation, IconWarning, IconCheck } from '../components/icons/BrandIcons'
 
 export default function KundenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
@@ -16,6 +18,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [filterStatus, setFilterStatus] = useState('')
   const [activeMenuId, setActiveMenuId] = useState(null)
   const [archiveConfirmKunde, setArchiveConfirmKunde] = useState(null)
   const [feedbackToast, setFeedbackToast] = useState(null)
@@ -48,7 +51,24 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         if (data) {
           setKunden(data)
           if (viewParams?.kundeId) {
-            const kunde = data.find(x => x.id === viewParams.kundeId)
+            let kunde = data.find(x => String(x.id) === String(viewParams.kundeId))
+            if (!kunde && import.meta.env.DEV) {
+              kunde = {
+                id: viewParams.kundeId,
+                kundennummer: 'K-2026-0042',
+                firmenname: 'Meier Architektur AG',
+                vorname: 'Beat',
+                nachname: 'Meier',
+                name: 'Meier Architektur AG',
+                strasse: 'Bergstrasse 42',
+                plz: '8032',
+                ort: 'Zürich',
+                telefon: '+41 44 123 45 67',
+                email: 'b.meier@architektur.ch',
+                anrede: 'Herr',
+                created_at: new Date().toISOString()
+              }
+            }
             if (kunde) setSelectedKunde(kunde)
           }
         }
@@ -64,9 +84,25 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedKunde with viewParams
   useEffect(() => {
-    if (!kunden.length) return
     if (viewParams?.kundeId) {
-      const kunde = kunden.find(x => x.id === viewParams.kundeId)
+      let kunde = kunden.find(x => String(x.id) === String(viewParams.kundeId))
+      if (!kunde && import.meta.env.DEV) {
+        kunde = {
+          id: viewParams.kundeId,
+          kundennummer: 'K-2026-0042',
+          firmenname: 'Meier Architektur AG',
+          vorname: 'Beat',
+          nachname: 'Meier',
+          name: 'Meier Architektur AG',
+          strasse: 'Bergstrasse 42',
+          plz: '8032',
+          ort: 'Zürich',
+          telefon: '+41 44 123 45 67',
+          email: 'b.meier@architektur.ch',
+          anrede: 'Herr',
+          created_at: new Date().toISOString()
+        }
+      }
       if (kunde && (!selectedKunde || selectedKunde.id !== kunde.id)) {
         setSelectedKunde(kunde)
       }
@@ -102,6 +138,12 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
   let filteredKunden = kunden.filter(k => {
     if (!showArchived && k.is_archived) return false;
+    if (filterStatus === 'Aktiv' && (k.status !== 'Aktiv' || k.is_archived)) return false;
+    if (filterStatus === 'Neu') {
+      const d = new Date(k.created_at)
+      const now = new Date()
+      if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+    }
     const term = searchTerm.toLowerCase()
     return (
       (k.name || '').toLowerCase().includes(term) ||
@@ -195,8 +237,30 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ---------------- MOBILE HEADER (< md) ---------------- */}
+      <div className="md:hidden flex items-center justify-between gap-3 pt-1">
+        <div>
+          <p className="text-[12px] font-semibold text-text-muted uppercase tracking-wider">
+            {stats.total} {stats.total === 1 ? 'Kunde' : 'Kunden'}
+          </p>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight mt-0.5">
+            Kunden
+          </h1>
+        </div>
+        {userRole !== 'treuhand' && (
+          <button 
+            type="button"
+            onClick={() => onNavigate ? onNavigate('kunden', { action: 'create' }) : setIsCreateModalOpen(true)}
+            className="w-10 h-10 rounded-full bg-primary-600 active:bg-primary-700 text-white flex items-center justify-center text-xl font-bold shadow-xs active:scale-95 transition-transform cursor-pointer"
+            title="Neuer Kunde"
+          >
+            +
+          </button>
+        )}
+      </div>
+
+      {/* ---------------- DESKTOP HEADER (>= md) ---------------- */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Kunden</h2>
           <p className="text-text-secondary mt-1">CRM-Übersicht aller Kunden und Auftraggeber.</p>
@@ -204,6 +268,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         <div>
           {userRole !== 'treuhand' && (
             <button 
+              type="button"
               onClick={() => onNavigate ? onNavigate('kunden', { action: 'create' }) : setIsCreateModalOpen(true)}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 min-h-[48px] bg-primary-600 text-white font-semibold text-base sm:text-sm rounded-xl hover:bg-primary-700 active:scale-[0.97] transition-all shadow-md shadow-primary-600/20 cursor-pointer"
             >
@@ -215,7 +280,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       </div>
 
       {/* Stats Cards (Desktop) */}
-      <div className="hidden sm:grid grid-cols-3 gap-6">
+      <div className="hidden md:grid grid-cols-3 gap-6">
         {/* Tile 1: Alle Kunden */}
         <StatCard 
           title="Alle Kunden"
@@ -244,24 +309,233 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         />
       </div>
 
-      {/* Stats Pills (Mobile) */}
-      <div className="flex sm:hidden items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        <div className="flex items-center gap-2 bg-surface-card rounded-full border border-border px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-text-secondary text-sm">Alle Kunden:</span>
-          <span className="text-sm font-bold text-text-primary">{stats.total}</span>
+      {/* ---------------- MOBILE CONTROLS & APPLE INSET CARDS (< md) ---------------- */}
+      <div className="md:hidden space-y-3">
+        {/* Apple Segmented Control */}
+        <div className="bg-gray-100/90 p-1 rounded-xl flex items-center gap-1 border border-gray-200/50">
+          {[
+            { id: '', label: 'Alle', count: stats.total },
+            { id: 'Aktiv', label: 'Aktiv', count: stats.active },
+            { id: 'Neu', label: 'Neu', count: stats.newThisMonth },
+          ].map((tab) => {
+            const isSelected = (filterStatus || '') === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-tab={tab.id || 'all'}
+                onClick={() => setFilterStatus(tab.id)}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  isSelected 
+                    ? 'bg-white text-text-primary shadow-xs' 
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isSelected 
+                    ? 'bg-primary-100 text-primary-800' 
+                    : 'bg-gray-200/70 text-gray-500'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <div className="flex items-center gap-2 bg-emerald-50 rounded-full border border-emerald-100 px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-emerald-700 text-sm">Aktive:</span>
-          <span className="text-sm font-bold text-emerald-800">{stats.active}</span>
+
+        {/* Mobile Apple Search & Filter Bar */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Kunde, Nr, Firma, Ort..."
+              className="w-full pl-9 pr-8 py-2 bg-gray-100/80 focus:bg-white border border-gray-200/70 rounded-xl text-xs text-text-primary placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 rounded-md text-sm leading-none cursor-pointer"
+                title="Suche zurücksetzen"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer border ${
+              showArchived
+                ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
+                : 'bg-white text-text-secondary border-gray-200/70'
+            }`}
+          >
+            <IconFolder className="w-4 h-4" />
+            <span>Archiv</span>
+          </button>
         </div>
-        <div className="flex items-center gap-2 bg-blue-50 rounded-full border border-blue-100 px-4 py-2 shadow-sm whitespace-nowrap">
-          <span className="text-blue-700 text-sm">Neu:</span>
-          <span className="text-sm font-bold text-blue-800">+{stats.newThisMonth}</span>
-        </div>
+
+        {/* Mobile Apple Inset Card List */}
+        {isLoading ? (
+          <div className="space-y-2.5">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-2xl p-4 border border-gray-200/70 shadow-2xs animate-pulse">
+                <div className="h-5 bg-gray-200/70 rounded w-1/3 mb-2"></div>
+                <div className="h-4 bg-gray-200/50 rounded w-2/3 mb-3"></div>
+                <div className="h-4 bg-gray-200/40 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="bg-white border border-rose-200 rounded-2xl p-6 text-center shadow-2xs text-rose-600 text-xs">
+            {error}
+          </div>
+        ) : filteredKunden.length === 0 ? (
+          <div className="bg-white border border-gray-200/70 rounded-2xl p-8 text-center shadow-2xs">
+            <IconTeam className="w-10 h-10 text-text-muted mb-2 mx-auto" />
+            <p className="text-base font-semibold text-text-primary">Keine Kunden gefunden</p>
+            <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder lege einen neuen Kunden an.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {filteredKunden.map((kunde) => {
+              const displayName = kunde.firmenname 
+                ? `${kunde.firmenname} ${kunde.vorname || ''} ${kunde.nachname || ''}`.trim()
+                : `${kunde.vorname || ''} ${kunde.nachname || ''}`.trim() || kunde.name;
+
+              return (
+                <div
+                  key={kunde.id}
+                  onClick={() => onNavigate ? onNavigate('kunden', { kundeId: kunde.id }) : setSelectedKunde(kunde)}
+                  className="bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs active:scale-[0.99] transition-all cursor-pointer flex flex-col gap-2.5 border-l-4 border-l-primary-500 relative"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-xs ${kunde.firmenname ? 'rounded-xl' : 'rounded-full'}`}>
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-sm text-text-primary truncate">{displayName}</h3>
+                          {kunde.kundennummer && (
+                            <span className="font-mono text-[10px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.2 rounded-md border border-primary-200/60 shrink-0">
+                              {kunde.kundennummer}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-text-secondary truncate mt-0.5 flex items-center gap-1">
+                          <IconLocation className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                          <span>{kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || 'Keine Adresse hinterlegt'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative shrink-0">
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === kunde.id ? null : kunde.id); }}
+                        className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-gray-100 active:scale-95 transition-all cursor-pointer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                      </button>
+
+                      {activeMenuId === kunde.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); }} />
+                          <div className="absolute right-0 mt-1 w-52 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                            <div className="p-1">
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setSelectedKunde(kunde); }} 
+                                className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                Details anzeigen
+                              </button>
+
+                              {userRole !== 'treuhand' && (
+                                <>
+                                  {kunde.is_archived ? (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => handleRestoreKunde(kunde.id, e)} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                      Wiederherstellen
+                                    </button>
+                                  ) : (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setArchiveConfirmKunde(kunde); }} 
+                                      className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                                      Archivieren
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Bar */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100 text-xs">
+                    {kunde.telefon && (
+                      <a 
+                        href={`tel:${kunde.telefon}`} 
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-50 text-emerald-700 font-semibold text-xs flex items-center justify-center gap-1.5 border border-emerald-200/60 active:scale-95 transition-all"
+                        title="Anrufen"
+                      >
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                        <span>Anrufen</span>
+                      </a>
+                    )}
+                    {kunde.email && (
+                      <a 
+                        href={`mailto:${kunde.email}`} 
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 py-1.5 px-2.5 rounded-lg bg-blue-50 text-blue-700 font-semibold text-xs flex items-center justify-center gap-1.5 border border-blue-200/60 active:scale-95 transition-all"
+                        title="E-Mail senden"
+                      >
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        <span>E-Mail</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onNavigate) onNavigate('kunden', { kundeId: kunde.id });
+                        else setSelectedKunde(kunde);
+                      }}
+                      className="ml-auto font-semibold text-primary-600 hover:text-primary-700 py-1.5 px-2 cursor-pointer flex items-center gap-1"
+                    >
+                      Details →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* 2026 SaaS Datatable Card */}
-      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+      {/* ---------------- DESKTOP ONLY: DATATABLE (>= md) ---------------- */}
+      <div className="hidden md:block bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         
         {/* Integrated Toolbar */}
         <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -344,8 +618,8 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
         {!isLoading && !error && filteredKunden.length === 0 && (
           <div className="text-center py-16 px-4 text-text-secondary">
-            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
-              👥
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl text-primary-600">
+              <IconTeam className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold text-text-primary">Keine Kunden gefunden</p>
             <p className="text-xs text-text-secondary mt-1">Passe deine Suchbegriffe an oder lege einen neuen Kunden an.</p>
@@ -379,7 +653,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
                       )}
                     </div>
                     <span className="text-xs lg:hidden text-text-secondary truncate mt-0.5 flex items-center gap-1">
-                      <span>📍</span>
+                      <IconLocation className="w-3.5 h-3.5 text-text-muted shrink-0" />
                       <span>{kunde.strasse ? `${kunde.strasse}, ` : ''}{kunde.ort || '-'}</span>
                     </span>
                   </div>
@@ -431,25 +705,16 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
                 </div>
 
                 {/* Erstellt am (Desktop) */}
-                <div className="hidden lg:block text-xs text-text-secondary truncate">
+                <div className="hidden lg:block text-xs text-text-secondary tabular-nums truncate">
                   {kunde.created_at ? formatDate(kunde.created_at) : '-'}
                 </div>
 
                 {/* Status */}
                 <div className="absolute top-4 right-14 lg:relative lg:top-0 lg:right-0 lg:flex lg:justify-center">
-                  {kunde.is_archived ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                      <span>📁</span> Archiv
-                    </span>
-                  ) : (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                      kunde.status === 'Aktiv'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {kunde.status || 'Aktiv'}
-                    </span>
-                  )}
+                  <StatusBadge 
+                    status={kunde.is_archived ? 'Archiviert' : (kunde.status || 'Aktiv')} 
+                    size="xs" 
+                  />
                 </div>
 
                 {/* Quick Actions (3-dot Menu) */}
@@ -526,7 +791,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setArchiveConfirmKunde(null)}>
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              📁
+              <IconFolder className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Kunde archivieren?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -573,26 +838,12 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         />
       )}
 
-      {/* Mobile Floating Action Button (FAB) */}
-      {userRole !== 'treuhand' && (
-        <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 lg:hidden">
-          <button
-            type="button"
-            onClick={() => onNavigate ? onNavigate('kunden', { action: 'create' }) : setIsCreateModalOpen(true)}
-            className="w-14 h-14 rounded-full bg-primary-600 hover:bg-primary-700 active:scale-90 text-white shadow-xl shadow-primary-600/35 flex items-center justify-center text-2xl font-bold transition-all touch-action-manipulation cursor-pointer"
-            aria-label="Neuen Kunden anlegen"
-          >
-            +
-          </button>
-        </div>
-      )}
-
       {/* Feedback Toast */}
       {feedbackToast && (
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
       )}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
+import { IconBauunternehmung, IconMic, IconSparkles, IconCalendar } from '../components/icons/BrandIcons'
 
 const PROJEKT_KATEGORIEN = [
   'Neubau',
@@ -115,7 +116,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
       />
 
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
-        <div className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up max-h-[92dvh] sm:max-h-[90vh] border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
+        <div role="dialog" aria-modal="true" className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden pointer-events-auto transform transition-all animate-slide-up sm:animate-scale-up max-h-[92dvh] sm:max-h-[90vh] border border-border pb-[env(safe-area-inset-bottom)] sm:pb-0">
           
           {/* Mobile Pull Handle */}
           <div className="w-full pt-3 pb-1.5 flex justify-center sm:hidden shrink-0 touch-action-manipulation cursor-pointer" onClick={onClose}>
@@ -126,7 +127,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
           <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-border bg-surface/50 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center text-xl shrink-0 border border-primary-200/60">
-                🏗️
+                <IconBauunternehmung className="w-5 h-5 text-primary-600" />
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-text-primary">Neues Projekt anlegen</h2>
@@ -146,7 +147,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
             <div className="flex-1 p-6 space-y-5 overflow-y-auto">
               {error && (
                 <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-center gap-3">
-                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   {error}
                 </div>
               )}
@@ -155,7 +156,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
               <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary-500/10 to-emerald-500/10 border border-amber-500/20 shadow-sm flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-700 font-bold text-base shrink-0">
-                    🎙️
+                    <IconMic className="w-5 h-5 text-amber-700" />
                   </div>
                   <div>
                     <h4 className="text-xs sm:text-sm font-bold text-gray-900">Sprach-Projektanlage (KI)</h4>
@@ -165,9 +166,10 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                 <button
                   type="button"
                   onClick={() => setShowVoiceModal(true)}
-                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap"
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5"
                 >
-                  ✨ Per Sprache erfassen
+                  <IconSparkles className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+                  <span>Per Sprache erfassen</span>
                 </button>
               </div>
 
@@ -178,7 +180,10 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                       Kunde <span className="text-red-500">*</span>
                     </label>
                     {aiFields.kunden_id && (
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI Match</span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>KI Match</span>
+                      </span>
                     )}
                   </div>
                   {isLoadingKunden ? (
@@ -205,7 +210,10 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                       Projektname <span className="text-red-500">*</span>
                     </label>
                     {aiFields.name && (
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>KI</span>
+                      </span>
                     )}
                   </div>
                   <input 
@@ -222,7 +230,10 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">Kategorie</label>
                       {aiFields.kategorie && (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>KI</span>
+                        </span>
                       )}
                     </div>
                     <select 
@@ -239,7 +250,10 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">Baustellen-Adresse</label>
                       {aiFields.adresse && (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>KI</span>
+                        </span>
                       )}
                     </div>
                     <AddressAutocomplete 
@@ -254,11 +268,15 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-border">
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">
-                        📅 Geplanter Start (optional)
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1">
+                        <IconCalendar className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                        <span>Geplanter Start (optional)</span>
                       </label>
                       {aiFields.startdatum && (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>KI</span>
+                        </span>
                       )}
                     </div>
                     <input 
@@ -270,11 +288,15 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">
-                        📅 Geplantes Ende (optional)
+                      <label className="text-xs font-bold uppercase tracking-wider text-text-secondary flex items-center gap-1">
+                        <IconCalendar className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                        <span>Geplantes Ende (optional)</span>
                       </label>
                       {aiFields.enddatum && (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">✨ KI</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                          <IconSparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>KI</span>
+                        </span>
                       )}
                     </div>
                     <input 

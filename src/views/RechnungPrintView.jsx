@@ -6,6 +6,7 @@ import { generateDocumentFilename } from '../lib/documentNaming'
 import { formatDateLong } from '../lib/formatters'
 import { isQrIban, generateQrReference } from '../lib/qrHelper'
 import { calculateDocumentTotals } from '../lib/calculations'
+import { calculateSia118Schlussrechnung } from '../lib/sia118Helper'
 import { getTenantStoragePath } from '../lib/storageHelper'
 import {
   paginateDocument,
@@ -18,8 +19,10 @@ import {
   PositionsTableBody,
   TotalsAndClosing,
   DocumentFooter,
-  QrBillPage
+  QrBillPage,
+  AusmassBeilagePage
 } from '../components/document/A4DocumentLayout'
+import { IconMail, IconFolder, IconPrinter, IconWarning, IconCheck } from '../components/icons/BrandIcons'
 
 export default function RechnungPrintView({ 
   rechnung, 
@@ -31,7 +34,10 @@ export default function RechnungPrintView({
 }) {
   const [loadedSettings, setLoadedSettings] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [scale, setScale] = useState(1)
+  const [baseScale, setBaseScale] = useState(1)
+  const [zoomMultiplier, setZoomMultiplier] = useState(1)
+  const [fitMode, setFitMode] = useState('page') // 'page' | 'custom'
+  const [showMoreActions, setShowMoreActions] = useState(false)
   const [qrSvg, setQrSvg] = useState(null)
   const [feedbackToast, setFeedbackToast] = useState(null)
 
@@ -61,29 +67,72 @@ export default function RechnungPrintView({
     }
   }, [propSettings])
 
-  // Responsive scaling for live preview in editor
+  // Responsive scaling for live preview in editor and full view
   useEffect(() => {
     if (!containerRef.current) return
 
-    const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect
-        const A4_WIDTH = 794
-        const A4_HEIGHT = 1123
+    const updateScale = () => {
+      if (!containerRef.current) return
+      const width = containerRef.current.clientWidth || window.innerWidth
+      const height = containerRef.current.clientHeight || window.innerHeight
+      const A4_WIDTH = 794 // 96 DPI pixel width
+      const A4_HEIGHT = 1123 // 96 DPI pixel height
 
-        if (previewMode) {
-          const scaleW = width / A4_WIDTH
-          const scaleH = height / A4_HEIGHT
-          setScale(Math.min(scaleW, scaleH) * 0.96)
-        } else {
-          setScale(Math.min(1, (width - 40) / A4_WIDTH))
-        }
+      if (previewMode) {
+        // Leave room for padding & zoom toolbar
+        const sidePadding = width < 640 ? 16 : 32
+        const vertPadding = 56 // room for floating zoom toolbar
+        const availableW = Math.max(200, width - sidePadding)
+        const availableH = Math.max(200, height - vertPadding)
+        const scaleW = availableW / A4_WIDTH
+        const scaleH = availableH / A4_HEIGHT
+        // Fit-to-page: fit BOTH width and height so the entire page is visible!
+        setBaseScale(Math.max(0.15, Math.min(1.2, Math.min(scaleW, scaleH))))
+      } else {
+        const sidePadding = width < 640 ? 16 : 48
+        const availableW = Math.max(280, width - sidePadding)
+        setBaseScale(Math.max(0.2, Math.min(1, availableW / A4_WIDTH)))
       }
-    })
+    }
 
-    resizeObserver.observe(containerRef.current)
-    return () => resizeObserver.disconnect()
+    updateScale()
+    let resizeObserver = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateScale)
+      resizeObserver.observe(containerRef.current)
+    }
+    window.addEventListener('resize', updateScale)
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect()
+      window.removeEventListener('resize', updateScale)
+    }
   }, [previewMode])
+
+  const effectiveScale = Math.max(0.15, Math.min(3.0, baseScale * zoomMultiplier))
+
+  const handleZoomIn = () => {
+    setFitMode('custom')
+    setZoomMultiplier(prev => Math.min(3.0, Math.round((prev + 0.15) * 100) / 100))
+  }
+
+  const handleZoomOut = () => {
+    setFitMode('custom')
+    setZoomMultiplier(prev => Math.max(0.3, Math.round((prev - 0.15) * 100) / 100))
+  }
+
+  const handleResetToFit = () => {
+    setFitMode('page')
+    setZoomMultiplier(1)
+  }
+
+  const handleZoom100 = () => {
+    setFitMode('custom')
+    if (baseScale > 0) {
+      setZoomMultiplier(Math.round((1 / baseScale) * 100) / 100)
+    } else {
+      setZoomMultiplier(1)
+    }
+  }
 
   const daten = rechnung?.daten || {}
   const leistungen = daten.leistungen || []
@@ -99,11 +148,27 @@ export default function RechnungPrintView({
   const mwstBetrag = totals.mwstBetrag
   const isPauschal = totals.isPauschal
 
-  // Akonto-Rechnung & Mahnspesen
+  // Akonto- & SIA 118 Schlussrechnung-Kalkulation
   const isAkonto = rechnung?.typ === 'akonto' && parseFloat(rechnung?.akonto_prozent || 0) > 0
   const akontoProzent = parseFloat(rechnung?.akonto_prozent || 0)
+
+  const isSchluss = rechnung?.typ === 'schluss' || Boolean(daten?.sia118?.aktiv)
+  const sia118Calc = isSchluss ? calculateSia118Schlussrechnung({
+    gesamtwerkpreis: totals.finalTotal,
+    akontoAbzuege: daten?.akonto_abzuege || [],
+    rueckbehalt: daten?.sia118?.rueckbehalt || {
+      aktiv: true,
+      prozent: 5.0,
+      abgeloestDurchGarantie: false,
+      basis: 'gesamtwerkpreis'
+    },
+    rechnungsdatum: rechnung?.rechnungsdatum || rechnung?.created_at || new Date().toISOString()
+  }) : null
+
   let effectiveTotal = totals.finalTotal
-  if (isAkonto) {
+  if (isSchluss && sia118Calc) {
+    effectiveTotal = sia118Calc.faelligerSchlussbetrag
+  } else if (isAkonto) {
     const rawAkonto = totals.finalTotal * (akontoProzent / 100)
     effectiveTotal = Math.round(rawAkonto * 20) / 20 // 5-Rappen-Rundung
   } else if (rechnung?.total && !isNaN(parseFloat(rechnung.total))) {
@@ -141,7 +206,7 @@ export default function RechnungPrintView({
           currency: 'CHF',
           amount: finalTotal,
           creditor: {
-            name: settings.firmenname || 'Atelier 77',
+            name: settings.firmenname || 'Muster Malerei Bern AG',
             address: settings.strasse || 'Strasse',
             zip: creditorZip,
             city: creditorCity,
@@ -184,11 +249,18 @@ export default function RechnungPrintView({
     hasSignature: true
   })
 
+  const hasAusmass = leistungen.some(p => p.ausmass_details && Array.isArray(p.ausmass_details) && p.ausmass_details.length > 0)
   const contentPagesCount = paginatedPages.length
-  // QR Bill counts as its own clean final page
-  const totalPages = qrSvg ? contentPagesCount + 1 : contentPagesCount
+  // QR Bill counts as its own clean final page, Ausmass page is inserted before QR Bill
+  const totalPages = contentPagesCount + (hasAusmass ? 1 : 0) + (qrSvg ? 1 : 0)
+  const ausmassPageNum = contentPagesCount + 1
+  const qrPageNum = hasAusmass ? contentPagesCount + 2 : contentPagesCount + 1
 
-  const docTypeLabel = rechnung?.typ === 'gutschrift' ? 'Gutschrift' : (isAkonto ? 'Akonto-Rechnung' : 'Rechnung')
+  const docTypeLabel = rechnung?.typ === 'gutschrift' 
+    ? 'Gutschrift' 
+    : (isSchluss 
+      ? 'Schlussrechnung nach SIA 118' 
+      : (isAkonto ? 'Akonto-Rechnung' : 'Rechnung'))
 
   const pdfFilename = generateDocumentFilename({
     type: docTypeLabel,
@@ -393,9 +465,9 @@ export default function RechnungPrintView({
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
       // 4. Open mailto link
-      const subject = encodeURIComponent(`${docTypeLabel} ${docNr} - ${settings?.firmenname || 'Atelier 77'}`)
+      const subject = encodeURIComponent(`${docTypeLabel} ${docNr} - ${settings?.firmenname || 'Muster Malerei Bern AG'}`)
       const recipientName = kunde?.nachname ? ` ${kunde.nachname}` : (kunde?.firmenname ? ` ${kunde.firmenname}` : '')
-      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die ${docTypeLabel} ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Atelier 77'}\n${settings?.website || ''}`)
+      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die ${docTypeLabel} ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Muster Malerei Bern AG'}\n${settings?.website || ''}`)
       window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
 
       showToast('success', 'PDF archiviert, heruntergeladen & E-Mail vorbereitet!')
@@ -411,65 +483,173 @@ export default function RechnungPrintView({
     <div 
       ref={containerRef} 
       className={previewMode 
-        ? "relative w-full h-full bg-neutral-100 overflow-y-auto print:static print:overflow-visible print:block print:bg-white print:p-0" 
-        : "fixed inset-0 z-[100] bg-neutral-200/90 backdrop-blur-sm overflow-y-auto print:static print:overflow-visible print:block print:bg-white print:p-0"
+        ? "relative w-full h-full bg-neutral-100/90 overflow-y-auto overflow-x-auto print:static print:overflow-visible print:block print:bg-white print:p-0" 
+        : "fixed inset-0 z-[100] bg-neutral-200/90 backdrop-blur-sm overflow-y-auto overflow-x-auto print:static print:overflow-visible print:block print:bg-white print:p-0"
       }
     >
-      {/* ===== FLOATING GLASSMORPHIC ACTION BAR (hidden when printing or in mini preview) ===== */}
+      {/* ===== FLOATING ACTION BAR ===== */}
       {!previewMode && (
-        <div className="print:hidden sticky top-4 z-30 mx-auto w-fit max-w-[95%] bg-white/90 backdrop-blur-md border border-neutral-200/80 px-5 py-2.5 rounded-2xl shadow-xl flex flex-wrap items-center justify-center sm:justify-between gap-3 my-2 animate-fade-in">
+        <div className="print:hidden sticky top-2 sm:top-4 z-30 mx-auto w-[96%] max-w-3xl bg-white/95 backdrop-blur-md border border-neutral-200/90 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl shadow-xl flex items-center justify-between gap-2 my-2 animate-fade-in">
+          {/* Back Button */}
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-3.5 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            className="px-3 sm:px-3.5 py-2 text-sm font-semibold text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 min-h-[40px]"
           >
-            ← Zurück
+            <span>←</span>
+            <span className="hidden sm:inline">Zurück</span>
           </button>
 
-          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+          {/* Document label */}
+          <div className="text-xs sm:text-sm font-bold text-text-primary truncate px-2 text-center">
+            {docNr}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Primary: Download PDF */}
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isGenerating}
+              className="px-3.5 sm:px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-all shadow-xs shadow-primary-600/20 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] min-h-[40px]"
+              title="PDF herunterladen"
+            >
+              <span>⬇️</span>
+              <span className="hidden sm:inline">{isGenerating ? 'Erstelle PDF...' : 'PDF herunterladen'}</span>
+              <span className="sm:hidden">{isGenerating ? '...' : 'PDF laden'}</span>
+            </button>
+
+            {/* Desktop Only Buttons */}
             <button
               onClick={handleEmailWithPDF}
               disabled={isGenerating}
-              className="px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl transition-all cursor-pointer disabled:opacity-50 min-h-[40px]"
               title="PDF generieren, archivieren, herunterladen und per E-Mail versenden"
             >
-              ✉️ {isGenerating ? 'Bereite vor...' : 'E-Mail'}
+              <IconMail className="w-4 h-4 text-primary-600" />
+              <span>{isGenerating ? 'Bereite vor...' : 'E-Mail'}</span>
             </button>
 
             <button
               onClick={handleSaveToArchive}
               disabled={isGenerating}
-              className="px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all cursor-pointer disabled:opacity-50 min-h-[40px]"
               title="PDF generieren und im Dateien-Archiv speichern"
             >
-              📁 {isGenerating ? 'Speichert...' : 'In Dateien archivieren'}
-            </button>
-
-            <button
-              onClick={handleDownloadPDF}
-              disabled={isGenerating}
-              className="px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-all shadow-xs shadow-primary-600/20 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98]"
-              title="PDF herunterladen"
-            >
-              ⬇️ {isGenerating ? 'Erstelle PDF...' : 'PDF herunterladen'}
+              <IconFolder className="w-4 h-4 text-purple-600" />
+              <span>{isGenerating ? 'Speichert...' : 'Archivieren'}</span>
             </button>
 
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 text-sm font-bold text-neutral-800 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300/80 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold text-neutral-800 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300/80 rounded-xl transition-all cursor-pointer active:scale-[0.98] min-h-[40px]"
               title="Drucken über System-Druckdialog"
             >
-              🖨️ Drucken
+              <IconPrinter className="w-4 h-4" />
+              <span>Drucken</span>
             </button>
+
+            {/* Mobile More Actions Menu (⋮) */}
+            <div className="relative sm:hidden">
+              <button
+                type="button"
+                onClick={() => setShowMoreActions(!showMoreActions)}
+                className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center bg-neutral-50 hover:bg-neutral-100 border border-border/80 rounded-xl text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                aria-label="Weitere Aktionen"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+              </button>
+
+              {showMoreActions && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMoreActions(false)} />
+                  <div className="absolute right-0 top-12 w-52 bg-white rounded-xl shadow-xl border border-neutral-200 overflow-hidden z-50 animate-fade-in p-1 text-sm font-medium">
+                    <button
+                      onClick={() => { setShowMoreActions(false); handleEmailWithPDF(); }}
+                      disabled={isGenerating}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-50 flex items-center gap-2 text-text-primary cursor-pointer disabled:opacity-50"
+                    >
+                      <IconMail className="w-4 h-4 text-primary-600" />
+                      <span>Per E-Mail senden</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowMoreActions(false); handleSaveToArchive(); }}
+                      disabled={isGenerating}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-purple-50 flex items-center gap-2 text-purple-700 cursor-pointer disabled:opacity-50"
+                    >
+                      <IconFolder className="w-4 h-4 text-purple-600" />
+                      <span>In Archiv sichern</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowMoreActions(false); window.print(); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-50 flex items-center gap-2 text-text-primary cursor-pointer border-t border-neutral-100 mt-1 pt-2"
+                    >
+                      <IconPrinter className="w-4 h-4" />
+                      <span>Drucken</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
+      {/* ===== FLOATING ZOOM & CONTROLS TOOLBAR ===== */}
+      <div className="sticky top-2 sm:top-3 z-30 flex justify-end px-3 sm:px-4 pointer-events-none mb-3 print:hidden">
+        <div className="pointer-events-auto inline-flex items-center gap-1 bg-white/95 backdrop-blur-md border border-neutral-200/90 shadow-md rounded-xl p-1 text-xs font-semibold text-text-primary">
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer text-text-secondary hover:text-text-primary"
+            title="Verkleinern (-)"
+            aria-label="Verkleinern"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={handleResetToFit}
+            className="px-1.5 py-1 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer text-[11px] font-bold text-primary-700 min-w-[46px] text-center"
+            title="Klicken zum Zurücksetzen auf Ganze Seite"
+          >
+            {Math.round(effectiveScale * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer text-text-secondary hover:text-text-primary"
+            title="Vergrössern (+)"
+            aria-label="Vergrössern"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          </button>
+          <div className="w-[1px] h-3.5 bg-neutral-200 mx-0.5" />
+          <button
+            type="button"
+            onClick={handleResetToFit}
+            className={`px-2 py-1 text-[11px] rounded-lg transition-colors cursor-pointer ${
+              fitMode === 'page' && zoomMultiplier === 1 ? 'bg-primary-50 text-primary-700 font-bold' : 'text-text-secondary hover:bg-neutral-100'
+            }`}
+            title="Ganze A4-Seite einpassen"
+          >
+            Ganze Seite
+          </button>
+          <button
+            type="button"
+            onClick={handleZoom100}
+            className={`px-2 py-1 text-[11px] rounded-lg transition-colors cursor-pointer ${
+              Math.abs(effectiveScale - 1) < 0.03 ? 'bg-primary-50 text-primary-700 font-bold' : 'text-text-secondary hover:bg-neutral-100'
+            }`}
+            title="100% Originalgrösse"
+          >
+            100%
+          </button>
+        </div>
+      </div>
+
       {/* ===== A4 PAGES CONTAINER ===== */}
-      <div 
-        className={previewMode ? "p-4" : "p-6 sm:p-10"}
-        style={previewMode ? { transform: `scale(${scale})`, transformOrigin: 'top center' } : {}}
-      >
-        <div id="pdf-pages-container">
+      <div className={previewMode ? "p-2 sm:p-4" : "p-2 sm:p-6"}>
+        <div id="pdf-pages-container" className="flex flex-col items-center pb-8">
           {paginatedPages.map((pageItems, pageIdx) => {
             const isFirst = pageIdx === 0
             const isLast = pageIdx === contentPagesCount - 1
@@ -477,18 +657,32 @@ export default function RechnungPrintView({
             return (
               <div
                 key={pageIdx}
-                className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none mb-8 last:mb-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
-                style={{
-                  width: '210mm',
-                  height: '297mm',
-                  maxHeight: '297mm',
-                  boxSizing: 'border-box',
-                  padding: '20mm 20mm 20mm 25mm',
+                className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
+                style={!isGenerating ? {
+                  width: `${Math.round(794 * effectiveScale)}px`,
+                  height: `${Math.round(1123 * effectiveScale)}px`,
                   position: 'relative',
-                  backgroundColor: '#ffffff',
-                  overflow: 'hidden'
-                }}
+                  flexShrink: 0,
+                } : {}}
               >
+                <div
+                  className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                  style={{
+                    width: isGenerating ? '210mm' : '794px',
+                    minWidth: isGenerating ? '210mm' : '794px',
+                    height: isGenerating ? '297mm' : '1123px',
+                    minHeight: isGenerating ? '297mm' : '1123px',
+                    maxHeight: isGenerating ? '297mm' : '1123px',
+                    boxSizing: 'border-box',
+                    padding: '20mm 20mm 20mm 25mm',
+                    position: 'relative',
+                    backgroundColor: '#ffffff',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                    transformOrigin: 'top left',
+                  }}
+                >
                 {/* 1. DIN FOLD & PUNCH MARKS (Page 1 only) */}
                 {isFirst && <FoldAndPunchMarks />}
 
@@ -549,6 +743,8 @@ export default function RechnungPrintView({
                     brandColor={gold}
                     daten={daten}
                     settings={settings}
+                    rechnung={rechnung}
+                    gesamtwerkpreis={totals.finalTotal}
                   />
                 )}
 
@@ -560,11 +756,71 @@ export default function RechnungPrintView({
                   brandColor={gold}
                 />
               </div>
-            )
-          })}
+            </div>
+          )
+        })}
 
-          {qrSvg && (
-            <div className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}>
+        {hasAusmass && (
+          <div
+            className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
+            style={!isGenerating ? {
+              width: `${Math.round(794 * effectiveScale)}px`,
+              height: `${Math.round(1123 * effectiveScale)}px`,
+              position: 'relative',
+              flexShrink: 0,
+            } : {}}
+          >
+            <div
+              className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+              style={{
+                width: isGenerating ? '210mm' : '794px',
+                minWidth: isGenerating ? '210mm' : '794px',
+                height: isGenerating ? '297mm' : '1123px',
+                minHeight: isGenerating ? '297mm' : '1123px',
+                maxHeight: isGenerating ? '297mm' : '1123px',
+                boxSizing: 'border-box',
+                position: 'relative',
+                backgroundColor: '#ffffff',
+                overflow: 'hidden',
+                flexShrink: 0,
+                transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                transformOrigin: 'top left',
+              }}
+            >
+              <AusmassBeilagePage
+                leistungen={leistungen}
+                docNr={docNr}
+                docType={docTypeLabel}
+                kunde={kunde}
+                projekt={projekt}
+                settings={settings}
+                brandColor={gold}
+                pageNum={ausmassPageNum}
+                totalPages={totalPages}
+              />
+            </div>
+          </div>
+        )}
+
+        {qrSvg && (
+          <div
+            className="mx-auto mb-6 sm:mb-8 flex justify-center print:m-0 print:block"
+            style={!isGenerating ? {
+              width: `${Math.round(794 * effectiveScale)}px`,
+              height: `${Math.round(1123 * effectiveScale)}px`,
+              position: 'relative',
+              flexShrink: 0,
+            } : {}}
+          >
+            <div 
+              className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}
+              style={!isGenerating ? {
+                width: '794px',
+                height: '1123px',
+                transform: `scale(${effectiveScale})`,
+                transformOrigin: 'top left',
+              } : {}}
+            >
               <QrBillPage
                 qrSvg={qrSvg}
                 rechnung={{ ...rechnung, total: finalTotal }}
@@ -575,28 +831,30 @@ export default function RechnungPrintView({
                 brandColor={gold}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+    </div>
 
-      {/* ===== PRINT STYLES ===== */}
-      <style>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
-          body {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          .a4-page {
-            width: 210mm !important;
-            height: 297mm !important;
-            max-height: 297mm !important;
+    {/* ===== PRINT STYLES ===== */}
+    <style>{`
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          background: white !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .a4-page {
+          width: 210mm !important;
+          height: 297mm !important;
+          max-height: 297mm !important;
+          transform: none !important;
             page-break-after: always !important;
             break-after: page !important;
             page-break-inside: avoid !important;
@@ -616,7 +874,7 @@ export default function RechnungPrintView({
         <div className={`fixed bottom-6 right-6 z-[110] px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
       )}

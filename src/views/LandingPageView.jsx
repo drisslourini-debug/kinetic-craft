@@ -1,7 +1,42 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import KineticLogoMark from '../components/KineticLogoMark'
+import DsgBanner from '../components/legal/DsgBanner'
+import {
+  TradeIcon,
+  IconPraezision,
+  IconMobileFirst,
+  IconDatenschutz,
+  IconSwissSupport,
+  IconPhotoScanner,
+  IconMapsRoute,
+  IconDigitalSignature,
+  IconFlash,
+  IconSwissFlag,
+  IconApple,
+  IconAndroid,
+  IconTablet,
+  IconSearch,
+  IconCheck,
+  IconSparkles,
+  IconClose,
+  IconQrBill,
+  IconMic,
+  IconCamera,
+  IconSun,
+  IconCloud,
+  IconClock,
+  IconBank,
+  IconDocument,
+  IconShieldCheck,
+  IconMoney,
+} from '../components/icons/BrandIcons'
 
-export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
+export default function LandingPageView({ 
+  onGoToLogin, 
+  onGoToRegistration, 
+  onOpenImpressum, 
+  onOpenDatenschutz 
+}) {
   // Navigation & Mobile Menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -16,6 +51,34 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
   // Modal for screenshot zoom
   const [zoomedImage, setZoomedImage] = useState(null)
+
+  // Interactive 4-Phase Workflow Showcase Tab
+  const [activeShowcaseTab, setActiveShowcaseTab] = useState('dashboard')
+
+  // Interactive ROI Calculator State
+  const [calcTeamSize, setCalcTeamSize] = useState(3)
+  const [calcDocCount, setCalcDocCount] = useState(25)
+
+  // Sticky Bottom CTA Bar state
+  const [showStickyCta, setShowStickyCta] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 650) {
+        setShowStickyCta(true)
+      } else {
+        setShowStickyCta(false)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // ROI Calculation Formulas (grounded in Swiss craft trade operations)
+  // ~45 min (0.75h) saved per offer/invoice + 1.5h saved per team member per month for timesheets & receipts
+  const hoursSavedPerMonth = Math.round(calcDocCount * 0.6 + calcTeamSize * 1.5)
+  // CHF 85/h average Swiss craftsman hourly billing rate
+  const moneySavedPerMonth = hoursSavedPerMonth * 85
 
   // Lead / Quote Inquiry Form State
   const [inquiryData, setInquiryData] = useState({
@@ -38,42 +101,36 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
   const gewerkeList = [
     {
       id: 'schreinerei',
-      icon: '🪚',
       title: 'Schreinerei & Innenausbau',
       desc: 'Massgenaue Offerten mit Holzarten, Kanten, Beschlägen und Montagezeiten. 1-Klick Umwandlung in Werkstattauftrag.',
       highlight: 'Massberechnung & Materialdeklaration',
     },
     {
       id: 'maler',
-      icon: '🎨',
       title: 'Maler & Gipser',
       desc: 'Schnelle Quadratmeter-Berechnungen für Wände, Decken und Fassaden. Inklusive Farbton-Dokumentation und Regierapporten.',
       highlight: 'm²-Aufmass & Regieberichte',
     },
     {
       id: 'elektro',
-      icon: '⚡',
       title: 'Elektro & Gebäudeautomation',
       desc: 'Installations- und Prüfprotokolle direkt beim Kunden digital signieren lassen. Material und Arbeitsstunden sekundengenau abrechnen.',
       highlight: 'Installationsrapporte & Signatur',
     },
     {
       id: 'sanitaer',
-      icon: '🔧',
       title: 'Sanitär & Heizung',
       desc: 'Wartungsaufträge, Service-Einsätze und Notfalldienst sauber planen. Automatische Zahlungserinnerungen mit Schweizer QR-Code.',
       highlight: 'Service-Verträge & QR-Rechnung',
     },
     {
       id: 'gartenbau',
-      icon: '🌿',
       title: 'Garten- & Landschaftsbau',
       desc: 'Saisonale Pflegeverträge, Pflanzlisten und Maschinenstunden transparent kalkulieren und mit Fotos dokumentieren.',
       highlight: 'Pflege-Abonnemente & Maschinen',
     },
     {
       id: 'bau',
-      icon: '🏗️',
       title: 'Bauunternehmung & Renovation',
       desc: 'Mehrere Baustellen und Subunternehmer parallel steuern. Belege direkt per Handy-Kamera scannen und der Baustelle zuweisen.',
       highlight: 'Baustellen-Ablage & Beleg-Scanner',
@@ -84,45 +141,73 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     ? gewerkeList 
     : gewerkeList.filter(g => g.id === selectedGewerk)
 
-  // App Screenshots Showcase Data
-  const screenshotCards = [
+  // App Screenshots Showcase Data (Used in Multi-Card View & Tab System)
+  const showcaseTabs = [
     {
-      id: 'offerten',
-      tag: 'Abrechnung & QR-Bill',
-      tagColor: 'bg-amber-50 text-amber-800 border-amber-200',
-      title: 'Offerten & Rechnungen mit Schweizer QR-Code',
-      desc: 'Erstellen Sie professionelle Offerten mit Ihrem Firmenlogo, Schweizer MWST (8.1%) und integriertem QR-Zahlteil nach ISO 20022. Druckbereit und als PDF versandfähig in unter 60 Sekunden.',
+      id: 'dashboard',
+      tabLabel: '1. Bento-Cockpit & Wetter',
+      tag: 'Tagesübersicht & Wetter',
+      tagColor: 'bg-amber-50 text-amber-900 border-amber-200',
+      title: 'Das neue Bento-Dashboard mit Live-Wetter',
+      desc: 'Alle offenen Rechnungen, Tagestermine und Live-Wetterdaten (Bern, Zürich etc.) für Baustellen auf einen Blick. Sofort sehen, welche Aufträge anstehen und ob das Wetter mitspielt.',
+      image: '/screenshots/01_hero_dashboard.png',
+      alt: 'Kinetic Craft Bento-Cockpit und Wetter',
+      features: [
+        'Live-Wetteranzeige mit Niederschlagsradar für Schweizer Baustellen',
+        'Finanz-Cockpit: Offene Debitoren, Delkredere & fällige QR-Rechnungen',
+        'Schnellstart für neue Offerten, Zeiterfassung & Belege mit 1 Klick',
+      ],
+    },
+    {
+      id: 'mobile_ai',
+      tabLabel: '2. Gemini KI & Baustelle',
+      tag: 'Gemini 3.8 Flash AI',
+      tagColor: 'bg-purple-50 text-purple-900 border-purple-200',
+      title: 'KI-Belegscanner & Baustellen-Sprachdiktat',
+      desc: 'Materialquittungen fotografieren – die Gemini KI erkennt Betrag, Schweizer MWST (8.1% / 2.6%) und Lieferanten automatisch. Regieberichte direkt per Sprache auf der Baustelle diktieren.',
+      image: '/screenshots/09_ai_beleg_scanner.png',
+      alt: 'Kinetic Craft KI Beleg Scanner',
+      fallbackImage: '/screenshots/06_mobile_baustelle.png',
+      features: [
+        'Gemini Vision OCR: Quittungen von Hornbach, OBI, Debrunner in 2s erfassen',
+        'Baustellen-Diktat: Gesprochene Notizen werden zu sauberen Rapportzeilen',
+        'Offline-fähig: Fotos und Stundenerfassung direkt vor Ort im Transporter',
+      ],
+    },
+    {
+      id: 'zefix_crm',
+      tabLabel: '3. CRM & Zefix-Handelsregister',
+      tag: 'Zefix & Baustellen-CRM',
+      tagColor: 'bg-emerald-50 text-emerald-900 border-emerald-200',
+      title: 'Kundenkartei mit Zefix-Echtzeitprüfung',
+      desc: 'Firmen per Schweizer Handelsregister (Zefix API) mit UID/CHE-Nummer in Sekundenschnelle suchen und fehlerfrei anlegen. Alle Baustellen, Pläne und Ansprechpartner zentral organisiert.',
+      image: '/screenshots/03_kunden_baustellen_bento.png',
+      alt: 'Kinetic Craft Kunden- und Projektübersicht',
+      fallbackImage: '/screenshots/03_kunden_baustellen.png',
+      features: [
+        'Zefix-Schnittstelle: Stammdaten & UID direkt aus dem Handelsregister',
+        'Baustellen-Dossiers: Fotos, Skizzen und Kundenhistorie an einem Ort',
+        '1-Klick Google Maps Navigation direkt zur nächsten Baustelle',
+      ],
+    },
+    {
+      id: 'rechnung_finanzen',
+      tabLabel: '4. QR-Bill & Banana-Treuhand',
+      tag: 'ISO 20022 & Treuhand',
+      tagColor: 'bg-amber-100 text-amber-900 border-amber-300',
+      title: 'Schweizer QR-Rechnung & Banana-Export',
+      desc: 'Druckbereite Rechnungen mit schwebender Toolbar, A4-PDF-Echtzeitvorschau und integriertem QR-Zahlteil nach Schweizer ISO 20022 Standard. Exportiert direkt für Banana Doppelte Buchhaltung.',
       image: '/screenshots/02_offerten_rechnungen.png',
       alt: 'Kinetic Craft Offerten und Schweizer QR-Rechnung',
-    },
-    {
-      id: 'kunden',
-      tag: 'Baustellen & CRM',
-      tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      title: 'Kundenkartei & Baustellen-Dossiers',
-      desc: 'Alle Liegenschaften, Pläne, Dokumente und Ansprechpartner an einem Ort. Mit Zefix-Handelsregisterabgleich und direkter Google Maps-Verbindung für Monteure.',
-      image: '/screenshots/03_kunden_baustellen.png',
-      alt: 'Kinetic Craft Kunden- und Projektübersicht',
-    },
-    {
-      id: 'kalender',
-      tag: 'Planung & Team',
-      tagColor: 'bg-slate-100 text-slate-800 border-slate-200',
-      title: 'Monteur-Kalender & Einsatzplanung',
-      desc: 'Verteilen Sie Aufträge, Montagen und Termine im Team. Synchronisiert mit den Schweizer Arbeitszeiten, Feiertagen nach Kanton und mobilen Geräten.',
-      image: '/screenshots/04_kalender_planung.png',
-      alt: 'Kinetic Craft Kalender und Monteur-Planung',
-    },
-    {
-      id: 'buchhaltung',
-      tag: 'Finanzen & Belege',
-      tagColor: 'bg-amber-100/80 text-amber-900 border-amber-300',
-      title: 'Automatische Buchhaltung & Treuhand-Portal',
-      desc: 'Materialbelege per Smartphone-Foto erfassen, MWST automatisch vorkontieren und dem Treuhänder mit einem Klick einen gesicherten Direktzugang gewähren.',
-      image: '/screenshots/05_buchhaltung_belege.png',
-      alt: 'Kinetic Craft Buchhaltung und Treuhand-Portal',
+      features: [
+        'Offizielle Schweizer QR-Rechnung mit QR-IBAN und Referenz-Validierung',
+        'Schwebende A4-Druck-Toolbar mit PDF-Download in unter 60 Sekunden',
+        'Banana Buchhaltung Export & OP-Liste mit Delkredere (OR 957ff.)',
+      ],
     },
   ]
+
+  const activeTabDetails = showcaseTabs.find(t => t.id === activeShowcaseTab) || showcaseTabs[0]
 
   // FAQ Data
   const faqs = [
@@ -135,16 +220,24 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       a: 'Sie erhalten sofort vollen Zugriff auf alle Funktionen von Kinetic Craft Professional – ohne Eingabe einer Kreditkarte und ohne automatische Verlängerung. Nach den 14 Tagen entscheiden Sie selbst, ob Sie im kostenlosen Starter-Tarif bleiben oder das Pro-Abo aktivieren möchten.',
     },
     {
-      q: 'Kann mein Treuhänder direkt auf die Daten zugreifen?',
-      a: 'Ja! In Kinetic Craft Professional können Sie Ihrem Treuhänder einen dedizierten, kostenlosen Lese- und Exportzugang einrichten. Ihr Treuhänder kann alle Rechnungen, MWST-Auswertungen und Belege direkt herunterladen – das spart Ihnen und Ihrem Treuhänder wertvolle Stunden.',
+      q: 'Wie funktioniert der Gemini KI-Belegscanner & das Baustellen-Diktat?',
+      a: 'Mit der integrierten Gemini 3.8 Flash KI fotografieren Sie Materialquittungen (z.B. Baumarkt oder Großhändler) mit Ihrem Smartphone. Die KI liest Lieferant, Datum, MWST (8.1% / 2.6%) und Endbetrag automatisch aus und weist den Beleg der Baustelle zu. Per Sprachnotiz können Sie außerdem Arbeitszeiten und Materialien freihändig einsprechen.',
+    },
+    {
+      q: 'Unterstützt Kinetic Craft den Export zu Banana Buchhaltung und Schweizer Treuhändern?',
+      a: 'Ja! Kinetic Craft exportiert Buchungsdaten, Mehrwertsteuer-Auswertungen und OP-Listen (inklusive Delkredere nach Schweizer OR 957ff.) in das Standardformat für Banana Buchhaltung und Schweizer Treuhand-Software. Sie können Ihrem Treuhänder zudem einen kostenlosen Lesezugang einrichten.',
     },
     {
       q: 'Funktioniert Kinetic Craft mobil auf der Baustelle?',
-      a: 'Absolut. Kinetic Craft ist als moderne Web-Applikation für Tablets (iPad, Android) und Smartphones optimiert. Sie können Kundenadressen mit Google Maps öffnen, Fotos von der Baustelle hochladen, Regiestunden erfassen und Offerten direkt vor Ort besprechen.',
+      a: 'Absolut. Kinetic Craft ist als moderne Web-Applikation für Tablets (iPad, Android) und Smartphones optimiert. Sie können Kundenadressen mit Google Maps öffnen, Fotos von der Baustelle hochladen, Regiestunden per Stoppuhr erfassen und Kunden direkt auf dem Display unterschreiben lassen.',
+    },
+    {
+      q: 'Was bringt die Zefix-Handelsregister-Anbindung?',
+      a: 'Beim Anlegen neuer Geschäftskunden geben Sie einfach den Firmennamen oder die UID ein. Kinetic Craft ruft die offiziellen Daten in Echtzeit aus dem Schweizer Bundesamtsregister (Zefix) ab – Adresse, Rechtsform und UID sind sofort fehlerfrei hinterlegt.',
     },
     {
       q: 'Wo werden meine Unternehmensdaten gespeichert?',
-      a: 'Ihre Daten liegen sicher verschlüsselt in modernen, ISO-zertifizierten Schweizer Rechenzentren unter strikter Einhaltung des neuen Schweizer Datenschutzgesetzes (nDSG / revDSG). Wir geben keinerlei Daten an Dritte weiter.',
+      a: 'Kinetic Craft setzt auf eine transparente Cloud-Architektur: Die verschlüsselte Auslieferung der Web-Applikation erfolgt über das Vercel Edge Network (EU). Ihre sensiblen Mandanten- und Buchhaltungsdaten liegen sicher isoliert in ISO/IEC 27001 zertifizierten Datenbanken (Supabase) unter strikter Einhaltung des Schweizer Datenschutzgesetzes (DSG).',
     },
     {
       q: 'Wer steht hinter Kinetic Craft und Kinetic Schweiz?',
@@ -156,12 +249,12 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-amber-100 selection:text-amber-900">
       
       {/* ========================================================================= */}
-      {/* 1. TOP ANNOUNCEMENT BANNER (Swiss Craft Accent) */}
+      {/* 1. TOP ANNOUNCEMENT BANNER */}
       {/* ========================================================================= */}
-      <div className="bg-gradient-to-r from-amber-50 via-yellow-50/60 to-orange-50/40 border-b border-amber-200/60 px-4 py-2 text-center text-xs sm:text-sm font-medium text-slate-800 flex items-center justify-center gap-2">
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-600 text-white text-[10px] font-bold">🇨🇭</span>
+      <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-600/10 border-b border-amber-200/80 px-4 py-2 text-center text-xs sm:text-sm font-medium text-slate-900 flex items-center justify-center gap-2">
+        <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
         <span>
-          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> – Das Handwerker-CRM mit 100% Schweizer QR-Rechnung.
+          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> mit Gemini AI Beleg-Scanner & 100% Swiss QR-Rechnung.
         </span>
         <button 
           onClick={onGoToRegistration}
@@ -195,13 +288,17 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-600">
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-600">
             <a href="#funktionen" className="hover:text-amber-600 transition-colors">Funktionen</a>
+            <a href="#ki-superpowers" className="hover:text-amber-600 transition-colors flex items-center gap-1">
+              <span>Gemini KI</span>
+              <span className="text-[10px] bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded font-bold">Neu</span>
+            </a>
             <a href="#einblicke" className="hover:text-amber-600 transition-colors">App-Einblicke</a>
+            <a href="#baustellen-cockpit" className="hover:text-amber-600 transition-colors">Cockpit</a>
+            <a href="#rechner" className="hover:text-amber-600 transition-colors">Ersparnis-Rechner</a>
             <a href="#gewerke" className="hover:text-amber-600 transition-colors">Gewerke</a>
             <a href="#tarife" className="hover:text-amber-600 transition-colors">Tarife</a>
-            <a href="#vorteile" className="hover:text-amber-600 transition-colors">Vorteile</a>
-            <a href="#anfrage" className="hover:text-amber-600 transition-colors">Offerte anfragen</a>
             <a href="#faq" className="hover:text-amber-600 transition-colors">FAQ</a>
           </nav>
 
@@ -215,7 +312,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </button>
             <button
               onClick={onGoToRegistration}
-              className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 rounded-xl shadow-sm shadow-amber-500/25 hover:shadow-md hover:shadow-amber-500/30 transition-all cursor-pointer flex items-center gap-2"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-xl shadow-sm shadow-amber-900/20 hover:shadow-md hover:shadow-amber-900/30 transition-all cursor-pointer flex items-center gap-2"
             >
               <span>14 Tage testen</span>
               <span className="text-amber-100">→</span>
@@ -243,10 +340,15 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           <div className="lg:hidden border-b border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3 shadow-lg animate-fade-in">
             <nav className="flex flex-col space-y-2 text-base font-medium text-slate-700">
               <a href="#funktionen" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Funktionen</a>
+              <a href="#ki-superpowers" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50 flex items-center justify-between">
+                <span>Gemini KI Superpowers</span>
+                <span className="text-xs bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded">Neu</span>
+              </a>
               <a href="#einblicke" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">App-Einblicke</a>
+              <a href="#baustellen-cockpit" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Baustellen-Cockpit</a>
+              <a href="#rechner" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Ersparnis-Rechner</a>
               <a href="#gewerke" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Gewerke</a>
               <a href="#tarife" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Tarife</a>
-              <a href="#vorteile" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Vorteile</a>
               <a href="#anfrage" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Offerte anfragen</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">FAQ</a>
             </nav>
@@ -259,7 +361,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               </button>
               <button
                 onClick={onGoToRegistration}
-                className="w-full py-2.5 text-center text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl shadow-sm"
+                className="w-full py-2.5 text-center text-sm font-bold text-white bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 rounded-xl shadow-sm"
               >
                 14 Tage kostenlos testen
               </button>
@@ -269,19 +371,19 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. HERO SECTION (Nordic Pastel Glow + Real Desktop Screenshot) */}
+      {/* 3. NEXT-GEN HERO SECTION (Bento Dashboard + Gemini AI + Swiss Weather) */}
       {/* ========================================================================= */}
-      <section className="relative pt-12 pb-16 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-amber-50/20 to-white">
+      <section className="relative pt-12 pb-16 md:pt-20 md:pb-28 overflow-hidden bg-gradient-to-b from-white via-amber-50/25 to-white">
         
         {/* Soft Decorative Ambient Glows */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-r from-amber-200/40 via-yellow-200/30 to-orange-200/20 blur-3xl -z-10 rounded-full pointer-events-none" />
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[700px] h-[340px] bg-gradient-to-r from-amber-200/40 via-yellow-200/30 to-orange-200/20 blur-3xl -z-10 rounded-full pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           
           {/* Eyebrow Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-amber-200/80 text-amber-900 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            <span>Entwickelt für Schweizer Handwerksbetriebe · 100% Swiss QR-Rechnung</span>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-amber-300 text-amber-950 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
+            <span>Handwerk 2.0: Schweizer Präzision trifft Gemini AI · 100% Swiss QR-Bill</span>
           </div>
 
           {/* Headline */}
@@ -293,15 +395,15 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           </h1>
 
           {/* Subtitle */}
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
-            Schluss mit Zettelwirtschaft und Büro-Frust. Erstellen Sie Offerten und Rechnungen mit <strong>Schweizer QR-Code in unter 60 Sekunden</strong>, verwalten Sie Kunden & Baustellen mobil vor Ort und behalten Sie Ihre Finanzen im Griff.
+          <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
+            Schluss mit Zettelwirtschaft am Feierabend: <strong>Belege per Gemini KI scannen</strong>, Offerten per Spracheingabe auf der Baustelle erfassen und Rechnungen mit <strong>Schweizer QR-Code in unter 60 Sekunden</strong> drucken oder versenden.
           </p>
 
           {/* Action CTAs */}
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onGoToRegistration}
-              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 rounded-2xl shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
+              className="w-full sm:w-auto px-8 py-4 text-base font-bold text-white bg-amber-700 hover:bg-amber-800 active:bg-amber-900 rounded-2xl shadow-lg shadow-amber-900/20 hover:shadow-xl hover:shadow-amber-900/30 transition-all transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-3"
             >
               <span>14 Tage kostenlos testen</span>
               <span className="text-amber-100 font-normal">→</span>
@@ -318,24 +420,24 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           {/* Micro Trust Proof */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-6 text-xs sm:text-sm text-slate-500 font-medium">
             <div className="flex items-center gap-1.5">
-              <span className="text-amber-600 font-bold">✓</span>
+              <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Keine Kreditkarte erforderlich</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-amber-600 font-bold">✓</span>
+              <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
               <span>In 2 Minuten startklar</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-amber-600 font-bold">✓</span>
-              <span>Support & Server in der Schweiz</span>
+              <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Schweizer Support & DSG-konform</span>
             </div>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. HERO DESKTOP REAL SCREENSHOT (Replaces Live Showcase) */}
+        {/* 4. HERO DESKTOP REAL BENTO SCREENSHOT */}
         {/* ========================================================================= */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-14 sm:mt-18">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 sm:mt-16">
           <div className="relative rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden bg-white ring-1 ring-black/5">
             
             {/* macOS Browser Header */}
@@ -346,11 +448,11 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
               </div>
               <div className="bg-white border border-slate-200/80 rounded-lg px-4 py-1 text-xs font-mono text-slate-500 flex items-center gap-2 max-w-xs w-full justify-center shadow-xs">
-                <span className="text-amber-600">🔒</span>
+                <IconDatenschutz className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>craft.kinetic-schweiz.ch/dashboard</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-                <span className="hidden sm:inline">Schweizer Cloud</span>
+                <span className="hidden sm:inline">Schweizer Cloud & Gemini AI</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               </div>
             </div>
@@ -365,18 +467,23 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               
               {/* Subtle hover overlay hint */}
               <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-xs font-bold text-slate-800 shadow-md">
-                  🔍 Klicken für Vollbild-Vorschau
+                <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-xs font-bold text-slate-800 shadow-md inline-flex items-center gap-1.5">
+                  <IconSearch className="w-3.5 h-3.5 text-slate-700" />
+                  Klicken für Vollbild-Vorschau
                 </span>
               </div>
 
               {/* Floating Feature Badges over screenshot */}
-              <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
-                <span className="text-amber-600 font-extrabold">⚡</span>
-                <span>Offerte in 60 Sekunden</span>
+              <div className="absolute top-4 left-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
+                <IconSun className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Live-Wetter Baustelle: Bern 18°C sonnig</span>
+              </div>
+              <div className="absolute top-4 right-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-amber-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-900">
+                <IconSparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Gemini 3.8 Flash AI Inside</span>
               </div>
               <div className="absolute bottom-4 left-4 hidden md:flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-800">
-                <span>🇨🇭</span>
+                <IconSwissFlag className="w-4 h-4 rounded shrink-0" />
                 <span>100% Swiss QR-Bill nach ISO 20022</span>
               </div>
             </div>
@@ -405,150 +512,613 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Keine versteckten Einrichtungsgebühren</div>
             </div>
             <div>
-              <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-1.5">
-                <span>🇨🇭</span>
-                <span>nDSG</span>
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-2">
+                <IconSwissFlag className="w-7 h-7 rounded-md shadow-xs" />
+                <span>DSG</span>
               </div>
-              <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Schweizer Datensicherheit & Hosting</div>
+              <div className="text-xs sm:text-sm text-slate-600 font-medium mt-1">Schweizer Datenschutz & ISO 27001</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 6. ECHTE EINBLICKE: 4 SCREENSHOT-KARTEN */}
+      {/* 6. INTERAKTIVER 4-PHASEN BENTO- & WORKFLOW-SHOWCASE */}
       {/* ========================================================================= */}
-      <section id="einblicke" className="py-20 bg-slate-50/60">
+      <section id="einblicke" className="py-20 bg-slate-50/70 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
-              Echte App-Einblicke
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/90 border border-amber-200 px-3.5 py-1 rounded-full">
+              Interaktive App-Einblicke
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
-              Alles im Blick. Einfach, modern und aufgeräumt.
+              Ein Tag im Schweizer Handwerk. Perfekt organisiert.
             </h2>
             <p className="text-base text-slate-600 mt-3">
-              Erleben Sie die echte Benutzeroberfläche von Kinetic Craft: Keine überladenen Menüs, sondern Schweizer Präzision und Klarheit.
+              Klicken Sie durch die 4 Stationen des Handwerker-Alltags – von der Morgenplanung bis zum Feierabend.
             </p>
           </div>
 
-          {/* 4 Large Screenshot Detail Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {screenshotCards.map((card) => (
-              <div
-                key={card.id}
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-xl transition-all overflow-hidden flex flex-col justify-between group"
-              >
-                <div className="p-6 sm:p-8">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border ${card.tagColor}`}>
-                      {card.tag}
-                    </span>
-                    <span className="text-xs text-slate-400 font-mono">Kinetic Craft</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">
-                    {card.title}
-                  </h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {card.desc}
-                  </p>
+          {/* Interactive Showcase Tabs */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-10 max-w-4xl mx-auto">
+            {showcaseTabs.map((tab) => {
+              const isActive = activeShowcaseTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveShowcaseTab(tab.id)}
+                  className={`px-4 sm:px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shadow-xs ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10 ring-2 ring-amber-500/20'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  <span>{tab.tabLabel}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Active Tab Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden transition-all duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-center">
+              
+              {/* Left Column: Explanations & Features */}
+              <div className="lg:col-span-5 p-8 sm:p-10 lg:p-12 space-y-6">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-lg border ${activeTabDetails.tagColor}`}>
+                    {activeTabDetails.tag}
+                  </span>
+                  <span className="text-xs font-mono text-slate-400">Kinetic Craft</span>
                 </div>
 
-                {/* Screenshot Container */}
-                <div 
-                  className="bg-slate-100 p-3 sm:p-4 border-t border-slate-100 cursor-pointer relative"
-                  onClick={() => setZoomedImage(card.image)}
-                >
-                  <div className="rounded-2xl overflow-hidden border border-slate-200/80 shadow-md bg-white">
-                    <img 
-                      src={card.image} 
-                      alt={card.alt} 
-                      className="w-full h-auto object-cover object-top max-h-[360px] group-hover:scale-[1.01] transition-transform"
-                    />
-                  </div>
-                  <div className="mt-2 text-center text-[11px] font-semibold text-slate-400 flex items-center justify-center gap-1">
-                    <span>🔍 Klicken zum Vergrössern</span>
-                  </div>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
+                  {activeTabDetails.title}
+                </h3>
+
+                <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+                  {activeTabDetails.desc}
+                </p>
+
+                <div className="space-y-3 pt-2">
+                  {activeTabDetails.features.map((feat, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                        <IconCheck className="w-3.5 h-3.5 text-emerald-700" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-slate-700">{feat}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-4 flex items-center gap-4">
+                  <button
+                    onClick={() => setZoomedImage(activeTabDetails.image)}
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold inline-flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <IconSearch className="w-3.5 h-3.5 text-slate-700" />
+                    <span>In voller Auflösung ansehen</span>
+                  </button>
+                  <button
+                    onClick={onGoToRegistration}
+                    className="text-xs font-bold text-amber-700 hover:text-amber-900 underline underline-offset-4 cursor-pointer"
+                  >
+                    Selbst ausprobieren →
+                  </button>
                 </div>
               </div>
-            ))}
+
+              {/* Right Column: High-Res Screenshot Preview */}
+              <div 
+                className="lg:col-span-7 bg-slate-100 p-4 sm:p-6 lg:p-8 border-t lg:border-t-0 lg:border-l border-slate-200 cursor-pointer group"
+                onClick={() => setZoomedImage(activeTabDetails.image)}
+              >
+                <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-lg bg-white relative">
+                  <img 
+                    src={activeTabDetails.image} 
+                    alt={activeTabDetails.alt} 
+                    className="w-full h-auto object-cover object-top max-h-[460px] group-hover:scale-[1.01] transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <span className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-xs font-bold text-slate-800 shadow-md inline-flex items-center gap-1.5">
+                      <IconSearch className="w-3.5 h-3.5 text-slate-700" />
+                      Klicken zum Vergrössern
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 text-center text-xs font-medium text-slate-400 flex items-center justify-center gap-1.5">
+                  <IconSearch className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Klicken für 100% Zoom & Detailansicht</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Secondary 2-Card Row: Offerten & Buchhaltung Highlights */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-amber-50 text-amber-800 border-amber-200">
+                    Abrechnung & QR-Bill
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">ISO 20022</span>
+                </div>
+                <h4 className="text-xl font-bold text-slate-900 mb-2">Offerten & Rechnungen mit Schweizer QR-Code</h4>
+                <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                  Erstellen Sie professionelle Offerten mit Ihrem Firmenlogo, Schweizer MWST (8.1%) und integriertem QR-Zahlteil nach ISO 20022. Druckbereit und als PDF versandfähig in unter 60 Sekunden.
+                </p>
+              </div>
+              <div 
+                className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 p-2 cursor-pointer group mt-2"
+                onClick={() => setZoomedImage('/screenshots/02_offerten_rechnungen.png')}
+              >
+                <img 
+                  src="/screenshots/02_offerten_rechnungen.png" 
+                  alt="Kinetic Craft Offerten und Schweizer QR-Rechnung" 
+                  className="w-full h-auto object-cover object-top max-h-[220px] rounded-xl group-hover:scale-[1.01] transition-transform"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200">
+                    Baustellen & CRM
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">Zefix API</span>
+                </div>
+                <h4 className="text-xl font-bold text-slate-900 mb-2">Kundenkartei & Baustellen-Dossiers</h4>
+                <p className="text-sm text-slate-600 mb-4 leading-relaxed">
+                  Alle Liegenschaften, Pläne, Dokumente und Ansprechpartner an einem Ort. Mit Zefix-Handelsregisterabgleich und direkter Google Maps-Verbindung für Monteure.
+                </p>
+              </div>
+              <div 
+                className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 p-2 cursor-pointer group mt-2"
+                onClick={() => setZoomedImage('/screenshots/03_kunden_baustellen_bento.png')}
+              >
+                <img 
+                  src="/screenshots/03_kunden_baustellen_bento.png" 
+                  alt="Kinetic Craft Kunden- und Projektübersicht" 
+                  className="w-full h-auto object-cover object-top max-h-[220px] rounded-xl group-hover:scale-[1.01] transition-transform"
+                />
+              </div>
+            </div>
           </div>
 
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 7. MOBIL AUF DER BAUSTELLE (Real Mobile Smartphone Screenshot) */}
+      {/* 7. MIDNIGHT COCKPIT: GEMINI AI SUPERPOWERS */}
       {/* ========================================================================= */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-br from-amber-50/60 via-yellow-50/30 to-white rounded-3xl border border-amber-200/70 p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12">
-            
-            {/* Left Column: Text & Value Props */}
-            <div className="flex-1 space-y-6">
-              <span className="text-xs uppercase font-bold tracking-wider text-amber-900 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
-                Mobile First
+      <section id="ki-superpowers" className="py-24 bg-slate-950 text-white relative overflow-hidden">
+        
+        {/* Ambient AI Glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-purple-600/15 blur-3xl pointer-events-none rounded-full" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold uppercase tracking-wider mb-4">
+              <IconSparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>Gemini 3.8 Flash Inside · Multimodal AI</span>
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              Ihr digitaler Polier:{' '}
+              <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">
+                KI, die Schweizer Handwerker versteht.
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-                Ihr Büro im Hosentaschen-Format. Auf der Baustelle und im Transporter.
+            </h2>
+            <p className="mt-4 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              Vergessen Sie mühsames Abtippen von Materialquittungen und das Tippen auf kleinen Handytastaturen mit staubigen Händen. Kinetic Craft denkt mit – per Kamera und Stimme.
+            </p>
+          </div>
+
+          {/* 3 AI Bento Columns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            {/* Card 1: Gemini Vision Receipt OCR */}
+            <div className="bg-slate-900/90 rounded-3xl p-8 border border-slate-800 shadow-xl flex flex-col justify-between group hover:border-amber-400/60 transition-all">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
+                  <IconCamera className="w-6 h-6 text-amber-400" />
+                </div>
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">Vision OCR</span>
+                <h3 className="text-xl font-bold text-white mb-3">Belege & Quittungen scannen</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                  Fotografieren Sie Belege von Hornbach, OBI, Debrunner oder HGC. Gemini erkennt Beträge, MWST (8.1% / 2.6%) und Händler vollautomatisch und weist sie der Baustelle zu.
+                </p>
+              </div>
+
+              {/* Mockup Preview Box */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs font-mono">
+                <div className="flex justify-between text-slate-400">
+                  <span>Händler:</span>
+                  <span className="text-amber-300 font-bold">Hornbach Biel</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>MWST Satz:</span>
+                  <span className="text-emerald-400 font-bold">8.1% (CHF 18.63)</span>
+                </div>
+                <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-800">
+                  <span>Projekt:</span>
+                  <span className="text-white font-bold">EFH Keller Bern</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Voice-to-Action Audio Dictation */}
+            <div className="bg-slate-900/90 rounded-3xl p-8 border border-slate-800 shadow-xl flex flex-col justify-between group hover:border-amber-400/60 transition-all">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
+                  <IconMic className="w-6 h-6 text-amber-400" />
+                </div>
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">Audio Dictation</span>
+                <h3 className="text-xl font-bold text-white mb-3">Baustellen-Sprachdiktat</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                  Sprechen Sie Notizen, geleistete Stunden und verbaute Materialien einfach ins Smartphone. Kinetic Craft formuliert saubere Offertentexte und Regierapporte.
+                </p>
+              </div>
+
+              {/* Audio Waveform Mockup */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center gap-1.5 justify-center py-2">
+                  <span className="w-1 h-3 bg-amber-400 rounded-full animate-pulse"></span>
+                  <span className="w-1 h-6 bg-amber-400 rounded-full animate-pulse"></span>
+                  <span className="w-1 h-8 bg-amber-300 rounded-full animate-pulse"></span>
+                  <span className="w-1 h-4 bg-amber-400 rounded-full animate-pulse"></span>
+                  <span className="w-1 h-7 bg-amber-300 rounded-full animate-pulse"></span>
+                  <span className="w-1 h-3 bg-amber-400 rounded-full animate-pulse"></span>
+                </div>
+                <p className="text-[11px] text-slate-300 italic text-center font-sans">
+                  "3 Std. Montage Küchenzeile, 2 Pack Schrauben 4x40..."
+                </p>
+              </div>
+            </div>
+
+            {/* Card 3: Privacy & Swiss DSG Compliance */}
+            <div className="bg-slate-900/90 rounded-3xl p-8 border border-slate-800 shadow-xl flex flex-col justify-between group hover:border-amber-400/60 transition-all">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6 group-hover:scale-110 transition-transform">
+                  <IconShieldCheck className="w-6 h-6 text-amber-400" />
+                </div>
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">DSG & Security</span>
+                <h3 className="text-xl font-bold text-white mb-3">100% Datenschutz & Privatsphäre</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                  Ihre geschäftlichen Unterlagen und Kundenfotos bleiben vertraulich. Keine Verwendung von Kundendaten für KI-Trainingszwecke. Strikte Mandantentrennung.
+                </p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1.5 text-xs text-slate-300">
+                <div className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Schweizer DSG konform</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>ISO/IEC 27001 Datenspeicher</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Ende-zu-Ende Verschlüsselung</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 8. SCHWEIZER TREUHAND & BANANA-EXPORT */}
+      {/* ========================================================================= */}
+      <section className="py-20 bg-white border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            <div className="space-y-6">
+              <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/90 border border-amber-200 px-3.5 py-1 rounded-full">
+                Schweizer Finanzen & Treuhand
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-snug">
+                Export für Banana Buchhaltung & Treuhänder nach OR 957ff.
               </h2>
               <p className="text-base text-slate-600 leading-relaxed">
-                Kein schwerer Laptop nötig: Kinetic Craft läuft flüssig auf jedem Smartphone und Tablet. Erfassen Sie Notizen, Fotos und Regiestunden direkt vor Ort.
+                Kinetic Craft schließt die Lücke zwischen Baustelle und Treuhandbüro. Alle Rechnungen, Zahlungen und Belege werden automatisch vorkontiert und im Standardformat für <strong>Banana Doppelte Buchhaltung</strong> bereitgestellt.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm mb-1">
+                    <IconQrBill className="w-4 h-4 text-amber-600" />
+                    <span>ISO 20022 QR-Bill</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    QR-IBAN, Creditor Reference (SCOR) und strukturierter Zahlteil.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm mb-1">
+                    <IconBank className="w-4 h-4 text-amber-600" />
+                    <span>Banana Buchhaltung</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    1-Klick-Export für doppelte Buchhaltung und Journalauszüge.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm mb-1">
+                    <IconDocument className="w-4 h-4 text-amber-600" />
+                    <span>MWSTG-konform</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Automatische Abrechnung für 8.1% und 2.6% Mehrwertsteuer.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm mb-1">
+                    <IconMoney className="w-4 h-4 text-amber-600" />
+                    <span>OP-Liste & Delkredere</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Pauschalabzug (5% Inland / 10% Ausland) nach Obligationenrecht.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual Accounting Card */}
+            <div className="bg-gradient-to-br from-slate-900 to-slate-950 p-8 sm:p-10 rounded-3xl text-white shadow-2xl border border-slate-800 space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                <span className="text-xs font-mono text-amber-400">Export: Banana Buchhaltung v10+</span>
+                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">100% OR 957ff.</span>
+              </div>
+
+              <div className="space-y-3 font-mono text-xs">
+                <div className="flex justify-between py-2 border-b border-slate-800/60">
+                  <span className="text-slate-400">1100 Forderungen LL (Debitoren)</span>
+                  <span className="text-white font-bold">CHF 48'250.00</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-800/60">
+                  <span className="text-slate-400">1109 Delkredere (5% Pauschale)</span>
+                  <span className="text-amber-400 font-bold">- CHF 2'412.50</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-800/60">
+                  <span className="text-slate-400">2200 Geschuldete MWST (8.1%)</span>
+                  <span className="text-white font-bold">CHF 3'615.20</span>
+                </div>
+                <div className="flex justify-between py-2 font-bold text-sm text-emerald-400 pt-3">
+                  <span>Netto-Forderungsbestand:</span>
+                  <span>CHF 45'837.50</span>
+                </div>
+              </div>
+
+              <div className="pt-2 text-xs text-slate-400">
+                Geben Sie Ihrem Treuhänder einen kostenlosen Lesezugang oder exportieren Sie geprüfte Buchungsdateien mit einem Klick.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 9. BAUSTELLEN-COCKPIT (Wetter, Zefix, Zeiterfassung & Kantonskalender) */}
+      {/* ========================================================================= */}
+      <section id="baustellen-cockpit" className="py-20 bg-slate-50/70 border-b border-slate-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/90 border border-amber-200 px-3.5 py-1 rounded-full">
+              Smart Construction
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
+              Das smarte Cockpit für Schweizer Baustellen
+            </h2>
+            <p className="text-base text-slate-600 mt-3">
+              Präzise Helfer für den harten Alltag: Wetterprognose, Zeiterfassung per Stoppuhr, Zefix-Abgleich und kantonale Feiertage.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* 1. Live-Wetter */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center mb-4">
+                  <IconSun className="w-5 h-5 text-amber-700" />
+                </div>
+                <h4 className="font-bold text-base text-slate-900 mb-2">Live Baustellen-Wetter</h4>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Niederschlagsradar und Temperatur direkt auf dem Dashboard. Verhindert Ausfallzeiten bei Aussenarbeiten (Maler, Gartenbau, Dachdecker).
+                </p>
+              </div>
+              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs font-semibold text-amber-900 flex justify-between">
+                <span>Bern · Sonnig</span>
+                <span>18°C · 0% Regen</span>
+              </div>
+            </div>
+
+            {/* 2. Zefix-Firmensuche */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center mb-4">
+                  <IconSearch className="w-5 h-5 text-emerald-700" />
+                </div>
+                <h4 className="font-bold text-base text-slate-900 mb-2">Zefix-Handelsregister</h4>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Offizielle Schweizer Firmendaten per UID oder Firmenname in Sekundenschnelle finden und Adressen fehlerfrei in Kundenkartei importieren.
+                </p>
+              </div>
+              <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200/60 text-xs font-semibold text-emerald-900 flex justify-between">
+                <span>UID-Prüfung</span>
+                <span>CHE-123.456.789</span>
+              </div>
+            </div>
+
+            {/* 3. Zeiterfassung & Stoppuhr */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center mb-4">
+                  <IconClock className="w-5 h-5 text-slate-700" />
+                </div>
+                <h4 className="font-bold text-base text-slate-900 mb-2">Live-Stoppuhr & Rapport</h4>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Globales Timer-Widget für Monteure. Gestoppte Zeiten mit 1 Klick in fertige Regierapporte und QR-Rechnungen umwandeln.
+                </p>
+              </div>
+              <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-800 flex justify-between">
+                <span>Laufende Montage</span>
+                <span className="text-amber-700">02:45:12</span>
+              </div>
+            </div>
+
+            {/* 4. Kantonsfeiertage */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center mb-4">
+                  <IconSwissFlag className="w-5 h-5 rounded" />
+                </div>
+                <h4 className="font-bold text-base text-slate-900 mb-2">Feiertage nach Kanton</h4>
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  Automatische Berücksichtigung regionaler Feiertage (z. B. Bern, Zürich, Aargau, Basel, Luzern) in der Einsatzplanung.
+                </p>
+              </div>
+              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/60 text-xs font-semibold text-amber-900 flex justify-between">
+                <span>Alle 26 Kantone</span>
+                <span>CH-Standard</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 10. MOBIL AUF DER BAUSTELLE (Real Mobile Smartphone Screenshot) */}
+      {/* ========================================================================= */}
+      <section className="py-24 bg-white relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative rounded-[2.5rem] bg-gradient-to-br from-amber-500/[0.07] via-slate-50/80 to-amber-600/[0.04] border border-amber-200/90 p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center gap-12 lg:gap-16 shadow-xl shadow-amber-900/[0.04] overflow-hidden">
+            
+            {/* Background Light */}
+            <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 rounded-full bg-gradient-to-br from-amber-400/20 to-yellow-300/10 blur-3xl pointer-events-none" />
+
+            {/* Left Column: Text & Value Props */}
+            <div className="flex-1 space-y-6 relative z-10">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100/90 text-amber-900 border border-amber-200 text-xs font-bold uppercase tracking-wider shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />
+                <span>Mobile First • PWA & Offline-Ready</span>
+              </div>
+
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15]">
+                Ihr Büro im Hosentaschen-Format.{' '}
+                <span className="bg-gradient-to-r from-amber-700 via-amber-800 to-amber-900 bg-clip-text text-transparent">
+                  Auf der Baustelle und im Transporter.
+                </span>
+              </h2>
+
+              <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-xl">
+                Kein schwerer Laptop nötig: Kinetic Craft läuft blitzschnell auf jedem Smartphone und Tablet. Erfassen Sie Notizen, Fotos und Regiestunden direkt vor Ort.
               </p>
 
               <div className="space-y-3 pt-2">
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm shrink-0">
-                    📷
+                <div className="flex items-start gap-3.5 bg-white/90 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/70 shadow-xs hover:shadow-md hover:border-amber-300 transition-all duration-300 group">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-900 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <IconPhotoScanner className="w-5 h-5 text-slate-800" />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">Foto-Dokumentation & Beleg-Scanner</h4>
-                    <p className="text-xs text-slate-500">Materialquittungen fotografieren und der richtigen Baustelle zuweisen.</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-yellow-100 text-yellow-800 flex items-center justify-center font-bold text-sm shrink-0">
-                    📍
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">Routen & Google Maps Anbindung</h4>
-                    <p className="text-xs text-slate-500">Mit 1 Klick aus dem CRM direkt die Navigation zur Baustelle starten.</p>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-slate-900 group-hover:text-amber-800 transition-colors">
+                      Foto-Dokumentation & Beleg-Scanner
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Materialquittungen fotografieren und der richtigen Baustelle zuweisen.
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-amber-200/60 shadow-xs">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-sm shrink-0">
-                    ✍️
+                <div className="flex items-start gap-3.5 bg-white/90 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/70 shadow-xs hover:shadow-md hover:border-amber-300 transition-all duration-300 group">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-100/80 text-yellow-900 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <IconMapsRoute className="w-5 h-5 text-slate-800" />
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900">Digitale Kundenunterschrift</h4>
-                    <p className="text-xs text-slate-500">Regierapporte und Bauabnahmen direkt auf dem Display gegenzeichnen lassen.</p>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-slate-900 group-hover:text-amber-800 transition-colors">
+                      Routen & Google Maps Anbindung
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Mit 1 Klick aus dem CRM direkt die Navigation zur Baustelle starten.
+                    </p>
                   </div>
                 </div>
+
+                <div className="flex items-start gap-3.5 bg-white/90 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/70 shadow-xs hover:shadow-md hover:border-amber-300 transition-all duration-300 group">
+                  <div className="w-10 h-10 rounded-xl bg-orange-100/80 text-orange-900 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <IconDigitalSignature className="w-5 h-5 text-slate-800" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-sm text-slate-900 group-hover:text-amber-800 transition-colors">
+                      Digitale Kundenunterschrift
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Regierapporte und Bauabnahmen direkt auf dem Display gegenzeichnen lassen.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Supported OS micro-badge */}
+              <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <IconApple className="w-3.5 h-3.5 text-slate-800" /> iOS & iPhone
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1.5">
+                  <IconAndroid className="w-3.5 h-3.5 text-emerald-600" /> Android
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1.5">
+                  <IconTablet className="w-3.5 h-3.5 text-slate-700" /> iPad & Tablets
+                </span>
               </div>
             </div>
 
             {/* Right Column: Smartphone Mockup with Real Screenshot */}
-            <div className="flex-shrink-0 relative">
-              <div className="w-[280px] sm:w-[320px] rounded-[40px] p-3 bg-slate-900 shadow-2xl border-4 border-slate-700 relative">
-                {/* Speaker notch */}
-                <div className="w-24 h-4 bg-slate-800 rounded-full mx-auto mb-2"></div>
-                {/* Real Mobile Screenshot */}
+            <div className="flex-shrink-0 relative z-10 my-4 lg:my-0">
+              
+              {/* Floating ambient aura glow */}
+              <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-tr from-amber-500/25 via-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -z-10 pointer-events-none" />
+
+              {/* Smartphone Chassis */}
+              <div className="w-[280px] sm:w-[310px] md:w-[325px] p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 rounded-[48px] shadow-[0_25px_60px_-15px_rgba(15,23,42,0.4)] border border-slate-700/80 relative">
+                
+                {/* Edge-to-Edge Screen */}
                 <div 
-                  className="rounded-[28px] overflow-hidden border border-slate-800 cursor-pointer group"
+                  className="rounded-[40px] overflow-hidden bg-white relative aspect-[9/19] shadow-inner cursor-pointer group/screen border border-slate-950/20"
                   onClick={() => setZoomedImage('/screenshots/06_mobile_baustelle.png')}
+                  title="Klicken zum Vergrössern"
                 >
                   <img 
                     src="/screenshots/06_mobile_baustelle.png" 
                     alt="Kinetic Craft Mobile Ansicht auf der Baustelle" 
-                    className="w-full h-auto object-cover group-hover:scale-105 transition-transform"
+                    className="w-full h-full object-cover object-top group-hover/screen:scale-[1.03] transition-transform duration-500 ease-out"
                   />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/screen:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <span className="px-3 py-1.5 rounded-full bg-slate-900/90 text-white text-xs font-semibold backdrop-blur-sm shadow-lg flex items-center gap-1.5">
+                      <IconSearch className="w-3.5 h-3.5 text-white" />
+                      Vergrössern
+                    </span>
+                  </div>
                 </div>
-                {/* Home bar */}
-                <div className="w-28 h-1 bg-slate-600 rounded-full mx-auto mt-3"></div>
               </div>
+
             </div>
 
           </div>
@@ -556,7 +1126,121 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 8. USE CASES: "EIN TOOL. ALLE GEWERKE." */}
+      {/* 11. INTERAKTIVER HANDWERKER-ERSPARNIS-RECHNER (ROI) */}
+      {/* ========================================================================= */}
+      <section id="rechner" className="py-20 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-white relative overflow-hidden">
+        
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="text-xs uppercase font-bold tracking-wider text-amber-300 bg-amber-500/20 border border-amber-400/30 px-3.5 py-1 rounded-full">
+              Kosten- & Zeitersparnis
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black mt-4 tracking-tight">
+              Wie viel Bürozeit & Geld sparen Sie pro Monat?
+            </h2>
+            <p className="text-sm text-slate-300 mt-2">
+              Berechnen Sie Ihre individuelle Entlastung durch automatische Belege, KI-Diktat und 60s-QR-Rechnungen.
+            </p>
+          </div>
+
+          <div className="bg-slate-900/90 p-8 sm:p-12 rounded-3xl border border-slate-800 shadow-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+              
+              {/* Sliders */}
+              <div className="space-y-8">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-slate-200">
+                      Mitarbeiter / Monteure im Betrieb:
+                    </label>
+                    <span className="font-mono font-bold text-amber-400 text-lg">
+                      {calcTeamSize} {calcTeamSize === 1 ? 'Person' : 'Personen'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    value={calcTeamSize}
+                    onChange={(e) => setCalcTeamSize(parseInt(e.target.value))}
+                    className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-500 mt-1">
+                    <span>1 Solo</span>
+                    <span>10 Team</span>
+                    <span>20+ Betrieb</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-slate-200">
+                      Offerten & Rechnungen pro Monat:
+                    </label>
+                    <span className="font-mono font-bold text-amber-400 text-lg">
+                      {calcDocCount} Dokumente
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    step="5"
+                    value={calcDocCount}
+                    onChange={(e) => setCalcDocCount(parseInt(e.target.value))}
+                    className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-500 mt-1">
+                    <span>5 klein</span>
+                    <span>50 mittel</span>
+                    <span>100+ intensiv</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  * Berechnet auf Basis von 45 Min. Ersparnis pro Offerte/Rechnung und 1.5 Std. pro Monteur für Rapport- und Quittungsverwaltung bei einem Schweizer Handwerker-Stundensatz von CHF 85.–.
+                </p>
+              </div>
+
+              {/* Live Calculated Output */}
+              <div className="bg-gradient-to-br from-amber-500/20 via-slate-800/80 to-slate-900 p-8 rounded-2xl border border-amber-400/30 text-center space-y-6">
+                <div>
+                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                    Ihre monatliche Bürozeit-Ersparnis
+                  </span>
+                  <div className="text-4xl sm:text-5xl font-black font-mono text-amber-300 mt-2">
+                    ~{hoursSavedPerMonth} Std.
+                  </div>
+                  <span className="text-xs text-slate-400 mt-1 block">weniger Zettelwirtschaft pro Monat</span>
+                </div>
+
+                <div className="pt-4 border-t border-slate-700/60">
+                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
+                    Monatlicher Wertzuwachs / Ersparnis
+                  </span>
+                  <div className="text-3xl sm:text-4xl font-black font-mono text-emerald-400 mt-2">
+                    CHF {moneySavedPerMonth.toLocaleString('de-CH')}.–
+                  </div>
+                  <span className="text-xs text-slate-400 mt-1 block">Mehr Zeit für bezahlte Handwerksarbeit</span>
+                </div>
+
+                <button
+                  onClick={onGoToRegistration}
+                  className="w-full py-4 text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 rounded-xl shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+                >
+                  Jetzt CHF {moneySavedPerMonth.toLocaleString('de-CH')} sparen & 14 Tage testen →
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 12. USE CASES: "EIN TOOL. ALLE GEWERKE." */}
       {/* ========================================================================= */}
       <section id="gewerke" className="py-20 bg-slate-50/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -576,7 +1260,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
           <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
             <button
               onClick={() => setSelectedGewerk('alle')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 selectedGewerk === 'alle'
                   ? 'bg-slate-900 text-white shadow-sm'
                   : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -584,20 +1268,26 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             >
               Alle Gewerke
             </button>
-            {gewerkeList.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGewerk(g.id)}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  selectedGewerk === g.id
-                    ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/30'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>{g.icon}</span>
-                <span>{g.title.split(' & ')[0]}</span>
-              </button>
-            ))}
+            {gewerkeList.map((g) => {
+              const isSelected = selectedGewerk === g.id
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setSelectedGewerk(g.id)}
+                  className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-amber-700 text-white shadow-sm shadow-amber-900/20'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <TradeIcon
+                    tradeId={g.id}
+                    className={`w-4 h-4 shrink-0 ${isSelected ? 'text-amber-200' : 'text-slate-700'}`}
+                  />
+                  <span>{g.title.split(' & ')[0]}</span>
+                </button>
+              )
+            })}
           </div>
 
           {/* Gewerke Grid Cards */}
@@ -608,14 +1298,17 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:border-amber-400 hover:shadow-md hover:shadow-amber-500/10 transition-all group flex flex-col justify-between"
               >
                 <div>
-                  <div className="text-3xl mb-4 group-hover:scale-110 transition-transform w-fit">
-                    {g.icon}
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50/80 border border-amber-200/60 shadow-xs flex items-center justify-center text-slate-800 mb-4 group-hover:scale-110 group-hover:border-amber-300 group-hover:bg-amber-100/70 transition-all duration-300">
+                    <TradeIcon tradeId={g.id} className="w-6 h-6 text-slate-800 group-hover:text-amber-900 transition-colors" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">{g.title}</h3>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-4">{g.desc}</p>
                 </div>
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-amber-700">
-                  <span>✦ {g.highlight}</span>
+                  <span className="flex items-center gap-1.5">
+                    <IconSparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>{g.highlight}</span>
+                  </span>
                   <span className="text-slate-400 group-hover:translate-x-1 transition-transform">→</span>
                 </div>
               </div>
@@ -625,7 +1318,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 9. TARIFE & UPGRADES (Exakt wie im Screenshot / LizenzVerwaltung) */}
+      {/* 13. TARIFE & UPGRADES */}
       {/* ========================================================================= */}
       <section id="tarife" className="py-20 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -638,7 +1331,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               Tarife & Upgrades
             </h2>
             <p className="text-base text-slate-600 mt-3">
-              Wähle den passenden Plan für deinen Handwerksbetrieb. Keine versteckten Kosten.
+              Wählen Sie den passenden Plan für Ihren Handwerksbetrieb. Keine versteckten Kosten.
             </p>
 
             {/* Monthly / Yearly Toggle */}
@@ -669,7 +1362,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             </div>
           </div>
 
-          {/* Pricing Cards (Matching the user's screenshot & LizenzVerwaltung.jsx) */}
+          {/* Pricing Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
             
             {/* 1. Starter / Free Plan */}
@@ -686,24 +1379,24 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Bis zu 20 Kunden</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Standard Offerten & Rechnungen</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Schweizer QR-Code Generierung</span>
                   </li>
                   <li className="flex items-center gap-2 text-slate-400">
-                    <span>✗</span>
-                    <span>Eigenes Briefpapier-Layout & Branding</span>
+                    <IconClose className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Gemini KI Belegscanner & Diktat</span>
                   </li>
                   <li className="flex items-center gap-2 text-slate-400">
-                    <span>✗</span>
-                    <span>Treuhand-Portal & Exporte</span>
+                    <IconClose className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Treuhand-Portal & Banana Export</span>
                   </li>
                 </ul>
               </div>
@@ -721,6 +1414,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <span className="absolute -top-3 right-6 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
                 Beliebteste Wahl
               </span>
+
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-xl font-bold text-slate-900">Professional</h3>
@@ -733,28 +1427,28 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-800">
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Unbegrenzte Kunden & Projekte</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Unbegrenzte Offerten & QR-Rechnungen</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
-                    <span>Vollwertige Buchhaltung & MWST-Abrechnung</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Gemini 3.8 Flash Beleg-Scanner & Diktat</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
-                    <span>Treuhand-Zugänge inklusive</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Banana Buchhaltung & Treuhand-Export</span>
                   </li>
                   <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Zefix-Handelsregisterabgleich & Live-Wetter</span>
+                  </li>
+                  <li className="flex items-center gap-2 font-medium">
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Eigenes Briefpapier, Firmenlogo & Farben</span>
-                  </li>
-                  <li className="flex items-center gap-2 font-medium">
-                    <span className="text-amber-600 font-bold">✓</span>
-                    <span>Word- & PDF-Export mit Firmen-Design</span>
                   </li>
                 </ul>
               </div>
@@ -762,7 +1456,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <div className="mt-8 space-y-2">
                 <button
                   onClick={onGoToRegistration}
-                  className="w-full py-3.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 active:from-amber-700 active:to-yellow-700 text-white shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                  className="w-full py-3.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 hover:from-amber-700 hover:to-amber-900 text-white shadow-md shadow-amber-600/25 transition-all cursor-pointer"
                 >
                   14 Tage kostenlos testen
                 </button>
@@ -784,23 +1478,23 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
                 <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Alle Funktionen aus Professional</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Persönliche Datenmigration (Bexio, Sorba, Excel)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Team-Schulung vor Ort oder per Video</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Fester Schweizer Ansprechpartner</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-amber-600 font-bold">✓</span>
+                    <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>Massgeschneiderte SLA & Prioritäts-Support</span>
                   </li>
                 </ul>
@@ -819,7 +1513,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 10. INTERAKTIVE OFFERTEN- & DEMO-ANFRAGE */}
+      {/* 14. INTERAKTIVE OFFERTEN- & DEMO-ANFRAGE */}
       {/* ========================================================================= */}
       <section id="anfrage" className="py-20 bg-slate-50/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -839,8 +1533,8 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
             {inquirySubmitted ? (
               <div className="bg-amber-50/50 p-8 rounded-2xl border border-amber-200 text-center space-y-4 shadow-sm animate-fade-in">
-                <div className="w-14 h-14 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-2xl mx-auto font-bold">
-                  ✓
+                <div className="w-14 h-14 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center mx-auto">
+                  <IconCheck className="w-7 h-7 text-amber-800" />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900">Vielen Dank für Ihre Anfrage!</h3>
                 <p className="text-sm text-slate-600 max-w-md mx-auto">
@@ -849,7 +1543,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
                 <div className="pt-4">
                   <button
                     onClick={onGoToRegistration}
-                    className="px-6 py-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-sm transition-colors"
+                    className="px-6 py-3 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl text-sm transition-colors cursor-pointer"
                   >
                     Jetzt schon 14 Tage unverbindlich testen →
                   </button>
@@ -971,7 +1665,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
                 <button
                   type="submit"
-                  className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-base shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+                  className="w-full py-4 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-xl text-base shadow-md shadow-amber-900/20 transition-all cursor-pointer"
                 >
                   Unverbindliche Offerte anfordern →
                 </button>
@@ -986,68 +1680,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 11. WARUM KINETIC SCHWEIZ & KINETIC CRAFT? */}
-      {/* ========================================================================= */}
-      <section id="vorteile" className="py-20 bg-white border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs uppercase font-bold tracking-wider text-amber-800 bg-amber-100/80 border border-amber-200/60 px-3 py-1 rounded-full">
-              Schweizer Werte
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 mt-4 tracking-tight">
-              Warum sich Schweizer Betriebe für Kinetic Craft entscheiden.
-            </h2>
-            <p className="text-base text-slate-600 mt-3">
-              Moderne Software, die sich dem Handwerker anpasst – nicht umgekehrt.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-2xl mb-4">
-                🎯
-              </div>
-              <h3 className="font-bold text-base text-slate-900 mb-2">Kein IT-Kauderwelsch</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Entwickelt mit und für Praktiker. Keine verschachtelten Menüs, sondern klare Buttons und logische Abläufe.
-              </p>
-            </div>
-
-            <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-yellow-100 text-yellow-800 flex items-center justify-center text-2xl mb-4">
-                📱
-              </div>
-              <h3 className="font-bold text-base text-slate-900 mb-2">Mobile First auf der Baustelle</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Optimiert für Touch-Bedienung auf iPad und Smartphone. Schnelles Aufmass und Fotoupload direkt vor Ort.
-              </p>
-            </div>
-
-            <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center text-2xl mb-4">
-                🔒
-              </div>
-              <h3 className="font-bold text-base text-slate-900 mb-2">100% nDSG Datenschutz</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Hosting in ISO-27001 zertifizierten Schweizer Rechenzentren. Bankenübliche 256-Bit SSL-Verschlüsselung.
-              </p>
-            </div>
-
-            <div className="bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center text-2xl mb-4">
-                🇨🇭
-              </div>
-              <h3 className="font-bold text-base text-slate-900 mb-2">Support aus der Schweiz</h3>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Ein fester Ansprechpartner von Kinetic Schweiz, der Ihre Branche versteht und Ihnen unkompliziert weiterhilft.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 12. FAQ ACCORDION */}
+      {/* 15. FAQ ACCORDION */}
       {/* ========================================================================= */}
       <section id="faq" className="py-20 bg-slate-50/60">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1104,12 +1737,13 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 13. BOTTOM HERO CALL-TO-ACTION BANNER */}
+      {/* 16. BOTTOM CALL-TO-ACTION BANNER */}
       {/* ========================================================================= */}
       <section className="py-20 bg-slate-900 text-white relative overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 mb-6">
-            ✦ Bereit für weniger Büro & mehr Handwerk?
+            <IconSparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Bereit für weniger Büro & mehr Handwerk?</span>
           </span>
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
             Starten Sie noch heute mit <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">Kinetic Craft.</span>
@@ -1136,7 +1770,7 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
       </section>
 
       {/* ========================================================================= */}
-      {/* 14. FOOTER */}
+      {/* 17. FOOTER */}
       {/* ========================================================================= */}
       <footer className="bg-white border-t border-slate-200 py-12 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1145,23 +1779,17 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             {/* Col 1: Brand & Origin */}
             <div className="space-y-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-500 flex items-center justify-center text-white shadow-sm shadow-amber-500/20">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 4v16" />
-                    <path d="M4 12l9-8" />
-                    <path d="M4 12l10 8" />
-                  </svg>
-                </div>
+                <KineticLogoMark className="w-8 h-8 text-slate-900" />
                 <div>
                   <span className="font-extrabold text-sm text-slate-900">Kinetic Craft</span>
                   <span className="text-[11px] text-slate-400 block -mt-0.5">by Kinetic Schweiz</span>
                 </div>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Das moderne Handwerker-CRM für Schweizer Betriebe. Entwickelt für Schreinereien, Maler, Elektriker und Montageprofis.
+                Das moderne Handwerker-CRM für Schweizer Betriebe mit nativer Gemini AI, Zefix-Schnittstelle und 100% Swiss QR-Rechnung.
               </p>
-              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold pt-1">
-                <span>🇨🇭</span>
+              <div className="flex items-center gap-2 text-xs text-slate-700 font-semibold pt-1">
+                <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
                 <span>Swiss Made Software</span>
               </div>
             </div>
@@ -1171,8 +1799,10 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
               <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-3">Produkt</h4>
               <ul className="space-y-2 text-xs">
                 <li><a href="#funktionen" className="hover:text-amber-600">Funktionsübersicht</a></li>
+                <li><a href="#ki-superpowers" className="hover:text-amber-600">Gemini KI Superpowers</a></li>
                 <li><a href="#einblicke" className="hover:text-amber-600">App-Screenshots</a></li>
-                <li><a href="#gewerke" className="hover:text-amber-600">Branchenlösungen</a></li>
+                <li><a href="#baustellen-cockpit" className="hover:text-amber-600">Baustellen-Cockpit</a></li>
+                <li><a href="#rechner" className="hover:text-amber-600">Ersparnis-Rechner</a></li>
                 <li><a href="#tarife" className="hover:text-amber-600">Tarife & Upgrades</a></li>
                 <li><button onClick={onGoToRegistration} className="hover:text-amber-600 cursor-pointer">14 Tage Testzugang</button></li>
               </ul>
@@ -1182,10 +1812,22 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
             <div>
               <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider mb-3">Standards & Recht</h4>
               <ul className="space-y-2 text-xs">
-                <li className="text-slate-600">✓ Schweizer QR-Bill (ISO 20022)</li>
-                <li className="text-slate-600">✓ MwSt-Sätze (8.1% / 2.6%)</li>
-                <li className="text-slate-600">✓ Schweizer Datenschutz (nDSG)</li>
-                <li className="text-slate-600">✓ Treuhänder-Exportformat</li>
+                <li className="flex items-center gap-1.5 text-slate-600">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Schweizer QR-Bill (ISO 20022)</span>
+                </li>
+                <li className="flex items-center gap-1.5 text-slate-600">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Banana Buchhaltung Export</span>
+                </li>
+                <li className="flex items-center gap-1.5 text-slate-600">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Zefix Handelsregister API</span>
+                </li>
+                <li className="flex items-center gap-1.5 text-slate-600">
+                  <IconCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Schweizer Datenschutz (DSG)</span>
+                </li>
               </ul>
             </div>
 
@@ -1211,46 +1853,99 @@ export default function LandingPageView({ onGoToLogin, onGoToRegistration }) {
 
           </div>
 
-          {/* Bottom copyright */}
+          {/* Bottom copyright & legal links */}
           <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
             <div>
-              © {new Date().getFullYear()} Kinetic Schweiz. Alle Rechte vorbehalten. Kinetic Craft ist ein Produkt für das Schweizer Handwerk.
+              © {new Date().getFullYear()} Kinetic Idrissi. Alle Rechte vorbehalten. Kinetic Craft – Handwerker-Software für die Schweiz.
             </div>
-            <div className="flex gap-4">
-              <span>Datenschutz (nDSG)</span>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onOpenDatenschutz} 
+                className="hover:text-amber-700 underline cursor-pointer text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                Datenschutz (DSG)
+              </button>
               <span>•</span>
-              <span>Impressum</span>
+              <button 
+                onClick={onOpenImpressum} 
+                className="hover:text-amber-700 underline cursor-pointer text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                Impressum
+              </button>
               <span>•</span>
-              <span>Sicherheit</span>
+              <span className="text-slate-400">ISO 27001 Datensicherheit</span>
             </div>
           </div>
         </div>
       </footer>
 
       {/* ========================================================================= */}
-      {/* 15. SCREENSHOT ZOOM MODAL */}
+      {/* 18. STICKY BOTTOM CTA BAR (Appears on deep scroll) */}
       {/* ========================================================================= */}
-      {zoomedImage && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8 animate-fade-in"
-          onClick={() => setZoomedImage(null)}
-        >
-          <div className="relative max-w-6xl w-full max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2">
-            <div className="flex justify-between items-center px-4 py-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-700">Kinetic Craft – Live Screenshot-Vorschau</span>
-              <button 
-                onClick={() => setZoomedImage(null)} 
-                className="text-slate-400 hover:text-slate-800 text-lg font-bold px-2 py-1 cursor-pointer"
-              >
-                ✕ Schliessen
-              </button>
+      {showStickyCta && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 py-3 px-4 shadow-2xl transition-all transform animate-fade-in">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <KineticLogoMark className="w-8 h-8 text-slate-900 shrink-0 hidden sm:block" />
+              <div>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-900 block leading-tight">
+                  Kinetic Craft – Schweizer Handwerker-CRM
+                </span>
+                <span className="text-[11px] text-slate-500 hidden md:block">
+                  Mit Gemini AI Beleg-Scanner & 100% Swiss QR-Rechnung in 60s
+                </span>
+              </div>
             </div>
-            <div className="overflow-auto max-h-[calc(90vh-60px)]">
-              <img src={zoomedImage} alt="Vergrösserter Screenshot" className="w-full h-auto" />
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={onGoToLogin}
+                className="px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer hidden sm:block"
+              >
+                Einloggen
+              </button>
+              <button
+                onClick={onGoToRegistration}
+                className="px-4 sm:px-6 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white bg-amber-700 hover:bg-amber-800 rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <span>14 Tage kostenlos testen</span>
+                <span className="text-amber-200">→</span>
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 19. SCREENSHOT ZOOM MODAL */}
+      {/* ========================================================================= */}
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 animate-fade-in"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div 
+            className="relative max-w-6xl w-full max-h-[92vh] bg-white rounded-2xl overflow-hidden shadow-2xl p-2 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-4 py-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-700">Kinetic Craft – Live Screenshot-Vorschau</span>
+              <button 
+                onClick={() => setZoomedImage(null)} 
+                className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-bold px-2 py-1 cursor-pointer"
+              >
+                <IconClose className="w-4 h-4" />
+                <span>Schliessen</span>
+              </button>
+            </div>
+            <div className="overflow-auto max-h-[calc(92vh-60px)] p-2">
+              <img src={zoomedImage} alt="Vergrösserter Screenshot" className="w-full h-auto rounded-lg" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swiss DSG Privacy Information Banner */}
+      <DsgBanner onOpenDatenschutz={onOpenDatenschutz} />
 
     </div>
   )

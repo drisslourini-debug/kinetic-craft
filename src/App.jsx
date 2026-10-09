@@ -12,6 +12,9 @@ import {
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import Sidebar from './components/Sidebar'
 import MobileTabBar from './components/MobileTabBar'
+import CommandBar from './components/CommandBar'
+import GlobalTimerWidget from './components/zeiterfassung/GlobalTimerWidget'
+import { IconNav, IconWarning } from './components/icons/BrandIcons'
 
 const DashboardView = lazy(() => import('./views/DashboardView'))
 const KundenView = lazy(() => import('./views/KundenView'))
@@ -23,10 +26,12 @@ const KatalogView = lazy(() => import('./views/KatalogView'))
 const BuchhaltungView = lazy(() => import('./views/BuchhaltungView'))
 const DateienView = lazy(() => import('./views/DateienView'))
 const EinstellungenView = lazy(() => import('./views/EinstellungenView'))
+const LandingPageView = lazy(() => import('./views/LandingPageView'))
 const LoginView = lazy(() => import('./views/LoginView'))
 const RegistrationWizardView = lazy(() => import('./views/RegistrationWizardView'))
-const LandingPageView = lazy(() => import('./views/LandingPageView'))
 const PaywallScreen = lazy(() => import('./components/PaywallScreen'))
+const ImpressumModal = lazy(() => import('./components/legal/ImpressumModal'))
+const DatenschutzModal = lazy(() => import('./components/legal/DatenschutzModal'))
 
 function ViewLoader() {
   return (
@@ -50,16 +55,16 @@ const views = {
 }
 
 const viewTitles = {
-  dashboard: '📊 Dashboard',
-  kunden: '👥 Kunden',
-  projekte: '🏗️ Projekte',
-  kalender: '📅 Kalender',
-  offerten: '📄 Offerten',
-  rechnungen: '💰 Rechnungen',
-  buchhaltung: '📉 Buchhaltung',
-  dateien: '📁 Dateien',
-  katalog: '🏷️ Leistungskatalog',
-  einstellungen: '⚙️ Einstellungen',
+  dashboard: 'Dashboard',
+  kunden: 'Kunden',
+  projekte: 'Projekte',
+  kalender: 'Kalender',
+  offerten: 'Offerten',
+  rechnungen: 'Rechnungen',
+  buchhaltung: 'Buchhaltung',
+  dateien: 'Dateien',
+  katalog: 'Leistungskatalog',
+  einstellungen: 'Einstellungen',
 }
 
 export default function App() {
@@ -76,43 +81,94 @@ export default function App() {
   const [viewParams, setViewParams] = useState(initialRoute.params)
   const [globalSettings, setGlobalSettings] = useState(null)
   const [authScreen, setAuthScreen] = useState(() => {
-    const hash = window.location.hash
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
     if (hash === '#login') return 'login'
-    if (hash === '#register') return 'register'
+    if (hash === '#register' || hash.startsWith('#register?')) return 'register'
     return 'landing'
+  })
+  const [legalModal, setLegalModal] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    if (hash === '#impressum') return 'impressum'
+    if (hash === '#datenschutz') return 'datenschutz'
+    return null
   })
   const [tenantInfo, setTenantInfo] = useState(null)
   const [userName, setUserName] = useState('')
+  const [isCommandBarOpen, setIsCommandBarOpen] = useState(false)
 
-  // Hash change listener for landing, login, and register
+  // ⌘K / Ctrl+K keyboard shortcut listener for CommandBar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsCommandBarOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Hash change listener for landing, login, register, and legal modals
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash
-      if (hash === '#login') setAuthScreen('login')
-      else if (hash === '#register') setAuthScreen('register')
-      else if (hash === '#landing' || !hash) {
-        setAuthScreen('landing')
+      if (hash === '#impressum') {
+        setLegalModal('impressum')
+      } else if (hash === '#datenschutz') {
+        setLegalModal('datenschutz')
+      } else {
+        setLegalModal(null)
+        if (hash === '#login') setAuthScreen('login')
+        else if (hash === '#register' || hash.startsWith('#register?')) setAuthScreen('register')
+        else if (hash === '#landing' || !hash) {
+          setAuthScreen('landing')
+        }
       }
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  const handleOpenImpressum = () => {
+    setLegalModal('impressum')
+    window.location.hash = '#impressum'
+  }
+
+  const handleOpenDatenschutz = () => {
+    setLegalModal('datenschutz')
+    window.location.hash = '#datenschutz'
+  }
+
+  const handleCloseLegalModal = () => {
+    setLegalModal(null)
+    if (window.location.hash === '#impressum' || window.location.hash === '#datenschutz') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  }
+
   // Dialog for unsaved changes confirmation
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
-  const targetRouteRef = useRef(initialRoute)
+  const currentRouteRef = useRef({ view: initialRoute.view, params: initialRoute.params })
+  useEffect(() => {
+    currentRouteRef.current = { view: activeView, params: viewParams }
+  }, [activeView, viewParams])
 
   // Initialize router state on startup & listen to popstate
   useEffect(() => {
     initRouter()
 
     const handlePopState = (event) => {
+      const { view: nextView, params: nextParams } = parseLocation()
+      const current = currentRouteRef.current
+      const isSameRoute = nextView === current.view && JSON.stringify(nextParams) === JSON.stringify(current.params)
+
       const hasUnsaved = checkHasUnsavedChanges()
       const prevIndex = getCurrentHistoryIndex()
       const nextIndex = event.state?.historyIndex ?? 0
 
-      if (hasUnsaved) {
+      // Only warn if navigating AWAY from the current page/view
+      if (hasUnsaved && !isSameRoute) {
         setPendingNavigation({
           type: 'popstate',
           nextIndex,
@@ -124,9 +180,8 @@ export default function App() {
       }
 
       setHistoryIndex(nextIndex)
-      const { view, params } = parseLocation()
-      setActiveView(view)
-      setViewParams(params)
+      setActiveView(nextView)
+      setViewParams(nextParams)
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -372,42 +427,41 @@ export default function App() {
   }
 
   if (!session) {
+    let authContent = null
     if (authScreen === 'register') {
-      return (
-        <Suspense fallback={<ViewLoader />}>
-          <RegistrationWizardView 
-            onRegistrationSuccess={handleLoginSuccess} 
-            onGoToLogin={() => {
-              window.location.hash = '#login'
-              setAuthScreen('login')
-            }} 
-            onBackToLanding={() => {
-              window.location.hash = ''
-              setAuthScreen('landing')
-            }}
-          />
-        </Suspense>
+      authContent = (
+        <RegistrationWizardView 
+          onRegistrationSuccess={handleLoginSuccess} 
+          onGoToLogin={() => {
+            window.location.hash = '#login'
+            setAuthScreen('login')
+          }} 
+          onBackToLanding={() => {
+            window.location.hash = ''
+            setAuthScreen('landing')
+          }}
+          onOpenImpressum={handleOpenImpressum}
+          onOpenDatenschutz={handleOpenDatenschutz}
+        />
       )
-    }
-    if (authScreen === 'login') {
-      return (
-        <Suspense fallback={<ViewLoader />}>
-          <LoginView 
-            onLoginSuccess={handleLoginSuccess} 
-            onGoToRegistration={() => {
-              window.location.hash = '#register'
-              setAuthScreen('register')
-            }} 
-            onBackToLanding={() => {
-              window.location.hash = ''
-              setAuthScreen('landing')
-            }}
-          />
-        </Suspense>
+    } else if (authScreen === 'login') {
+      authContent = (
+        <LoginView 
+          onLoginSuccess={handleLoginSuccess} 
+          onGoToRegistration={() => {
+            window.location.hash = '#register'
+            setAuthScreen('register')
+          }} 
+          onBackToLanding={() => {
+            window.location.hash = ''
+            setAuthScreen('landing')
+          }}
+          onOpenImpressum={handleOpenImpressum}
+          onOpenDatenschutz={handleOpenDatenschutz}
+        />
       )
-    }
-    return (
-      <Suspense fallback={<ViewLoader />}>
+    } else {
+      authContent = (
         <LandingPageView 
           onGoToLogin={() => {
             window.location.hash = '#login'
@@ -417,6 +471,24 @@ export default function App() {
             window.location.hash = '#register'
             setAuthScreen('register')
           }} 
+          onOpenImpressum={handleOpenImpressum}
+          onOpenDatenschutz={handleOpenDatenschutz}
+        />
+      )
+    }
+
+    return (
+      <Suspense fallback={<ViewLoader />}>
+        {authContent}
+        <ImpressumModal 
+          isOpen={legalModal === 'impressum'} 
+          onClose={handleCloseLegalModal} 
+          onOpenDatenschutz={handleOpenDatenschutz} 
+        />
+        <DatenschutzModal 
+          isOpen={legalModal === 'datenschutz'} 
+          onClose={handleCloseLegalModal} 
+          onOpenImpressum={handleOpenImpressum} 
         />
       </Suspense>
     )
@@ -440,16 +512,18 @@ export default function App() {
   const treuhandAllowedViews = ['kunden', 'rechnungen', 'buchhaltung', 'dateien']
   if (userRole === 'treuhand' && !treuhandAllowedViews.includes(activeView)) {
     return (
-      <div className="flex min-h-[100dvh] bg-surface">
-        <div className="print:hidden">
+      <div className="flex h-[100dvh] w-full bg-surface overflow-hidden print:h-auto print:overflow-visible">
+        <div className="print:hidden shrink-0 h-full">
           <Sidebar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} globalSettings={globalSettings} userName={userName} />
         </div>
-        <main className="flex-1 min-w-0 pb-20 md:pb-0 p-5 md:p-8 flex items-center justify-center">
-          <div className="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 text-center max-w-md">
-            <h2 className="text-lg font-bold mb-2">Zugriff verweigert</h2>
-            <p className="text-sm">Deine Rolle hat keine Berechtigung für diese Ansicht. Bitte navigiere über das Menü zu einer erlaubten Ansicht.</p>
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto print:h-auto print:overflow-visible">
+          <main className="flex-1 min-w-0 pb-20 md:pb-0 p-5 md:p-8 flex items-center justify-center">
+            <div className="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 text-center max-w-md">
+              <h2 className="text-lg font-bold mb-2">Zugriff verweigert</h2>
+              <p className="text-sm">Deine Rolle hat keine Berechtigung für diese Ansicht. Bitte navigiere über das Menü zu einer erlaubten Ansicht.</p>
+            </div>
+          </main>
+        </div>
         <div className="print:hidden">
           <MobileTabBar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} />
         </div>
@@ -463,14 +537,14 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] bg-surface overflow-x-hidden w-full">
+    <div className="flex h-[100dvh] w-full bg-surface overflow-hidden print:h-auto print:overflow-visible">
       {/* Sidebar - hidden during print */}
-      <div className="print:hidden">
+      <div className="print:hidden shrink-0 h-full">
         <Sidebar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} globalSettings={globalSettings} userName={userName} />
       </div>
 
-      {/* Main content area */}
-      <main className="flex-1 min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 print:m-0 print:p-0">
+      {/* Main content scrollable column */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto overflow-x-hidden print:h-auto print:overflow-visible">
         {/* Top bar - hidden during print */}
         <header className="sticky top-0 z-20 bg-surface-card/85 backdrop-blur-md border-b border-border px-4 py-3 md:px-8 md:py-4 print:hidden pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
@@ -483,13 +557,29 @@ export default function App() {
                   {globalSettings?.firmenname ? globalSettings.firmenname.substring(0,2).toUpperCase() : 'CRM'}
                 </div>
               )}
-              <h1 className="text-lg md:text-2xl font-bold text-text-primary truncate">
-                <span className="md:hidden">{viewTitles[activeView]?.replace(/^[^\s]+\s/, '')}</span>
-                <span className="hidden md:inline">{viewTitles[activeView]}</span>
+              <h1 className="text-lg md:text-2xl font-bold text-text-primary truncate flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/70 flex items-center justify-center shrink-0 md:hidden">
+                  <IconNav id={activeView} className="w-4 h-4 text-amber-800" />
+                </span>
+                <span>{viewTitles[activeView]}</span>
               </h1>
             </div>
             
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
+              {/* 2026 Spotlight Search Trigger */}
+              <button 
+                type="button"
+                onClick={() => setIsCommandBarOpen(true)}
+                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border text-xs text-text-muted hover:border-zinc-300 hover:text-text-secondary transition-all cursor-pointer shadow-2xs"
+                title="Spotlight Suche öffnen (⌘K)"
+              >
+                <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span className="font-medium text-text-secondary">Suchen...</span>
+                <span className="kbd-badge text-[10px]">⌘K</span>
+              </button>
+
               {userRole === 'treuhand' ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -498,7 +588,7 @@ export default function App() {
               ) : (
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-text-secondary text-xs font-semibold rounded-full border border-neutral-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {globalSettings?.firmenname || 'Atelier 77'}
+                  {globalSettings?.firmenname || 'Kinetic Craft'}
                 </span>
               )}
               <button 
@@ -512,31 +602,38 @@ export default function App() {
         </header>
 
         {/* Main View Area */}
-        <div className="p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-screen print:p-0 print:m-0 print:max-w-none">
-          {!tenantInfo && session?.user?.id !== 'test' && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 text-amber-900 shadow-sm animate-fade-in print:hidden">
-              <span className="text-2xl leading-none">⚠️</span>
-              <div className="flex-1 text-sm">
-                <p className="font-bold text-amber-950 mb-0.5">Kein Mandant (Tenant) zugewiesen</p>
-                <p className="text-amber-800 text-xs leading-relaxed">
-                  Deinem Benutzerkonto ist in der Datenbank noch kein Mandant zugeordnet. Dadurch blockiert Supabase (RLS) das Speichern neuer Datensätze. Führe das Skript <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">supabase_fix_user_roles.sql</code> im Supabase SQL Editor aus oder lade die Seite neu.
-                </p>
+        <main className="flex-1 min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 print:m-0 print:p-0">
+          <div className="p-4 sm:p-6 md:p-8 w-full max-w-[1600px] mx-auto min-h-full print:p-0 print:m-0 print:max-w-none">
+            {!tenantInfo && session?.user?.id !== 'test' && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 text-amber-900 shadow-sm animate-fade-in print:hidden">
+                <IconWarning className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-sm">
+                  <p className="font-bold text-amber-950 mb-0.5">Kein Mandant (Tenant) zugewiesen</p>
+                  <p className="text-amber-800 text-xs leading-relaxed">
+                    Deinem Benutzerkonto ist in der Datenbank noch kein Mandant zugeordnet. Dadurch blockiert Supabase (RLS) das Speichern neuer Datensätze. Führe das Skript <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">supabase_fix_user_roles.sql</code> im Supabase SQL Editor aus oder lade die Seite neu.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-          <Suspense fallback={<ViewLoader />}>
-            <ActiveComponent 
-              onNavigate={handleNavigate} 
-              viewParams={viewParams} 
-              userRole={userRole} 
-              globalSettings={globalSettings} 
-              refreshGlobalSettings={refreshGlobalSettings} 
-              userName={userName}
-              onUserNameChange={(newName) => setUserName(newName)}
-            />
-          </Suspense>
-        </div>
-      </main>
+            )}
+            <Suspense fallback={<ViewLoader />}>
+              <ActiveComponent 
+                onNavigate={handleNavigate} 
+                viewParams={viewParams} 
+                userRole={userRole} 
+                globalSettings={globalSettings} 
+                refreshGlobalSettings={refreshGlobalSettings} 
+                userName={userName}
+                onUserNameChange={(newName) => setUserName(newName)}
+              />
+            </Suspense>
+          </div>
+        </main>
+      </div>
+      {/* Global Live-Timer Widget for Craftsmen & Site Workers */}
+      <GlobalTimerWidget
+        userName={userName}
+        currentProjectId={viewParams?.projektId || null}
+      />
 
       {/* Mobile Bottom Navigation */}
       <div className="print:hidden">
@@ -548,6 +645,24 @@ export default function App() {
         isOpen={unsavedDialogOpen}
         onConfirm={handleConfirmDiscard}
         onCancel={handleCancelDiscard}
+      />
+
+      {/* Swiss Legal Modals (Hash #impressum / #datenschutz) */}
+      <ImpressumModal 
+        isOpen={legalModal === 'impressum'} 
+        onClose={handleCloseLegalModal} 
+        onOpenDatenschutz={handleOpenDatenschutz} 
+      />
+      <DatenschutzModal 
+        isOpen={legalModal === 'datenschutz'} 
+        onClose={handleCloseLegalModal} 
+        onOpenImpressum={handleOpenImpressum} 
+      />
+      {/* 2026 Spotlight Command Bar */}
+      <CommandBar 
+        isOpen={isCommandBarOpen} 
+        onClose={() => setIsCommandBarOpen(false)} 
+        onNavigate={handleNavigate} 
       />
     </div>
   )

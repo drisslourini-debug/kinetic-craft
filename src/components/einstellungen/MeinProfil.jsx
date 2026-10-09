@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { SettingsBlock, SettingsRow, InputField } from '../ui/SettingsComponents'
+import { IconCheck, IconWarning, IconSwissFlag, IconGlobe } from '../icons/BrandIcons'
 
 export default function MeinProfil({ userRole, userName, onUserNameChange }) {
   const [sessionUser, setSessionUser] = useState(null)
@@ -128,7 +129,11 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
           <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium ${
             toast.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
           }`}>
-            <span>{toast.type === 'success' ? '✓' : '⚠️'}</span>
+            {toast.type === 'success' ? (
+              <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <IconWarning className="w-4 h-4 text-red-600 shrink-0" />
+            )}
             <span>{toast.text}</span>
           </div>
         </div>
@@ -254,17 +259,17 @@ export default function MeinProfil({ userRole, userName, onUserNameChange }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl border-2 border-primary-500 bg-primary-50/20 flex items-center justify-between cursor-pointer">
             <div className="flex items-center gap-3">
-              <span className="text-xl">🇨🇭</span>
+              <IconSwissFlag className="w-6 h-6 rounded-xs shrink-0" />
               <div>
                 <p className="text-sm font-bold text-text-primary">Deutsch (Schweiz)</p>
                 <p className="text-xs text-text-secondary">CHF, 30.12.2026, QR-Rechnungen</p>
               </div>
             </div>
-            <span className="text-primary-600 font-bold">✓</span>
+            <IconCheck className="w-5 h-5 text-primary-600" />
           </div>
           <div className="p-4 rounded-xl border border-dashed border-border bg-surface opacity-60 flex items-center justify-between cursor-not-allowed" title="In Kürze verfügbar">
             <div className="flex items-center gap-3">
-              <span className="text-xl">🇫🇷</span>
+              <IconGlobe className="w-6 h-6 text-slate-400 shrink-0" />
               <div>
                 <p className="text-sm font-bold text-text-secondary">Français (Suisse)</p>
                 <p className="text-xs text-text-secondary">Demnächst verfügbar</p>

@@ -28,9 +28,9 @@ scratch/
 .vercel
 .vercel.old
 
-
-.vercel
-.env*
-
 # UI screenshots
 ui_*.png
+
+# Playwright
+test-results/
+playwright-report/

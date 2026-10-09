@@ -1,5 +1,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import {
+  IconUser,
+  IconBuilding,
+  IconCreditCard,
+  IconTag,
+  IconNotes,
+  IconTeam,
+  IconShield,
+  IconFlash,
+  IconSwissFlag,
+  IconClose,
+  IconCheck,
+  IconWarning,
+  IconInfo
+} from '../components/icons/BrandIcons'
 
 // ----------------------
 // SUBCOMPONENTS
@@ -129,22 +144,27 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
         }
         const { data, error } = await query.limit(1).maybeSingle()
 
+        let local = {}
+        try {
+          const localStr = localStorage.getItem('atelier77_einstellungen_v2')
+          if (localStr) local = JSON.parse(localStr)
+        } catch (e) {}
+
         if (error) {
           console.warn('Einstellungen Ladefehler:', error)
           setDbError(true)
-          const local = localStorage.getItem('atelier77_einstellungen_v2')
-          if (local) setSettings(JSON.parse(local))
+          if (local) setSettings(prev => ({ ...prev, ...local }))
         } else if (data) {
           const hasSeeded = localStorage.getItem('atelier77_text_vorlagen_seeded')
           if (!data.text_vorlagen || (data.text_vorlagen.length === 0 && !hasSeeded)) {
             const seededSettings = { ...data, text_vorlagen: DEFAULT_TEXT_VORLAGEN }
-            setSettings(prev => ({ ...prev, ...seededSettings }))
+            setSettings(prev => ({ ...prev, ...local, ...seededSettings }))
             if (tId) {
               supabase.from('einstellungen').update({ text_vorlagen: DEFAULT_TEXT_VORLAGEN }).eq('id', data.id)
             }
             localStorage.setItem('atelier77_text_vorlagen_seeded', 'true')
           } else {
-            setSettings(prev => ({ ...prev, ...data }))
+            setSettings(prev => ({ ...prev, ...local, ...data }))
           }
         } else if (tId) {
           // No row exists for this tenant yet -> create initial record
@@ -159,7 +179,7 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
           }
           const { data: createdRow } = await supabase.from('einstellungen').insert([initialRow]).select().single()
           if (createdRow) {
-            setSettings(prev => ({ ...prev, ...createdRow }))
+            setSettings(prev => ({ ...prev, ...local, ...createdRow }))
           }
         }
       } catch (err) {
@@ -240,12 +260,28 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
   const handleSave = async () => {
     setIsSaving(true)
     setSettings(draft)
+    try {
+      localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(draft))
+    } catch (e) {}
     
     try {
-      if (dbError) {
-        localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(draft))
-      } else {
-        const payload = { ...draft }
+      if (!dbError && supabase) {
+        const KNOWN_DB_COLUMNS = new Set([
+          'firmenname', 'strasse', 'plz_ort', 'uid', 'telefon', 'email', 'website',
+          'bankverbindung', 'standard_mwst', 'standard_rabatt', 'gueltigkeit_offerten_tage',
+          'zahlungsfrist_tage', 'startnummer_offerten', 'startnummer_rechnungen', 'text_vorlagen',
+          'archiv_kunden_kategorien', 'archiv_projekt_kategorien', 'archiv_max_size_mb',
+          'archiv_allowed_types', 'tenant_id', 'primary_color', 'logo_url', 'qr_iban',
+          'hr_nummer', 'gerichtsstand', 'pdf_kopfzeile', 'pdf_fusszeile', 'pdf_absenderzeile',
+          'plz', 'ort', 'land', 'startnummer_kunden', 'prefix_kunden', 'startnummer_projekte', 'prefix_projekte'
+        ])
+
+        const payload = {}
+        for (const [key, val] of Object.entries(draft)) {
+          if (KNOWN_DB_COLUMNS.has(key)) {
+            payload[key] = val
+          }
+        }
         if (tenantId) {
           payload.tenant_id = tenantId
         }
@@ -262,15 +298,14 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
             .single()
           saveErr = error
           if (!error && data) {
-            setSettings({ ...draft, ...data })
-            setDraft({ ...draft, ...data })
+            setSettings(prev => ({ ...draft, ...data }))
+            setDraft(prev => ({ ...draft, ...data }))
           }
         }
 
         if (saveErr) {
-          if (saveErr.code === '42703') {
-            console.warn('Einige Spalten fehlen noch in Supabase. Lokaler Fallback aktiv.')
-            localStorage.setItem('atelier77_einstellungen_v2', JSON.stringify(draft))
+          if (saveErr.code === '42703' || saveErr.code === 'PGRST204') {
+            console.warn('Einige Spalten fehlen noch in Supabase. Lokaler Fallback aktiv:', saveErr.message)
           } else {
             throw saveErr
           }
@@ -364,29 +399,29 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
     {
       title: 'Persönlich',
       items: [
-        { id: 'profil', label: 'Mein Profil', icon: '👤', description: 'Name, Passwort, Sprache' }
+        { id: 'profil', label: 'Mein Profil', icon: IconUser, description: 'Name, Passwort, Sprache' }
       ]
     },
     {
       title: 'Unternehmen & Finanzen',
       items: [
-        { id: 'unternehmen', label: 'Firma & Adresse', icon: '🏢', description: 'Stammdaten, PLZ/Ort, Logo, Design' },
-        { id: 'finanzen', label: 'Finanzen & Fristen', icon: '💳', description: 'Bank, QR-IBAN, MWST, Zahlungsziele' },
-        { id: 'nummernkreise', label: 'Nummernkreise', icon: '🔢', description: 'Offerten, Rechnungen, Kunden, Projekte' }
+        { id: 'unternehmen', label: 'Firma & Adresse', icon: IconBuilding, description: 'Stammdaten, PLZ/Ort, Logo, Design' },
+        { id: 'finanzen', label: 'Finanzen & Fristen', icon: IconCreditCard, description: 'Bank, QR-IBAN, MWST, Zahlungsziele' },
+        { id: 'nummernkreise', label: 'Nummernkreise', icon: IconTag, description: 'Offerten, Rechnungen, Kunden, Projekte' }
       ]
     },
     {
       title: 'Konfiguration & Dokumente',
       items: [
-        { id: 'vorlagen', label: 'Vorlagen & Texte', icon: '📝', description: 'Einleitungs- und Schlusstexte' },
-        { id: 'team', label: 'Team & Benutzer', icon: '👥', description: 'Mitarbeiter einladen & verwalten' },
-        { id: 'rollen', label: 'Rollen & Rechte', icon: '🛡️', description: 'Übersicht Berechtigungsmatrix' }
+        { id: 'vorlagen', label: 'Vorlagen & Texte', icon: IconNotes, description: 'Einleitungs- und Schlusstexte' },
+        { id: 'team', label: 'Team & Benutzer', icon: IconTeam, description: 'Mitarbeiter einladen & verwalten' },
+        { id: 'rollen', label: 'Rollen & Rechte', icon: IconShield, description: 'Übersicht Berechtigungsmatrix' }
       ]
     },
     {
       title: 'Abonnement',
       items: [
-        { id: 'lizenz', label: 'Lizenzverwaltung', icon: '⚡', description: 'Tarife, Status & Stripe Self-Service' }
+        { id: 'lizenz', label: 'Lizenzverwaltung', icon: IconFlash, description: 'Tarife, Status & Stripe Self-Service' }
       ]
     }
   ]
@@ -422,17 +457,18 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
         >
           {navGroups.flatMap(g => g.items).map(item => (
             <option key={item.id} value={item.id}>
-              {item.icon} {item.label}
+              {item.label}
             </option>
           ))}
         </select>
       </div>
 
       {/* Extro-Style Two Column Layout (Sidebar + Main Content) */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         
         {/* Left Settings Sidebar (Desktop) */}
-        <div className="hidden md:block md:col-span-4 lg:col-span-3 space-y-6 sticky top-24">
+        <div className="hidden md:block md:col-span-4 lg:col-span-3">
+          <div className="sticky top-20 space-y-6">
           <div className="bg-surface-card rounded-2xl border border-border p-3 shadow-xs space-y-5">
             {navGroups.map((group, gIdx) => (
               <div key={gIdx} className="space-y-1">
@@ -441,6 +477,7 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
                 </div>
                 {group.items.map(item => {
                   const isActive = activeNav === item.id
+                  const ItemIcon = item.icon
                   return (
                     <button
                       key={item.id}
@@ -451,7 +488,7 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
                           : 'text-text-primary hover:bg-surface hover:text-primary-700'
                       }`}
                     >
-                      <span className="text-base">{item.icon}</span>
+                      <ItemIcon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-primary-600'}`} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate">{item.label}</div>
                       </div>
@@ -463,12 +500,14 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
             ))}
           </div>
 
-          {/* Quick Info Box */}
-          <div className="p-4 bg-surface rounded-2xl border border-border text-xs text-text-secondary space-y-1.5">
-            <div className="font-bold text-text-primary flex items-center gap-1.5">
-              <span>🇨🇭</span> Kinetic Craft KMU Edition
+            {/* Quick Info Box */}
+            <div className="p-4 bg-surface rounded-2xl border border-border text-xs text-text-secondary space-y-1.5">
+              <div className="font-bold text-text-primary flex items-center gap-1.5">
+                <IconSwissFlag className="w-4 h-4" />
+                <span>Kinetic Craft KMU Edition</span>
+              </div>
+              <p>Konfiguriert für Schweizer KMU & Handwerksbetriebe. QR-Rechnungen nach ISO 20022 Standard.</p>
             </div>
-            <p>Konfiguriert für Schweizer KMU & Handwerksbetriebe. QR-Rechnungen nach ISO 20022 Standard.</p>
           </div>
         </div>
 
@@ -720,8 +759,8 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
               <h3 className="text-xl font-bold text-text-primary">
                 {editingTemplate === 'new' ? 'Neue Vorlage erstellen' : 'Vorlage bearbeiten'}
               </h3>
-              <button onClick={() => setEditingTemplate(null)} className="p-2 text-text-secondary hover:text-text-primary rounded-lg transition-colors cursor-pointer">
-                ✕
+              <button onClick={() => setEditingTemplate(null)} className="p-2 text-text-secondary hover:text-text-primary rounded-lg transition-colors cursor-pointer" aria-label="Schliessen">
+                <IconClose className="w-4 h-4" />
               </button>
             </div>
             
@@ -772,7 +811,9 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
           <div className="bg-surface-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-fade-in-up">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-lg font-bold text-text-primary">Neues Mitglied einladen</h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-text-secondary hover:text-text-primary p-2">✕</button>
+              <button onClick={() => setShowInviteModal(false)} className="text-text-secondary hover:text-text-primary p-2 cursor-pointer" aria-label="Schliessen">
+                <IconClose className="w-5 h-5" />
+              </button>
             </div>
             
             <div className="p-6">
@@ -808,7 +849,9 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
                 </form>
               ) : (
                 <div className="text-center space-y-4">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">✓</div>
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <IconCheck className="w-6 h-6" />
+                  </div>
                   <h4 className="text-lg font-bold text-text-primary">Einladungslink generiert!</h4>
                   <p className="text-sm text-text-secondary">Kopiere diesen Link und schicke ihn an das neue Teammitglied.</p>
                   
@@ -825,9 +868,16 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
                         setCopiedLink(true)
                         setTimeout(() => setCopiedLink(false), 2500)
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-text-secondary hover:text-primary-600 cursor-pointer"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-gray-200 text-text-secondary hover:text-primary-600 cursor-pointer flex items-center gap-1.5"
                     >
-                      {copiedLink ? 'Kopiert! ✓' : 'Kopieren'}
+                      {copiedLink ? (
+                        <>
+                          <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Kopiert!</span>
+                        </>
+                      ) : (
+                        'Kopieren'
+                      )}
                     </button>
                   </div>
 
@@ -883,9 +933,19 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
             toast.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
             'bg-blue-50 text-blue-800 border-blue-200'
           }`}>
-            <span>{toast.type === 'success' ? '✓' : toast.type === 'error' ? '⚠️' : 'ℹ️'}</span>
+            <span className="shrink-0">
+              {toast.type === 'success' ? (
+                <IconCheck className="w-4 h-4 text-emerald-600" />
+              ) : toast.type === 'error' ? (
+                <IconWarning className="w-4 h-4 text-red-600" />
+              ) : (
+                <IconInfo className="w-4 h-4 text-blue-600" />
+              )}
+            </span>
             <span>{toast.text}</span>
-            <button type="button" onClick={() => setToast(null)} className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer">✕</button>
+            <button type="button" onClick={() => setToast(null)} className="ml-2 text-xs opacity-60 hover:opacity-100 cursor-pointer" aria-label="Schliessen">
+              <IconClose className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

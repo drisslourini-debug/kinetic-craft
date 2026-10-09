@@ -1,6 +1,7 @@
 import { SettingsBlock, SettingsRow, InputField, SelectField, TextAreaField } from '../ui/SettingsComponents'
 import AddressAutocomplete from '../AddressAutocomplete'
 import { formatDate } from '../../lib/formatters'
+import { IconLocation } from '../icons/BrandIcons'
 
 const PROJEKT_KATEGORIEN = [
   'Neubau',
@@ -34,25 +35,36 @@ export function ProjektStammdatenBlock({
       readOnlyView={
         <>
           <SettingsRow label="Projektname" value={projekt.name} />
-          <SettingsRow label="Kategorie" value={projekt.kategorie} />
-          <SettingsRow label="Baustellen-Adresse" value={projekt.adresse} />
+          <SettingsRow label="Kategorie" value={projekt.kategorie} hideIfEmpty />
+          <SettingsRow 
+            label="Adresse" 
+            value={projekt.adresse} 
+            href={projekt.adresse ? `https://maps.apple.com/?q=${encodeURIComponent(projekt.adresse)}` : undefined}
+            icon={<IconLocation className="w-3.5 h-3.5 text-slate-500" />}
+            hideIfEmpty 
+          />
           <SettingsRow label="Status" value={
-            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-              projekt.status === 'Abgeschlossen' ? 'bg-emerald-100 text-emerald-700' :
-              projekt.status === 'In Arbeit' ? 'bg-amber-100 text-amber-700' :
-              'bg-indigo-100 text-indigo-700'
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+              projekt.status === 'Abgeschlossen' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' :
+              projekt.status === 'In Arbeit' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
+              'bg-indigo-50 text-indigo-700 border-indigo-200/60'
             }`}>
               {projekt.status || 'Aktiv'}
             </span>
           } />
           {kunde && (
-            <SettingsRow label="Zugehöriger Kunde" value={
-              <div 
-                className="font-medium text-primary-600 hover:text-primary-800 cursor-pointer transition-colors flex items-center"
+            <SettingsRow label="Kunde" value={
+              <span 
+                className="font-semibold text-primary-600 hover:text-primary-800 cursor-pointer transition-colors"
                 onClick={() => onNavigate && onNavigate('kunden', { kundeId: kunde.id })}
               >
-                {kunde.name} {kunde.ort && <span className="text-text-secondary font-normal ml-2 text-xs bg-gray-100 px-2 py-0.5 rounded">📍 {kunde.ort}</span>}
-              </div>
+                {kunde.name} {kunde.ort && (
+                  <span className="text-text-muted font-normal text-xs ml-1 inline-flex items-center gap-0.5">
+                    <IconLocation className="w-3 h-3 text-slate-400" />
+                    <span>{kunde.ort}</span>
+                  </span>
+                )}
+              </span>
             } />
           )}
         </>
@@ -98,23 +110,21 @@ export function ProjektTermineBlock({
       disabled={disabled}
       readOnlyView={
         <>
-          <SettingsRow label="Startdatum" value={formatDate(projekt.startdatum)} />
-          <SettingsRow label="Enddatum" value={formatDate(projekt.enddatum)} />
+          <SettingsRow label="Startdatum" value={projekt.startdatum ? formatDate(projekt.startdatum) : null} hideIfEmpty />
+          <SettingsRow label="Enddatum" value={projekt.enddatum ? formatDate(projekt.enddatum) : null} hideIfEmpty />
           {termineCount !== undefined && (
             <SettingsRow 
               label="Einsätze & Termine" 
               value={
-                <div className="flex items-center justify-between w-full">
-                  <span className="font-semibold text-text-primary">
-                    {termineCount} {termineCount === 1 ? 'Termin erfasst' : 'Termine erfasst'}
-                  </span>
+                <div className="flex items-center gap-2 justify-end">
+                  <span>{termineCount} {termineCount === 1 ? 'Termin' : 'Termine'}</span>
                   {onOpenTermineTab && (
                     <button
                       type="button"
                       onClick={onOpenTermineTab}
                       className="text-xs font-bold text-primary-600 hover:text-primary-800 transition-colors cursor-pointer"
                     >
-                      Zur Terminübersicht →
+                      →
                     </button>
                   )}
                 </div>
@@ -151,7 +161,7 @@ export function ProjektNotizenBlock({
       isSaving={isSaving}
       disabled={disabled}
       readOnlyView={
-        <SettingsRow label="Notizen" value={projekt.notizen ? <span className="whitespace-pre-wrap">{projekt.notizen}</span> : ''} />
+        <SettingsRow label="Notizen" value={projekt.notizen ? <span className="whitespace-pre-wrap">{projekt.notizen}</span> : null} hideIfEmpty />
       }
     >
       <TextAreaField label="Notizen" value={draft.notizen} onChange={v => onChange('notizen', v)} placeholder="Zugangscodes, Materiallagerplatz, Besonderheiten zur Baustelle..." />

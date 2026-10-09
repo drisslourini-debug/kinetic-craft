@@ -1,5 +1,5 @@
 /**
- * AI Service for Atelier 77 / Kinetic Craft
+ * AI Service for Kinetic Craft CRM
  * Handles Receipt OCR (Gemini Vision) and Voice-to-Action (Gemini Audio)
  */
 

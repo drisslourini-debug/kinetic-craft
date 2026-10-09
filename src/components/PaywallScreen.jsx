@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { IconClock, IconMail } from './icons/BrandIcons'
 
 export default function PaywallScreen({ tenant }) {
   const [showContactModal, setShowContactModal] = useState(false)
@@ -19,8 +20,8 @@ export default function PaywallScreen({ tenant }) {
       <div className="max-w-md w-full bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border border-border/80 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-primary-500 to-amber-500" />
 
-        <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto text-4xl mb-6 shadow-sm border border-amber-100">
-          ⏳
+        <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-amber-100">
+          <IconClock className="w-10 h-10 text-amber-600" />
         </div>
         
         <h2 className="text-2xl font-bold text-text-primary mb-3 tracking-tight">
@@ -78,7 +79,7 @@ export default function PaywallScreen({ tenant }) {
             </p>
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <span className="text-xl">✉️</span>
+                <IconMail className="w-5 h-5 text-amber-600 shrink-0" />
                 <div>
                   <p className="text-xs text-text-secondary">E-Mail</p>
                   <a href="mailto:support@ki-netic.ch" className="font-semibold text-primary-600 hover:underline">
@@ -87,7 +88,7 @@ export default function PaywallScreen({ tenant }) {
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <span className="text-xl">⏱️</span>
+                <IconClock className="w-5 h-5 text-amber-600 shrink-0" />
                 <div>
                   <p className="text-xs text-text-secondary">Reaktionszeit</p>
                   <p className="font-semibold text-text-primary">In der Regel unter 2 Stunden</p>

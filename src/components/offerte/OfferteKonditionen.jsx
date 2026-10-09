@@ -1,3 +1,5 @@
+import { IconCalendar } from '../icons/BrandIcons'
+
 export default function OfferteKonditionen({
   daten,
   isEditing,
@@ -87,10 +89,11 @@ export default function OfferteKonditionen({
                 <button
                   type="button"
                   onClick={() => onNavigate('kalender', { date: gueltigBis })}
-                  className="text-[11px] text-primary-600 hover:text-primary-800 font-semibold cursor-pointer"
+                  className="text-[11px] text-primary-600 hover:text-primary-800 font-semibold cursor-pointer inline-flex items-center gap-1"
                   title="Gültigkeitsfrist im Kalender ansehen"
                 >
-                  📅 Kalender
+                  <IconCalendar className="w-3.5 h-3.5" />
+                  <span>Kalender</span>
                 </button>
               )}
             </div>

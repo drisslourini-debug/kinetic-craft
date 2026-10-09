@@ -177,4 +177,99 @@ describe('LandingPageView Component - Kinetic Craft', () => {
 
     expect(screen.queryByText(/Live Screenshot-Vorschau/i)).not.toBeInTheDocument()
   })
+
+  it('renders Gemini AI superpowers section and Swiss Treuhand/Banana Buchhaltung features', () => {
+    render(
+      <LandingPageView
+        onGoToLogin={vi.fn()}
+        onGoToRegistration={vi.fn()}
+      />
+    )
+
+    // Gemini AI Section
+    expect(screen.getByText(/Gemini 3\.8 Flash Inside/i)).toBeInTheDocument()
+    expect(screen.getByText(/Ihr digitaler Polier:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Belege & Quittungen scannen/i)).toBeInTheDocument()
+    expect(screen.getByText(/Baustellen-Sprachdiktat/i)).toBeInTheDocument()
+
+    // Schweizer Treuhand & Banana Buchhaltung
+    expect(screen.getByText(/Export für Banana Buchhaltung & Treuhänder nach OR 957ff\./i)).toBeInTheDocument()
+    expect(screen.getByText(/1109 Delkredere \(5% Pauschale\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/Netto-Forderungsbestand:/i)).toBeInTheDocument()
+  })
+
+  it('renders Baustellen-Cockpit with weather, Zefix, and live stopwatch', () => {
+    render(
+      <LandingPageView
+        onGoToLogin={vi.fn()}
+        onGoToRegistration={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/Das smarte Cockpit für Schweizer Baustellen/i)).toBeInTheDocument()
+    expect(screen.getByText(/Live Baustellen-Wetter/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Zefix-Handelsregister/i })).toBeInTheDocument()
+    expect(screen.getByText(/Live-Stoppuhr & Rapport/i)).toBeInTheDocument()
+    expect(screen.getByText(/Feiertage nach Kanton/i)).toBeInTheDocument()
+  })
+
+  it('switches workflow showcase tabs and updates displayed module', () => {
+    render(
+      <LandingPageView
+        onGoToLogin={vi.fn()}
+        onGoToRegistration={vi.fn()}
+      />
+    )
+
+    // Initially Tab 1 (Bento-Cockpit & Wetter) is active
+    expect(screen.getByText(/Das neue Bento-Dashboard mit Live-Wetter/i)).toBeInTheDocument()
+
+    // Click Tab 2: Gemini KI & Baustelle
+    const tab2Btn = screen.getByRole('button', { name: /2\. Gemini KI & Baustelle/i })
+    fireEvent.click(tab2Btn)
+
+    expect(screen.getByText(/KI-Belegscanner & Baustellen-Sprachdiktat/i)).toBeInTheDocument()
+    expect(screen.getByAltText(/Kinetic Craft KI Beleg Scanner/i)).toBeInTheDocument()
+
+    // Click Tab 3: CRM & Zefix
+    const tab3Btn = screen.getByRole('button', { name: /3\. CRM & Zefix-Handelsregister/i })
+    fireEvent.click(tab3Btn)
+
+    expect(screen.getByText(/Kundenkartei mit Zefix-Echtzeitprüfung/i)).toBeInTheDocument()
+
+    // Click Tab 4: QR-Bill & Banana
+    const tab4Btn = screen.getByRole('button', { name: /4\. QR-Bill & Banana-Treuhand/i })
+    fireEvent.click(tab4Btn)
+
+    expect(screen.getByText(/Schweizer QR-Rechnung & Banana-Export/i)).toBeInTheDocument()
+  })
+
+  it('interactively calculates time and cost savings with ROI slider and triggers CTA', () => {
+    const onGoToRegistration = vi.fn()
+    render(
+      <LandingPageView
+        onGoToLogin={vi.fn()}
+        onGoToRegistration={onGoToRegistration}
+      />
+    )
+
+    expect(screen.getByText(/Wie viel Bürozeit & Geld sparen Sie pro Monat\?/i)).toBeInTheDocument()
+    
+    // Check initial calculated values (calcDocCount=25, calcTeamSize=3 -> 25*0.6 + 3*1.5 = 15 + 4.5 = 19.5 -> ~20 Std. -> CHF 1'658 oder ~20 Std)
+    expect(screen.getByText(/Ihre monatliche Bürozeit-Ersparnis/i)).toBeInTheDocument()
+    expect(screen.getByText(/Monatlicher Wertzuwachs \/ Ersparnis/i)).toBeInTheDocument()
+
+    // Find sliders and adjust team size
+    const sliders = screen.getAllByRole('slider')
+    expect(sliders.length).toBe(2)
+
+    // Increase team size from 3 to 10
+    fireEvent.change(sliders[0], { target: { value: '10' } })
+    expect(screen.getByText(/10 Personen/i)).toBeInTheDocument()
+
+    // Click calculator CTA button
+    const calcCta = screen.getByRole('button', { name: /sparen & 14 Tage testen/i })
+    fireEvent.click(calcCta)
+    expect(onGoToRegistration).toHaveBeenCalled()
+  })
 })

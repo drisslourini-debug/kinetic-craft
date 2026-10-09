@@ -24,7 +24,8 @@ vi.mock('../../lib/supabase', () => ({
 vi.mock('../../lib/formatters', () => ({
   formatMoney: (val) => Number(val || 0).toFixed(2),
   formatCurrency: (val) => `CHF ${Number(val || 0).toFixed(2)}`,
-  formatDate: (val) => val
+  formatDate: (val) => val,
+  formatDateLong: (val) => val
 }))
 
 const mockOfferte = {
@@ -113,5 +114,79 @@ describe('OfferteDetailView Calendar Integration', () => {
     await waitFor(() => {
       expect(screen.getByText(/Neuer Termin erfassen/i)).toBeInTheDocument()
     })
+  })
+
+  it('renders responsive mobile header with status select and action buttons', async () => {
+    render(<OfferteDetailView offerte={mockOfferte} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lade Daten.../i)).not.toBeInTheDocument()
+    })
+
+    // Status select is visible and not hidden
+    const statusSelect = screen.getByRole('combobox')
+    expect(statusSelect).toBeInTheDocument()
+    expect(statusSelect.value).toBe('Entwurf')
+
+    // Edit button is rendered
+    expect(screen.getByRole('button', { name: /Bearbeiten/i })).toBeInTheDocument()
+
+    // Voice dictation button is rendered
+    expect(screen.getByRole('button', { name: /Sprach-Diktat \(KI\)/i })).toBeInTheDocument()
+
+    // PDF button is rendered
+    expect(screen.getByRole('button', { name: /PDF anzeigen/i })).toBeInTheDocument()
+  })
+
+  it('activates edit mode with scrollable action toolbar and sticky bottom bar showing live total', async () => {
+    render(<OfferteDetailView offerte={mockOfferte} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lade Daten.../i)).not.toBeInTheDocument()
+    })
+
+    const bearbeitenBtn = screen.getByRole('button', { name: /Bearbeiten/i })
+    fireEvent.click(bearbeitenBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Live-Total:/i)).toBeInTheDocument()
+    })
+
+    // Action buttons in edit mode
+    expect(screen.getByRole('button', { name: /^Position$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Katalog/i })).toBeInTheDocument()
+
+    // Sticky bottom bar
+    expect(screen.getByRole('button', { name: /Änderungen speichern/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Abbrechen/i })).toBeInTheDocument()
+  })
+
+  it('renders mobile tab switcher in edit mode and allows switching between Bearbeiten and A4-Vorschau', async () => {
+    render(<OfferteDetailView offerte={mockOfferte} onBack={vi.fn()} onNavigate={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Lade Daten.../i)).not.toBeInTheDocument()
+    })
+
+    const bearbeitenBtn = screen.getByRole('button', { name: /Bearbeiten/i })
+    fireEvent.click(bearbeitenBtn)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /A4-Vorschau/i })).toBeInTheDocument()
+    })
+
+    const a4TabBtn = screen.getByRole('button', { name: /A4-Vorschau/i })
+    fireEvent.click(a4TabBtn)
+
+    // A4 preview zoom controls are active
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Ganze Seite/i })).toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('button', { name: /100%/i }).length).toBeGreaterThan(0)
+
+    // Can switch back to edit form
+    const editTabBtn = screen.getByRole('button', { name: /Bearbeiten/i })
+    fireEvent.click(editTabBtn)
+    expect(screen.getByText(/Live-Total:/i)).toBeInTheDocument()
   })
 })

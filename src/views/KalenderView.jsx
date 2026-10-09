@@ -11,6 +11,25 @@ import {
 import TerminModal from '../components/kalender/TerminModal';
 import TerminDetailModal from '../components/kalender/TerminDetailModal';
 import KalenderSyncModal from '../components/kalender/KalenderSyncModal';
+import {
+  IconCalendar,
+  IconClock,
+  IconBuilding,
+  IconTeam,
+  IconLocation,
+  IconMapsRoute,
+  IconPhone,
+  IconCheck,
+  IconRefresh,
+  IconDocument,
+  IconWarning,
+  IconMoney,
+  IconClose,
+  IconSearch,
+  IconSettings,
+  IconCoffee,
+  TerminTypIcon
+} from '../components/icons/BrandIcons';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const MONTH_NAMES = [
@@ -18,12 +37,26 @@ const MONTH_NAMES = [
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
 ];
 
+function formatLocalYMD(d) {
+  if (!d || isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function KalenderView({ onNavigate, viewParams, userRole, globalSettings }) {
   // Navigation & Date State
   const [currentDate, setCurrentDate] = useState(() => {
     if (viewParams?.date) return new Date(viewParams.date);
     return new Date();
   });
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (viewParams?.date) return new Date(viewParams.date);
+    return new Date();
+  });
+  const [mobileWeekOnly, setMobileWeekOnly] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [activeViewMode, setActiveViewMode] = useState('monat'); // 'monat', 'woche', 'agenda'
 
   // Data State
@@ -33,9 +66,10 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   const [rechnungen, setRechnungen] = useState([]);
   const [offerten, setOfferten] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [firmenname, setFirmenname] = useState('Atelier 77');
+  const [firmenname, setFirmenname] = useState('Muster Malerei Bern AG');
   const [isLoading, setIsLoading] = useState(true);
   const [schemaWarning, setSchemaWarning] = useState(false);
+  const [isWarningDismissed, setIsWarningDismissed] = useState(false);
 
   // Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,13 +101,22 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       setIsLoading(true);
 
       // 1. Settings (Firmenname & Kanton für Feiertage)
+      let kanton = 'BE';
+      try {
+        const local = localStorage.getItem('atelier77_einstellungen_v2');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed.kanton) kanton = parsed.kanton;
+        }
+      } catch (e) {}
+
       const { data: settingsData } = await supabase
         .from('einstellungen')
-        .select('firmenname, kanton')
+        .select('*')
         .limit(1)
         .maybeSingle();
 
-      const kanton = settingsData?.kanton || 'ZH';
+      if (settingsData?.kanton) kanton = settingsData.kanton;
       if (settingsData?.firmenname) setFirmenname(settingsData.firmenname);
 
       // 2. Holidays
@@ -87,7 +130,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       // 3. Kunden
       const { data: kundenData } = await supabase
         .from('kunden')
-        .select('id, name, ort')
+        .select('id, name, ort, telefon')
         .order('name');
       if (kundenData) setKunden(kundenData);
 
@@ -103,11 +146,11 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       try {
         const { data: termineData, error: tError } = await supabase
           .from('termine')
-          .select('*, projekte(id, name, adresse, status), kunden(id, name, ort)')
+          .select('*, projekte(id, name, adresse, status), kunden(id, name, ort, telefon)')
           .order('datum', { ascending: true });
 
         if (tError) {
-          if (tError.message?.includes('does not exist') || tError.message?.includes('schema cache')) {
+          if (tError.code === '42P01' || (tError.message?.includes('termine') && (tError.message?.includes('does not exist') || tError.message?.includes('schema cache')))) {
             setSchemaWarning(true);
           } else {
             console.error('Error fetching termine:', tError);
@@ -223,13 +266,23 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   };
 
   // Quick navigation
+  const handleSelectDay = (dateObj) => {
+    setSelectedDate(dateObj);
+    if (dateObj.getMonth() !== month || dateObj.getFullYear() !== year) {
+      setCurrentDate(new Date(dateObj.getFullYear(), dateObj.getMonth(), 1));
+    }
+  };
+
   const handlePrev = () => {
     if (activeViewMode === 'woche') {
       const d = new Date(currentDate);
       d.setDate(d.getDate() - 7);
       setCurrentDate(d);
+      setSelectedDate(d);
     } else {
-      setCurrentDate(new Date(year, month - 1, 1));
+      const prev = new Date(year, month - 1, 1);
+      setCurrentDate(prev);
+      setSelectedDate(prev);
     }
   };
 
@@ -238,13 +291,18 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       const d = new Date(currentDate);
       d.setDate(d.getDate() + 7);
       setCurrentDate(d);
+      setSelectedDate(d);
     } else {
-      setCurrentDate(new Date(year, month + 1, 1));
+      const next = new Date(year, month + 1, 1);
+      setCurrentDate(next);
+      setSelectedDate(next);
     }
   };
 
   const handleToday = () => {
-    setCurrentDate(new Date());
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDate(now);
   };
 
   // Compile all combined calendar events
@@ -287,7 +345,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         list.push({
           id: `proj-${p.id}`,
           originalId: p.id,
-          titel: `🏗️ ${p.name}`,
+          titel: p.name || 'Projekt',
           datum: p.startdatum,
           end_datum: p.enddatum || p.startdatum,
           typ: 'Projekt',
@@ -312,7 +370,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         list.push({
           id: `rech-${r.id}`,
           originalId: r.id,
-          titel: `💰 Rechnung ${r.rechnung_nr || `#${r.id}`} (${formatCurrency(r.total)})`,
+          titel: `Rechnung ${r.rechnung_nr || `#${r.id}`} (${formatCurrency(r.total)})`,
           datum: dueDate,
           end_datum: dueDate,
           typ: 'Frist',
@@ -333,7 +391,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         list.push({
           id: `off-${o.id}`,
           originalId: o.id,
-          titel: `📄 Offerte ${o.kunden?.name || ''} läuft ab`,
+          titel: `Offerte ${o.kunden?.name || ''} läuft ab`,
           datum: expiryDate,
           end_datum: expiryDate,
           typ: 'Frist',
@@ -469,7 +527,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                       ${chipClass}
                     `}
                   >
-                    <span className="shrink-0 text-[10px]">{typConf.icon || '📌'}</span>
+                    <TerminTypIcon typ={ev.typ} className="w-3 h-3 shrink-0" />
                     {!ev.isAllDay && ev.startzeit && (
                       <span className="opacity-75 font-mono text-[10px]">{ev.startzeit}</span>
                     )}
@@ -662,7 +720,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
     if (sorted.length === 0) {
       return (
         <div className="bg-surface-card border border-border rounded-2xl p-12 text-center">
-          <span className="text-4xl block mb-3">📅</span>
+          <IconCalendar className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
           <h3 className="text-base font-bold text-text-primary mb-1">Keine Termine gefunden</h3>
           <p className="text-xs text-text-secondary max-w-sm mx-auto mb-4">
             Für die gewählten Filter oder den aktuellen Zeitraum sind keine Termine vorhanden.
@@ -733,7 +791,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 ${typConf.badgeClass}`}>
-                          {typConf.icon}
+                          <TerminTypIcon typ={ev.typ} className="w-4 h-4" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
@@ -749,22 +807,26 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                           </div>
 
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary mt-1">
-                            <span>
-                              ⏰ {ev.isAllDay ? 'Ganztägig' : `${ev.startzeit || '08:00'} – ${ev.endzeit || '12:00'} Uhr`}
+                            <span className="flex items-center gap-1">
+                              <IconClock className="w-3.5 h-3.5" />
+                              <span>{ev.isAllDay ? 'Ganztägig' : `${ev.startzeit || '08:00'} – ${ev.endzeit || '12:00'} Uhr`}</span>
                             </span>
                             {ev.projekte?.name && (
-                              <span className="text-indigo-600 font-medium">
-                                🏗️ {ev.projekte.name}
+                              <span className="text-indigo-600 font-medium flex items-center gap-1">
+                                <IconBuilding className="w-3.5 h-3.5" />
+                                <span>{ev.projekte.name}</span>
                               </span>
                             )}
                             {ev.kunden?.name && (
-                              <span>
-                                👥 {ev.kunden.name}
+                              <span className="flex items-center gap-1">
+                                <IconTeam className="w-3.5 h-3.5" />
+                                <span>{ev.kunden.name}</span>
                               </span>
                             )}
                             {ev.ort && (
-                              <span>
-                                📍 {ev.ort}
+                              <span className="flex items-center gap-1">
+                                <IconLocation className="w-3.5 h-3.5" />
+                                <span>{ev.ort}</span>
                               </span>
                             )}
                           </div>
@@ -793,36 +855,363 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
     );
   };
 
+  const activeFilterCount = (filterTyp !== 'ALL' ? 1 : 0) +
+    (filterStatus !== 'ALL' ? 1 : 0) +
+    (!showProjekte ? 1 : 0) +
+    (!showFristen ? 1 : 0) +
+    (hideCompleted ? 1 : 0) +
+    (searchTerm.trim() ? 1 : 0);
+
+  // 4. Mobile Calendar View (Compact month / week strip + selected day agenda)
+  const renderMobileCalendarView = () => {
+    const selectedDateStr = formatLocalYMD(selectedDate);
+    const todayStr = formatLocalYMD(new Date());
+
+    let calendarDays = [];
+
+    if (mobileWeekOnly) {
+      // 7 days of the selected week (Monday to Sunday)
+      const currentSelected = new Date(selectedDate);
+      const selDayOfWeek = currentSelected.getDay();
+      const distToMonday = selDayOfWeek === 0 ? -6 : 1 - selDayOfWeek;
+      const weekMonday = new Date(currentSelected);
+      weekMonday.setDate(currentSelected.getDate() + distToMonday);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekMonday);
+        d.setDate(weekMonday.getDate() + i);
+        calendarDays.push({
+          dateObj: d,
+          dateStr: formatLocalYMD(d),
+          dayNum: d.getDate(),
+          isCurrentMonth: d.getMonth() === month,
+          isWeekend: d.getDay() === 0 || d.getDay() === 6
+        });
+      }
+    } else {
+      // Full Month with padding
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      let firstDayIndex = new Date(year, month, 1).getDay();
+      firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Mon = 0, Sun = 6
+
+      const prevMonthDays = new Date(year, month, 0).getDate();
+      for (let i = firstDayIndex - 1; i >= 0; i--) {
+        const dayNum = prevMonthDays - i;
+        const d = new Date(year, month - 1, dayNum);
+        calendarDays.push({
+          dateObj: d,
+          dateStr: formatLocalYMD(d),
+          dayNum,
+          isCurrentMonth: false,
+          isWeekend: d.getDay() === 0 || d.getDay() === 6
+        });
+      }
+
+      for (let i = 1; i <= daysInMonth; i++) {
+        const d = new Date(year, month, i);
+        calendarDays.push({
+          dateObj: d,
+          dateStr: formatLocalYMD(d),
+          dayNum: i,
+          isCurrentMonth: true,
+          isWeekend: d.getDay() === 0 || d.getDay() === 6
+        });
+      }
+    }
+
+    // Events for selected day
+    const selectedDayEvents = allEvents.filter(e => {
+      if (e.datum === selectedDateStr) return true;
+      if (e.end_datum && e.end_datum >= selectedDateStr && e.datum <= selectedDateStr) return true;
+      return false;
+    });
+
+    return (
+      <div className="space-y-3">
+        {/* Calendar Card */}
+        <div className="bg-surface-card border border-border rounded-2xl p-3 shadow-xs">
+          {/* Weekday labels */}
+          <div className="grid grid-cols-7 gap-1 mb-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+            {WEEKDAYS.map(day => (
+              <div key={day} className="py-0.5">{day}</div>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((dItem, idx) => {
+              const isSelected = dItem.dateStr === selectedDateStr;
+              const isToday = dItem.dateStr === todayStr;
+              const isHoliday = holidays.find(h => h.date === dItem.dateStr);
+
+              // Gather events for dots
+              const dEvents = allEvents.filter(e => {
+                if (e.datum === dItem.dateStr) return true;
+                if (e.end_datum && e.end_datum >= dItem.dateStr && e.datum <= dItem.dateStr) return true;
+                return false;
+              });
+
+              const hasTermin = dEvents.some(e => e.category === 'termin');
+              const hasProjekt = dEvents.some(e => e.category === 'projekt');
+              const hasFrist = dEvents.some(e => e.category === 'rechnung' || e.category === 'offerte');
+
+              return (
+                <button
+                  key={`${dItem.dateStr}-${idx}`}
+                  type="button"
+                  onClick={() => handleSelectDay(dItem.dateObj)}
+                  className={`py-1.5 px-0.5 flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer relative min-h-[44px] ${
+                    isSelected
+                      ? 'bg-primary-600 text-white font-bold shadow-xs'
+                      : isToday
+                      ? 'bg-primary-50 text-primary-700 font-bold border border-primary-300'
+                      : dItem.isCurrentMonth
+                      ? 'text-text-primary hover:bg-neutral-100 active:bg-neutral-200'
+                      : 'text-gray-300 hover:bg-neutral-50'
+                  }`}
+                >
+                  <span className="text-xs leading-none">{dItem.dayNum}</span>
+
+                  {/* Event Dots */}
+                  <div className="flex items-center gap-0.5 mt-1 h-1.5">
+                    {hasTermin && (
+                      <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-primary-500'}`} />
+                    )}
+                    {hasProjekt && (
+                      <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`} />
+                    )}
+                    {hasFrist && (
+                      <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-amber-500'}`} />
+                    )}
+                    {isHoliday && (
+                      <span className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-rose-500'}`} />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Toggle Week vs Month */}
+          <div className="pt-2 mt-1 border-t border-border/50 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setMobileWeekOnly(!mobileWeekOnly)}
+              className="text-[11px] font-semibold text-text-secondary hover:text-text-primary px-3 py-1 rounded-md hover:bg-neutral-100 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <span>{mobileWeekOnly ? '▼ Ganzen Monat anzeigen' : '▲ Auf 1 Woche minimieren'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Selected Day Agenda */}
+        <div className="bg-surface-card border border-border rounded-2xl p-3.5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2.5 border-b border-border">
+            <div>
+              <h3 className="font-bold text-sm text-text-primary flex items-center gap-1.5">
+                <span>{selectedDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                {selectedDateStr === todayStr && (
+                  <span className="text-[10px] font-bold bg-primary-100 text-primary-700 px-1.5 py-0.2 rounded-full">
+                    Heute
+                  </span>
+                )}
+              </h3>
+              <p className="text-[11px] text-text-secondary">
+                {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'Ereignis' : 'Ereignisse'}
+              </p>
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => handleEmptyDayClick(selectedDateStr)}
+              className="text-xs font-bold text-primary-700 bg-primary-50 hover:bg-primary-100 px-2.5 py-1.5 rounded-xl border border-primary-200 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <span>+</span>
+              <span>Termin</span>
+            </button>
+          </div>
+
+          {/* Event Cards */}
+          {selectedDayEvents.length === 0 ? (
+            <div className="py-6 px-4 text-center">
+              <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <IconCoffee className="w-5 h-5 text-neutral-500" />
+              </div>
+              <p className="font-semibold text-sm text-text-primary">Keine Termine geplant</p>
+              <p className="text-xs text-text-secondary mt-0.5 mb-3">
+                Für diesen Tag stehen keine Einsätze oder Fristen an.
+              </p>
+              <button
+                type="button"
+                onClick={() => handleEmptyDayClick(selectedDateStr)}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                + Termin für diesen Tag erfassen
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedDayEvents.map((ev, idx) => {
+                const typConf = getTerminTypConfig(ev.typ);
+                const statusConf = getTerminStatusConfig(ev.status);
+                const customerPhone = ev.kunden?.telefon || ev.kunden?.mobile;
+                const locationQuery = ev.ort ? encodeURIComponent(ev.ort) : '';
+
+                return (
+                  <div
+                    key={ev.id || idx}
+                    onClick={() => handleEventClick(ev)}
+                    className="p-3 bg-white border border-border rounded-xl shadow-xs active:bg-neutral-50 transition-all flex flex-col gap-2 cursor-pointer"
+                  >
+                    {/* Time & Badges */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
+                        <span className="font-bold text-text-primary font-mono text-[11px]">
+                          {ev.isAllDay ? 'Ganztägig' : `${ev.startzeit || '08:00'} – ${ev.endzeit || '12:00'}`}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-neutral-100 text-text-secondary flex items-center gap-1">
+                          <TerminTypIcon typ={ev.typ} className="w-3 h-3 shrink-0" />
+                          <span>{typConf.label}</span>
+                        </span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusConf.badgeClass}`}>
+                        {ev.status || 'Geplant'}
+                      </span>
+                    </div>
+
+                    {/* Title & Info */}
+                    <div>
+                      <h4 className="font-bold text-sm text-text-primary leading-snug">
+                        {ev.titel}
+                      </h4>
+                      {(ev.projekte?.name || ev.kunden?.name) && (
+                        <div className="flex items-center gap-2 text-xs text-text-secondary mt-1 flex-wrap">
+                          {ev.projekte?.name && (
+                            <span className="font-medium text-indigo-700 flex items-center gap-1">
+                              <IconBuilding className="w-3.5 h-3.5" />
+                              <span>{ev.projekte.name}</span>
+                            </span>
+                          )}
+                          {ev.kunden?.name && (
+                            <span className="flex items-center gap-1">
+                              <IconTeam className="w-3.5 h-3.5" />
+                              <span>{ev.kunden.name}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {ev.ort && (
+                        <p className="text-xs text-text-secondary mt-0.5 flex items-center gap-1">
+                          <IconLocation className="w-3.5 h-3.5 text-text-secondary" />
+                          <span className="truncate">{ev.ort}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs" onClick={e => e.stopPropagation()}>
+                      {locationQuery && (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${locationQuery}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-text-primary font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                        >
+                          <IconMapsRoute className="w-3.5 h-3.5" />
+                          <span>Route</span>
+                        </a>
+                      )}
+                      {customerPhone && (
+                        <a
+                          href={`tel:${customerPhone}`}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                        >
+                          <IconPhone className="w-3.5 h-3.5" />
+                          <span>Anrufen</span>
+                        </a>
+                      )}
+                      {ev.category === 'termin' && (
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(ev.id, ev.status === 'Erledigt' ? 'Geplant' : 'Erledigt')}
+                          className={`ml-auto px-2.5 py-1.5 rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer ${
+                            ev.status === 'Erledigt'
+                              ? 'bg-neutral-100 text-text-secondary'
+                              : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100'
+                          }`}
+                        >
+                          {ev.status === 'Erledigt' ? (
+                            <span className="flex items-center gap-1">
+                              <IconRefresh className="w-3 h-3" />
+                              Reaktivieren
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <IconCheck className="w-3 h-3" />
+                              Erledigt
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto space-y-4 sm:space-y-6">
       {/* Toast Notification */}
       {feedbackToast && (
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl shadow-xl border text-sm font-semibold animate-fade-in flex items-center gap-2 ${
           feedbackToast.type === 'info' ? 'bg-indigo-900 text-white border-indigo-700' : 'bg-emerald-900 text-white border-emerald-700'
         }`}>
-          <span>{feedbackToast.type === 'info' ? 'ℹ️' : '✓'}</span>
+          <span>
+            {feedbackToast.type === 'info' ? (
+              <IconDocument className="w-4 h-4 text-indigo-200" />
+            ) : (
+              <IconCheck className="w-4 h-4 text-emerald-300" />
+            )}
+          </span>
           {feedbackToast.text}
         </div>
       )}
 
       {/* Schema Warning Notice */}
-      {schemaWarning && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-800 text-xs">
-          <span className="text-lg">⚠️</span>
-          <div className="space-y-1">
-            <strong className="block font-bold">Hinweis zur Datenbanktabelle:</strong>
-            <p>
-              Die Tabelle <code>termine</code> wurde noch nicht im Supabase-Projekt ausgeführt. Bitte führe einmalig das Skript <code>supabase_termine_schema.sql</code> im Supabase SQL Editor aus, um neue Termine permanent zu speichern. Projekt- und Rechnungsdaten werden bereits voll angezeigt.
-            </p>
+      {schemaWarning && !isWarningDismissed && (
+        <div className="p-3.5 sm:p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start justify-between gap-3 text-amber-800 text-xs shadow-xs">
+          <div className="flex items-start gap-2.5">
+            <IconWarning className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="block font-bold">Hinweis zur Datenbanktabelle:</strong>
+              <p className="leading-relaxed">
+                Die Tabelle <code>termine</code> wurde noch nicht im Supabase-Projekt ausgeführt. Bitte führe einmalig das Skript <code>supabase_termine_schema.sql</code> im Supabase SQL Editor aus, um neue Termine permanent zu speichern. Projekt- und Rechnungsdaten werden bereits voll angezeigt.
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsWarningDismissed(true)}
+            className="p-1 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer shrink-0"
+            title="Hinweis ausblenden"
+          >
+            <IconClose className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
-      {/* Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Desktop Header Bar */}
+      <div className="hidden md:flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary flex items-center gap-2">
-            📅 Kalender & Termine
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-primary flex items-center gap-2.5">
+            <IconCalendar className="w-7 h-7 text-primary-600 shrink-0" />
+            <span>Kalender & Termine</span>
           </h1>
           <p className="text-xs sm:text-sm text-text-secondary mt-1">
             Einsatzplanung, Montagen, Besichtigungen und Projektlaufzeiten
@@ -864,14 +1253,15 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
             onClick={() => setIsSyncModalOpen(true)}
             className="px-3 py-2 bg-surface-card hover:bg-gray-50 text-text-primary border border-border rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
           >
-            <span>🔄</span> Sync & Export
+            <IconRefresh className="w-4 h-4" />
+            <span>Sync & Export</span>
           </button>
 
           {/* Create Button */}
           <button
             onClick={() => {
               setCreateModalInitial({
-                datum: new Date().toISOString().split('T')[0]
+                datum: formatLocalYMD(selectedDate)
               });
               setIsCreateModalOpen(true);
             }}
@@ -882,8 +1272,8 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         </div>
       </div>
 
-      {/* Date Navigation & Controls */}
-      <div className="bg-surface-card border border-border rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      {/* Desktop Date Navigation & Controls */}
+      <div className="hidden md:flex bg-surface-card border border-border rounded-2xl p-4 shadow-xs flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <button
@@ -932,7 +1322,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
           >
             <option value="ALL">Alle Kategorien</option>
             {TERMIN_TYPEN.map(t => (
-              <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+              <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
 
@@ -951,30 +1341,106 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
           {/* Toggles */}
           <button
             onClick={() => setShowProjekte(prev => !prev)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1.5 ${
               showProjekte ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-surface border-border text-text-secondary'
             }`}
           >
-            🏗️ Projekte
+            <IconBuilding className="w-3.5 h-3.5" />
+            <span>Projekte</span>
           </button>
 
           <button
             onClick={() => setShowFristen(prev => !prev)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1.5 ${
               showFristen ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-surface border-border text-text-secondary'
             }`}
           >
-            💰 Fristen
+            <IconMoney className="w-3.5 h-3.5" />
+            <span>Fristen</span>
           </button>
 
           <button
             onClick={() => setHideCompleted(prev => !prev)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1.5 ${
               hideCompleted ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-surface border-border text-text-secondary'
             }`}
           >
-            ✓ Erledigte ausblenden
+            <IconCheck className="w-3.5 h-3.5" />
+            <span>Erledigte ausblenden</span>
           </button>
+        </div>
+      </div>
+
+      {/* Mobile Top Bar (Clean, no empty spaces, direct action) */}
+      <div className="md:hidden space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Month Navigator */}
+          <div className="flex items-center gap-1 bg-surface-card border border-border rounded-xl p-1 shadow-xs">
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+              title="Vorheriger Monat"
+            >
+              ◀
+            </button>
+            <span className="font-bold text-xs text-text-primary px-1 whitespace-nowrap">
+              {MONTH_NAMES[month]} {year}
+            </span>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+              title="Nächster Monat"
+            >
+              ▶
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Heute Quick Button */}
+            <button
+              type="button"
+              onClick={handleToday}
+              className="px-2.5 py-1.5 bg-white border border-border text-xs font-semibold text-text-primary hover:bg-neutral-50 rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              Heute
+            </button>
+
+            {/* Filter Toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileFilterOpen(true)}
+              className={`px-2.5 py-1.5 border rounded-xl text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors cursor-pointer ${
+                activeFilterCount > 0
+                  ? 'bg-primary-50 border-primary-300 text-primary-800'
+                  : 'bg-white border-border text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <IconSearch className="w-3.5 h-3.5" />
+              <span>Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
+            {/* + Neuer Termin */}
+            <button
+              type="button"
+              onClick={() => {
+                setCreateModalInitial({
+                  datum: formatLocalYMD(selectedDate)
+                });
+                setIsCreateModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white text-xs font-bold rounded-xl shadow-sm shadow-primary-600/20 transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-normal">+</span>
+              <span>Termin</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -986,10 +1452,168 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         </div>
       ) : (
         <>
-          {activeViewMode === 'monat' && renderMonthView()}
-          {activeViewMode === 'woche' && renderWeekView()}
-          {activeViewMode === 'agenda' && renderAgendaView()}
+          {/* Mobile Calendar + Day Agenda */}
+          <div className="md:hidden">
+            {renderMobileCalendarView()}
+          </div>
+
+          {/* Desktop Full Views */}
+          <div className="hidden md:block">
+            {activeViewMode === 'monat' && renderMonthView()}
+            {activeViewMode === 'woche' && renderWeekView()}
+            {activeViewMode === 'agenda' && renderAgendaView()}
+          </div>
         </>
+      )}
+
+      {/* Mobile Filter Bottom Sheet / Modal */}
+      {mobileFilterOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center animate-fade-in">
+          <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity" 
+            onClick={() => setMobileFilterOpen(false)} 
+          />
+          <div className="relative w-full max-w-md bg-white rounded-t-2xl shadow-2xl border border-border z-10 flex flex-col max-h-[85vh] overflow-hidden animate-slide-in-up">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-border flex items-center justify-between bg-surface rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <IconSettings className="w-4 h-4 text-text-primary" />
+                <h3 className="font-bold text-base text-text-primary">Kalender-Filter</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(false)}
+                className="w-8 h-8 flex items-center justify-center text-text-secondary hover:text-text-primary bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors cursor-pointer"
+                title="Schliessen"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* Filter Body */}
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {/* Search */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-text-secondary mb-1">
+                  Suchbegriff
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Termin, Projekt, Ort suchen..."
+                  className="w-full px-3 py-2 bg-neutral-50 border border-border rounded-xl text-sm text-text-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                />
+              </div>
+
+              {/* Typ */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-text-secondary mb-1">
+                  Kategorie / Typ
+                </label>
+                <select
+                  value={filterTyp}
+                  onChange={e => setFilterTyp(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50 border border-border rounded-xl text-sm text-text-primary"
+                >
+                  <option value="ALL">Alle Kategorien</option>
+                  {TERMIN_TYPEN.map(t => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-text-secondary mb-1">
+                  Status
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={e => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 bg-neutral-50 border border-border rounded-xl text-sm text-text-primary"
+                >
+                  <option value="ALL">Alle Status</option>
+                  {TERMIN_STATUSSE.map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Toggles */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-text-secondary mb-1.5">
+                  Ebenen & Fristen
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-border cursor-pointer">
+                    <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                      <IconBuilding className="w-3.5 h-3.5 text-indigo-700" />
+                      <span>Projekte anzeigen</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={showProjekte}
+                      onChange={e => setShowProjekte(e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded border-border focus:ring-primary-500 accent-primary-600"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-border cursor-pointer">
+                    <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                      <IconMoney className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Fristen (Rechnungen & Offerten)</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={showFristen}
+                      onChange={e => setShowFristen(e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded border-border focus:ring-primary-500 accent-primary-600"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-border cursor-pointer">
+                    <span className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                      <IconCheck className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Erledigte ausblenden</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={hideCompleted}
+                      onChange={e => setHideCompleted(e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded border-border focus:ring-primary-500 accent-primary-600"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-border flex items-center justify-between gap-2 bg-neutral-50">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterTyp('ALL');
+                  setFilterStatus('ALL');
+                  setShowProjekte(true);
+                  setShowFristen(true);
+                  setHideCompleted(false);
+                }}
+                className="px-3.5 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                Zurücksetzen
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(false)}
+                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Fertig {activeFilterCount > 0 ? `(${activeFilterCount} aktiv)` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Create / Edit Modal */}

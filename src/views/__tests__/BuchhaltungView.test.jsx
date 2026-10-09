@@ -99,10 +99,11 @@ describe('BuchhaltungView', () => {
     render(<BuchhaltungView onNavigate={vi.fn()} userRole="admin" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Buchhaltung & Steuern \(OR 957 ff\.\)/i)).toBeInTheDocument()
-      expect(screen.getByText(/Ausgaben & Belege/i)).toBeInTheDocument()
-      expect(screen.getByText(/Offene Posten \(OP-Liste\)/i)).toBeInTheDocument()
-      expect(screen.getByText(/ESTV MWST \(Formular 200\)/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /Buchhaltung & Steuern/i })).toBeInTheDocument()
+      expect(screen.getAllByText(/OR 957 ff\./i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText(/Ausgaben & Belege/i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText(/Offene Posten \(OP-Liste\)/i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText(/ESTV MWST \(Formular 200\)/i).length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -111,16 +112,16 @@ describe('BuchhaltungView', () => {
 
     // Wait for initial data load
     await waitFor(() => {
-      expect(screen.getByText('CHF 1000.00')).toBeInTheDocument()
+      expect(screen.getAllByText('CHF 1000.00').length).toBeGreaterThanOrEqual(1)
     })
 
     const opTab = screen.getByTestId('tab-op-liste')
     fireEvent.click(opTab)
 
     await waitFor(() => {
-      expect(screen.getByText(/Delkredere 5%/i)).toBeInTheDocument()
+      expect(screen.getAllByText(/Delkredere 5%/i).length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText(/Stichtags-Debitorenspiegel/i)).toBeInTheDocument()
-      expect(screen.getByText('RE-2026-001')).toBeInTheDocument()
+      expect(screen.getAllByText('RE-2026-001').length).toBeGreaterThanOrEqual(1)
       expect(screen.getAllByText('CHF 600.00').length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -142,6 +143,52 @@ describe('BuchhaltungView', () => {
       expect(screen.getByText('382')).toBeInTheDocument()
       expect(screen.getByText('400')).toBeInTheDocument()
       expect(screen.getByText('500')).toBeInTheDocument()
+      // Mobile Kennziffern cards
+      expect(screen.getAllByText(/Ziff\. 200/i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText(/Ziff\. 500/i).length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('renders mobile top bar with scan button and toggles export menu', async () => {
+    render(<BuchhaltungView onNavigate={vi.fn()} userRole="admin" />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Beleg scannen/i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByTitle('Exporte & Treuhand')).toBeInTheDocument()
+    })
+
+    const exportBtn = screen.getByTitle('Exporte & Treuhand')
+    fireEvent.click(exportBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Treuhand-Revisions-ZIP/i)).toBeInTheDocument()
+      expect(screen.getByText(/Banana Doppelt \(1100\)/i)).toBeInTheDocument()
+      expect(screen.getByText(/ESTV Formular 200 CSV/i)).toBeInTheDocument()
+      expect(screen.getByText(/OP-Liste Debitoren CSV/i)).toBeInTheDocument()
+    })
+  })
+
+  it('opens and closes mobile filter bottom sheet', async () => {
+    render(<BuchhaltungView onNavigate={vi.fn()} userRole="admin" />)
+
+    await waitFor(() => {
+      expect(screen.getAllByTitle('Filter & Suche').length).toBeGreaterThanOrEqual(1)
+    })
+
+    const filterBtns = screen.getAllByTitle('Filter & Suche')
+    fireEvent.click(filterBtns[0])
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Filter & Suche/i).length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByPlaceholderText(/Beleg, Projekt, Titel suchen\.\.\./i)).toBeInTheDocument()
+    })
+
+    // Close button
+    const closeBtn = screen.getByLabelText('Schliessen')
+    fireEvent.click(closeBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(/Beleg, Projekt, Titel suchen\.\.\./i)).not.toBeInTheDocument()
     })
   })
 })

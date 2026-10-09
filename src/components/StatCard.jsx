@@ -1,57 +1,55 @@
 import React from 'react';
 
-const COLOR_MAP = {
+const ACCENT_STYLES = {
   emerald: {
-    bg: 'bg-emerald-100',
-    text: 'text-emerald-600',
-    iconBg: 'bg-emerald-100',
+    badgeBg: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
     iconText: 'text-emerald-600',
-    watermark: 'text-emerald-100',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-emerald-500/20 border-emerald-500/40',
   },
   red: {
-    bg: 'bg-red-100',
-    text: 'text-red-600',
-    iconBg: 'bg-red-100',
-    iconText: 'text-red-600',
-    watermark: 'text-red-100',
+    badgeBg: 'bg-rose-500/10 text-rose-700 border-rose-500/20',
+    iconText: 'text-rose-600',
+    valueText: 'text-rose-700',
+    accentRing: 'ring-rose-500/20 border-rose-500/40',
   },
   amber: {
-    bg: 'bg-amber-100',
-    text: 'text-amber-600',
-    iconBg: 'bg-amber-100',
+    badgeBg: 'bg-amber-500/10 text-amber-800 border-amber-500/20',
     iconText: 'text-amber-600',
-    watermark: 'text-amber-100',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-amber-500/20 border-amber-500/40',
   },
   blue: {
-    bg: 'bg-blue-100',
-    text: 'text-blue-600',
-    iconBg: 'bg-blue-100',
-    iconText: 'text-blue-600',
-    watermark: 'text-blue-100',
+    badgeBg: 'bg-sky-500/10 text-sky-700 border-sky-500/20',
+    iconText: 'text-sky-600',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-sky-500/20 border-sky-500/40',
   },
   primary: {
-    bg: 'bg-primary-100',
-    text: 'text-primary-600',
-    iconBg: 'bg-primary-100',
+    badgeBg: 'bg-primary-500/10 text-primary-700 border-primary-500/20',
     iconText: 'text-primary-600',
-    watermark: 'text-primary-100',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-primary-500/20 border-primary-500/40',
   },
   stone: {
-    bg: 'bg-stone-100',
-    text: 'text-stone-600',
-    iconBg: 'bg-stone-100',
+    badgeBg: 'bg-stone-500/10 text-stone-700 border-stone-500/20',
     iconText: 'text-stone-600',
-    watermark: 'text-stone-100',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-stone-500/20 border-stone-500/40',
   },
   gray: {
-    bg: 'bg-gray-100',
-    text: 'text-gray-600',
-    iconBg: 'bg-gray-100',
-    iconText: 'text-gray-600',
-    watermark: 'text-gray-100',
+    badgeBg: 'bg-zinc-500/10 text-zinc-700 border-zinc-500/20',
+    iconText: 'text-zinc-600',
+    valueText: 'text-text-primary',
+    accentRing: 'ring-zinc-500/20 border-zinc-500/40',
   }
 };
 
+/**
+ * 2026 Bento StatCard
+ * Sleek, high-precision KPI card without bulky 2018 watermark icons.
+ * Features hairline borders, tabular numerals, and refined micro-typography.
+ */
 export default function StatCard({ 
   title, 
   value, 
@@ -62,66 +60,77 @@ export default function StatCard({
   onClick,
   isActive = false
 }) {
-  const colors = COLOR_MAP[color] || COLOR_MAP.primary;
+  const style = ACCENT_STYLES[color] || ACCENT_STYLES.primary;
 
-  const activeClasses = isActive 
-    ? `border-${color}-500 ring-4 ring-${color}-500/15 shadow-md` 
-    : `border-border/80 hover:border-${color}-400/60 shadow-xs hover:shadow-md`;
+  const isChf = typeof value === 'string' && value.startsWith('CHF ');
+  const displayAmount = isChf ? value.replace(/^CHF\s*/, '') : value;
 
   return (
     <div 
-      className={`bg-surface-card rounded-2xl border p-5 relative overflow-hidden group transition-all duration-200 ${activeClasses} ${onClick ? 'cursor-pointer' : ''}`}
+      className={`
+        relative bg-surface-card rounded-2xl border p-5 transition-all duration-200
+        ${isActive 
+          ? `border-primary-500 ring-2 ${style.accentRing} shadow-sm` 
+          : 'border-border hover:border-zinc-300 shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-xs'
+        }
+        ${onClick ? 'cursor-pointer active:scale-[0.99]' : ''}
+      `}
       onClick={onClick}
     >
-      {/* Subtle Watermark Icon */}
-      <svg 
-        className={`absolute -right-3 -bottom-3 w-20 h-20 ${colors.watermark} opacity-20 group-hover:scale-105 group-hover:opacity-35 transition-all duration-300 pointer-events-none`} 
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24"
-        dangerouslySetInnerHTML={{ __html: icon }}
-      />
-      
-      <div className="relative z-10">
-        {/* Title Row */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className={`w-8 h-8 rounded-lg ${colors.iconBg} flex items-center justify-center shrink-0`}>
-            <svg 
-              className={`w-4 h-4 ${colors.iconText}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-              dangerouslySetInnerHTML={{ __html: icon }}
-            />
+      <div className="flex flex-col h-full justify-between">
+        {/* Title & Icon Header */}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {icon && (
+              <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${style.badgeBg}`}>
+                <svg 
+                  className={`w-3.5 h-3.5 ${style.iconText}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  dangerouslySetInnerHTML={{ __html: icon }}
+                />
+              </div>
+            )}
+            <h3 className="text-text-secondary text-xs font-semibold uppercase tracking-wider truncate">
+              {title}
+            </h3>
           </div>
-          <h3 className="text-text-secondary text-sm font-semibold uppercase tracking-wider truncate">
-            {title}
-          </h3>
+
           {isActive && (
-            <span className={`ml-2 text-[10px] ${colors.iconBg} ${colors.iconText} px-1.5 py-0.5 rounded uppercase font-bold`}>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${style.badgeBg}`}>
               Aktiv
             </span>
           )}
         </div>
         
-        {/* Main Value */}
-        <p className={`text-3xl font-bold ${colors.text}`}>
-          {value}
-        </p>
-        
-        {/* Secondary Value (e.g. Count/Amount mix) */}
-        {secondaryValue && (
-          <div className={`text-sm font-bold mt-1 ${colors.text}`}>
-            {secondaryValue}
+        {/* Main Value with Tabular-Nums */}
+        <div className="mt-1">
+          <div className={`text-2xl lg:text-3xl font-bold tracking-tight ${style.valueText} flex items-baseline gap-1.5`}>
+            {isChf && (
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                CHF
+              </span>
+            )}
+            <span className="tabular-nums">
+              {displayAmount}
+            </span>
           </div>
-        )}
-        
-        {/* Subtitle */}
-        {subtitle && (
-          <div className="text-xs text-text-secondary mt-1">
-            {subtitle}
-          </div>
-        )}
+          
+          {/* Secondary Value (e.g. Count / Subtotal) */}
+          {secondaryValue && (
+            <div className="text-xs font-semibold mt-1 text-text-secondary tabular-nums">
+              {secondaryValue}
+            </div>
+          )}
+          
+          {/* Subtitle */}
+          {subtitle && (
+            <div className="text-xs text-text-muted mt-1.5 font-medium leading-relaxed">
+              {subtitle}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

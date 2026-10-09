@@ -9,6 +9,20 @@ import { getTenantStoragePath, extractStoragePath } from '../lib/storageHelper'
 import KundeStammdaten from '../components/kunde/KundeStammdaten'
 import KundeKontakt from '../components/kunde/KundeKontakt'
 import KundeSettings from '../components/kunde/KundeSettings'
+import {
+  IconPhone,
+  IconMail,
+  IconDocument,
+  IconHammer,
+  IconQrBill,
+  IconFolder,
+  IconLocation,
+  IconWarning,
+  IconCheck,
+  IconCreditCard,
+  IconImage,
+  IconAttachment
+} from '../components/icons/BrandIcons'
 
 // ----------------------
 // MAIN COMPONENT
@@ -29,6 +43,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
   const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
@@ -342,12 +357,198 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
   
   alleZahlungen.sort((a, b) => new Date(b.datum) - new Date(a.datum))
 
+  const quickActions = [
+    kunde.telefon && {
+      id: 'call',
+      label: 'Anrufen',
+      icon: <IconPhone className="w-5 h-5" />,
+      color: 'bg-emerald-500/10 text-emerald-600',
+      onClick: () => { window.location.href = `tel:${kunde.telefon}` }
+    },
+    kunde.email && {
+      id: 'mail',
+      label: 'E-Mail',
+      icon: <IconMail className="w-5 h-5" />,
+      color: 'bg-sky-500/10 text-sky-600',
+      onClick: () => { window.location.href = `mailto:${kunde.email}` }
+    },
+    {
+      id: 'offerte',
+      label: 'Offerte',
+      icon: <IconDocument className="w-5 h-5" />,
+      color: 'bg-primary-500/10 text-primary-600',
+      onClick: () => onNavigate && onNavigate('offerten', { action: 'create', kundeId: kunde.id })
+    },
+    {
+      id: 'projekt',
+      label: 'Projekt',
+      icon: <IconHammer className="w-5 h-5" />,
+      color: 'bg-amber-500/10 text-amber-600',
+      onClick: () => onNavigate && onNavigate('projekte', { action: 'create', kundeId: kunde.id })
+    },
+    {
+      id: 'rechnung',
+      label: 'Rechnung',
+      icon: <IconQrBill className="w-5 h-5" />,
+      color: 'bg-emerald-500/10 text-emerald-600',
+      onClick: () => onNavigate && onNavigate('rechnungen', { action: 'create', kundeId: kunde.id })
+    },
+    {
+      id: 'datei',
+      label: 'Datei',
+      icon: <IconFolder className="w-5 h-5" />,
+      color: 'bg-stone-500/10 text-stone-700',
+      onClick: () => setActiveTab('dateien')
+    }
+  ].filter(Boolean).slice(0, 4)
+
   return (
     <div className="space-y-6 max-w-[1600px] pb-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* ---------------- MOBILE HEADER (< md) ---------------- */}
+      <div className="md:hidden space-y-3">
+        {/* Top Bar: Back Chevron, Title & Subtitle, Menu */}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 py-1.5 px-2.5 -ml-2 rounded-xl text-primary-600 hover:bg-primary-50 active:bg-primary-100 font-semibold text-sm transition-colors cursor-pointer group"
+          >
+            <svg className="w-5 h-5 -mr-0.5 transition-transform group-active:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>Kunden</span>
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            {kunde.is_archived && (
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800">
+                Archiviert
+              </span>
+            )}
+            
+            {userRole !== 'treuhand' && (
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Weitere Aktionen"
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 text-text-secondary hover:text-text-primary transition-all cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+                {isMobileMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in p-1">
+                      {kunde.is_archived ? (
+                        <button 
+                          type="button"
+                          onClick={() => { setIsMobileMenuOpen(false); handleRestore(); }}
+                          className="w-full text-left px-3 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer font-medium"
+                        >
+                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          Aus Archiv wiederherstellen
+                        </button>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => { setIsMobileMenuOpen(false); setShowArchiveWarning(true); }}
+                          className="w-full text-left px-3 py-2.5 text-sm text-text-primary hover:bg-neutral-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                          Kunde archivieren
+                        </button>
+                      )}
+                      <button 
+                        type="button"
+                        onClick={() => { setIsMobileMenuOpen(false); setShowDeleteWarning(true); }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer mt-0.5"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Unwiderruflich löschen
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Title & Metadata */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight text-text-primary">{displayName}</h1>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-text-secondary flex-wrap">
+            <span className="font-mono font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded border border-primary-200/60 text-[11px]">
+              {kunde.kundennummer || `K-${kunde.id}`}
+            </span>
+            {kunde.anrede && (
+              <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-medium text-[11px]">
+                {kunde.anrede}
+              </span>
+            )}
+            {kunde.ort && (
+              <span className="flex items-center gap-1 text-text-secondary">
+                <IconLocation className="w-3.5 h-3.5 text-text-tertiary" />
+                <span>{kunde.ort}</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Quick Action Buttons - 4-item Apple Row */}
+        {userRole !== 'treuhand' && (
+          <div className="bg-white border border-gray-200/70 rounded-2xl p-2.5 shadow-2xs">
+            <div className="grid grid-cols-4 gap-2">
+              {quickActions.map(action => (
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={action.onClick}
+                  className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                >
+                  <div className={`w-11 h-11 rounded-2xl ${action.color} flex items-center justify-center text-xl shadow-2xs group-active:scale-95 transition-transform`}>
+                    {action.icon}
+                  </div>
+                  <span className="text-[11px] font-medium text-text-primary tracking-tight truncate max-w-full">{action.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Financial Glance Card */}
+        <div className="bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs grid grid-cols-3 gap-2 text-center">
+          <div>
+            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Umsatz {currentYear}</span>
+            <span className="text-sm font-bold text-emerald-600 truncate block mt-0.5">
+              {formatCurrency(jahresumsatz)}
+            </span>
+          </div>
+          <div className="border-x border-gray-100 px-1">
+            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Ausstehend</span>
+            <span className={`text-sm font-bold truncate block mt-0.5 ${offenTotal > 0 ? 'text-amber-600' : 'text-text-primary'}`}>
+              {formatCurrency(offenTotal)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Offen</span>
+            <span className="text-sm font-bold text-text-primary truncate block mt-0.5">
+              {offenePosten.length} {offenePosten.length === 1 ? 'Posten' : 'Posten'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------- DESKTOP HEADER (>= md) ---------------- */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <button 
+            type="button"
             onClick={onBack}
             className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer flex items-center justify-center"
           >
@@ -364,7 +565,13 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 {kunde.kundennummer || `K-${kunde.id}`}
               </span>
               {kunde.anrede && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-medium">{kunde.anrede}</span>}
-              {kunde.ort && <span>• 📍 {kunde.ort}</span>}
+              {kunde.ort && (
+                <span className="flex items-center gap-1">
+                  <span>•</span>
+                  <IconLocation className="w-3.5 h-3.5 text-text-tertiary" />
+                  <span>{kunde.ort}</span>
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -374,24 +581,28 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           {userRole !== 'treuhand' && (
             <>
               <button
+                type="button"
                 onClick={() => onNavigate && onNavigate('offerten', { action: 'create', kundeId: kunde.id })}
                 className="px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
               >
                 <span>+</span> Neue Offerte
               </button>
               <button
+                type="button"
                 onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: kunde.id })}
                 className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
                 + Projekt
               </button>
               <button
+                type="button"
                 onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', kundeId: kunde.id })}
                 className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
                 + Rechnung
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('dateien')}
                 className="px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm sm:text-xs font-medium bg-white hover:bg-neutral-50 text-text-primary rounded-xl border border-border/80 shadow-2xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
@@ -403,6 +614,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
           <div className="relative">
             {userRole !== 'treuhand' && (
               <button 
+                type="button"
+                aria-label="Weitere Aktionen"
                 onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                 className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
               >
@@ -416,6 +629,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                   <div className="p-1">
                     {kunde.is_archived ? (
                       <button 
+                        type="button"
                         onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
                         className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
                       >
@@ -424,6 +638,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                       </button>
                     ) : (
                       <button 
+                        type="button"
                         onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
                         className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
                       >
@@ -432,6 +647,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                       </button>
                     )}
                     <button 
+                      type="button"
                       onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
                       className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                     >
@@ -450,8 +666,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
       {kunde.is_archived && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm animate-fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0">
-              📁
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <IconFolder className="w-5 h-5 text-amber-700" />
             </div>
             <div>
               <p className="text-sm font-bold text-amber-900">Dieser Kunde ist archiviert.</p>
@@ -459,6 +675,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
             </div>
           </div>
           <button
+            type="button"
             onClick={handleRestore}
             disabled={isSaving}
             className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -469,36 +686,39 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         </div>
       )}
 
-      {/* Segmented Control Tabs */}
-      <div className="inline-flex p-1.5 bg-neutral-100/90 border border-neutral-200/70 rounded-2xl gap-1 overflow-x-auto hide-scrollbar max-w-full shadow-2xs">
-        {[
-          { id: 'stammdaten', label: 'Stammdaten' },
-          { id: 'projekte', label: 'Projekte', count: projekte.length },
-          { id: 'offerten', label: 'Offerten', count: offerten.length },
-          { id: 'finanzen', label: 'Finanzen' },
-          { id: 'dateien', label: 'Dateien', count: dateien.length }
-        ]
-          .filter(t => !(userRole === 'treuhand' && (t.id === 'projekte' || t.id === 'offerten')))
-          .map(t => (
-          <button
-            key={t.id}
-            onClick={() => { setActiveTab(t.id); setEditState(null); }}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
-              activeTab === t.id 
-                ? 'bg-white text-text-primary shadow-xs font-bold' 
-                : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
-            }`}
-          >
-            <span>{t.label}</span>
-            {t.count !== undefined && (
-              <span className={`px-1.5 py-0.5 text-[11px] font-bold rounded-full ${
-                activeTab === t.id ? 'bg-primary-100 text-primary-800' : 'bg-neutral-200/70 text-text-secondary'
-              }`}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Tabs - Apple Segmented Scroll-Pill Leiste */}
+      <div className="overflow-x-auto hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="inline-flex p-1 bg-gray-100/90 border border-gray-200/50 rounded-2xl gap-1 min-w-max shadow-2xs">
+          {[
+            { id: 'stammdaten', label: 'Stammdaten' },
+            { id: 'projekte', label: 'Projekte', count: projekte.length },
+            { id: 'offerten', label: 'Offerten', count: offerten.length },
+            { id: 'finanzen', label: 'Finanzen' },
+            { id: 'dateien', label: 'Dateien', count: dateien.length }
+          ]
+            .filter(t => !(userRole === 'treuhand' && (t.id === 'projekte' || t.id === 'offerten')))
+            .map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => { setActiveTab(t.id); setEditState(null); }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all capitalize whitespace-nowrap cursor-pointer ${
+                activeTab === t.id 
+                  ? 'bg-white text-text-primary shadow-xs font-bold' 
+                  : 'text-text-secondary hover:text-text-primary hover:bg-white/40'
+              }`}
+            >
+              <span>{t.label}</span>
+              {t.count !== undefined && (
+                <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full ${
+                  activeTab === t.id ? 'bg-primary-100 text-primary-800' : 'bg-gray-200/80 text-text-secondary'
+                }`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
@@ -654,7 +874,7 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                           <div>
                             <div className="font-bold text-text-primary flex justify-between sm:block group-hover:text-amber-700 transition-colors">
                               <span className="flex items-center gap-1.5">
-                                <span className="sm:hidden text-amber-500">📄</span>
+                                <IconDocument className="w-4 h-4 sm:hidden text-amber-600 shrink-0" />
                                 Offerte {off.offerte_nr || `#${off.id}`}
                               </span>
                               <span className={`sm:hidden inline-block px-2 py-0.5 rounded-lg text-[11px] font-bold ${
@@ -715,7 +935,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
-                    <span>⚠️</span> Offene Posten
+                    <IconWarning className="w-5 h-5 text-amber-500" />
+                    <span>Offene Posten</span>
                   </h3>
                   {userRole !== 'treuhand' && (
                     <button 
@@ -728,8 +949,11 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 </div>
                 
                 {offenePosten.length === 0 ? (
-                  <div className="bg-surface-card rounded-xl border border-dashed border-border p-8 text-center text-text-secondary">
-                    Keine offenen Forderungen. Alles bezahlt! 🎉
+                  <div className="bg-surface-card rounded-xl border border-dashed border-border p-8 text-center text-text-secondary flex flex-col items-center justify-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <IconCheck className="w-5 h-5" />
+                    </div>
+                    <span>Keine offenen Forderungen. Alles bezahlt!</span>
                   </div>
                 ) : (
                   <div className="bg-surface-card rounded-xl border border-border overflow-hidden shadow-sm">
@@ -783,7 +1007,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               {alleZahlungen.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
-                    <span>💳</span> Zahlungshistorie
+                    <IconCreditCard className="w-5 h-5 text-text-secondary" />
+                    <span>Zahlungshistorie</span>
                   </h3>
                   <div className="bg-surface-card rounded-xl border border-border shadow-sm p-4 space-y-2">
                     {alleZahlungen.map(z => (
@@ -808,7 +1033,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               {archivRechnungen.length > 0 && (
                 <div className="space-y-3 pt-6 border-t border-border">
                   <h3 className="text-lg font-bold text-text-secondary flex items-center gap-2">
-                    <span>📁</span> Abgewickelte Rechnungen (Archiv)
+                    <IconFolder className="w-5 h-5 text-text-secondary" />
+                    <span>Abgewickelte Rechnungen (Archiv)</span>
                   </h3>
                   <div className="bg-surface rounded-xl border border-border overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
                     {archivRechnungen.map(re => {
@@ -922,7 +1148,15 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                         )}
                       </div>
                       <div className="flex-1 flex flex-col items-center justify-center mb-3 pt-2">
-                        <div className="text-4xl mb-2">{datei.typ?.includes('pdf') ? '📄' : datei.typ?.includes('image') ? '🖼️' : '📎'}</div>
+                        <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center mb-2">
+                          {datei.typ?.includes('pdf') ? (
+                            <IconDocument className="w-8 h-8 text-primary-600" />
+                          ) : datei.typ?.includes('image') ? (
+                            <IconImage className="w-8 h-8 text-amber-600" />
+                          ) : (
+                            <IconAttachment className="w-8 h-8 text-text-secondary" />
+                          )}
+                        </div>
                         <h3 className="text-sm font-semibold text-gray-900 text-center line-clamp-2 w-full break-words" title={datei.name}>{datei.name}</h3>
                       </div>
                       <div className="mt-auto border-t border-gray-100 pt-3 flex justify-between text-[10px] text-gray-500">
@@ -943,8 +1177,8 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
       {showArchiveWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-surface-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border animate-scale-up">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mb-4">
-              📁
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
+              <IconFolder className="w-6 h-6" />
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Kunde archivieren?</h3>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
@@ -1036,7 +1270,13 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 animate-fade-in ${
           feedbackToast.type === 'error' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
         }`}>
-          <span>{feedbackToast.type === 'error' ? '⚠️' : '✅'}</span>
+          <span className="shrink-0">
+            {feedbackToast.type === 'error' ? (
+              <IconWarning className="w-4 h-4 text-red-600" />
+            ) : (
+              <IconCheck className="w-4 h-4 text-emerald-600" />
+            )}
+          </span>
           <span>{feedbackToast.text}</span>
         </div>
       )}

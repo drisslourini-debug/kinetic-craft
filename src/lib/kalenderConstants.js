@@ -6,7 +6,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Montage',
     label: 'Montage',
-    icon: '🔨',
+    icon: 'Montage',
     color: '#10b981',
     bgClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
     badgeClass: 'bg-emerald-100 text-emerald-800',
@@ -15,7 +15,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Aufmass',
     label: 'Aufmass / Besichtigung',
-    icon: '📐',
+    icon: 'Aufmass',
     color: '#6366f1',
     bgClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
     badgeClass: 'bg-indigo-100 text-indigo-800',
@@ -24,7 +24,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Kundentermin',
     label: 'Kundentermin',
-    icon: '👥',
+    icon: 'Kundentermin',
     color: '#a855f7',
     bgClass: 'bg-purple-50 text-purple-800 border-purple-200',
     badgeClass: 'bg-purple-100 text-purple-800',
@@ -33,7 +33,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Lieferung',
     label: 'Lieferung / Material',
-    icon: '🚚',
+    icon: 'Lieferung',
     color: '#f59e0b',
     bgClass: 'bg-amber-50 text-amber-800 border-amber-200',
     badgeClass: 'bg-amber-100 text-amber-800',
@@ -42,7 +42,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Abnahme',
     label: 'Bauabnahme / Übergabe',
-    icon: '📋',
+    icon: 'Abnahme',
     color: '#14b8a6',
     bgClass: 'bg-teal-50 text-teal-800 border-teal-200',
     badgeClass: 'bg-teal-100 text-teal-800',
@@ -51,7 +51,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Intern',
     label: 'Intern / Büro',
-    icon: '🏢',
+    icon: 'Intern',
     color: '#64748b',
     bgClass: 'bg-slate-50 text-slate-800 border-slate-200',
     badgeClass: 'bg-slate-100 text-slate-800',
@@ -60,7 +60,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Urlaub',
     label: 'Urlaub / Abwesenheit',
-    icon: '🌴',
+    icon: 'Urlaub',
     color: '#f43f5e',
     bgClass: 'bg-rose-50 text-rose-800 border-rose-200',
     badgeClass: 'bg-rose-100 text-rose-800',
@@ -69,7 +69,7 @@ export const TERMIN_TYPEN = [
   {
     id: 'Sonstiges',
     label: 'Sonstiges',
-    icon: '📌',
+    icon: 'Sonstiges',
     color: '#3b82f6',
     bgClass: 'bg-blue-50 text-blue-800 border-blue-200',
     badgeClass: 'bg-blue-100 text-blue-800',
@@ -114,7 +114,7 @@ export function getTerminTypConfig(typId) {
   return TERMIN_TYPEN.find(t => t.id === typId) || {
     id: typId || 'Sonstiges',
     label: typId || 'Sonstiges',
-    icon: '📅',
+    icon: 'Sonstiges',
     color: '#6b7280',
     bgClass: 'bg-gray-50 text-gray-700 border-gray-200',
     badgeClass: 'bg-gray-100 text-gray-700',

@@ -1,3 +1,5 @@
+import { IconUser, IconBuilding, IconCalendar } from '../icons/BrandIcons'
+
 export default function OfferteKundenInfo({
   offerte,
   daten,
@@ -19,7 +21,10 @@ export default function OfferteKundenInfo({
       <h3 className="text-lg font-bold text-text-primary">Stammdaten</h3>
       
       <div>
-        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>👤</span> Kunde</label>
+        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+          <IconUser className="w-3.5 h-3.5 text-slate-500" />
+          <span>Kunde</span>
+        </label>
         {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
           <select
             value={editKundeId}
@@ -40,7 +45,10 @@ export default function OfferteKundenInfo({
       </div>
 
       <div className="pt-4 border-t border-border">
-        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>🏗️</span> Projekt / Baustelle</label>
+        <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+          <IconBuilding className="w-3.5 h-3.5 text-slate-500" />
+          <span>Projekt / Baustelle</span>
+        </label>
         {isEditing && (status === 'Entwurf' || status === 'In Überarbeitung') ? (
           <select
             value={editProjektId}
@@ -64,7 +72,10 @@ export default function OfferteKundenInfo({
       {/* Editable Ausfuehrung inline inside Stammdaten grid block */}
       {isEditing ? (
         <div className="pt-4 border-t border-border space-y-3">
-          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
+          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+            <IconCalendar className="w-3.5 h-3.5 text-slate-500" />
+            <span>Ausführung</span>
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-text-secondary uppercase">Start</label>
@@ -91,7 +102,10 @@ export default function OfferteKundenInfo({
       ) : (
         (daten.ausfuehrung?.start || daten.ausfuehrung?.dauer) && (
           <div className="pt-4 border-t border-border">
-            <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1"><span>📅</span> Ausführung</label>
+            <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <IconCalendar className="w-3.5 h-3.5 text-slate-500" />
+              <span>Ausführung</span>
+            </label>
             <div className="mt-1.5 text-sm text-text-primary">
               {daten.ausfuehrung.start && <>Start: <span className="font-medium">{daten.ausfuehrung.start}</span><br /></>}
               {daten.ausfuehrung.dauer && <>Dauer: <span className="font-medium">{daten.ausfuehrung.dauer}</span></>}

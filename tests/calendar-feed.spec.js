@@ -4,7 +4,7 @@ test.describe('Kalender RFC-5545 iCalendar Schnittstelle', () => {
   test('Kalender-Sync Modal stellt korrekten webcal:// Link mit Tenant-ID bereit', async ({ page }) => {
     await page.goto('/#login');
     const emailInput = page.locator('input[type="email"]').first();
-    await emailInput.fill('leandro@atelier-77.ch');
+    await emailInput.fill('max@muster-malerei.ch');
     const passwordInput = page.locator('input[type="password"]').first();
     await passwordInput.fill('Test1234');
     await page.getByRole('button', { name: /Anmelden/i }).click();

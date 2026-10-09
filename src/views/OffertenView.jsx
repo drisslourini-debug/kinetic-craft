@@ -3,10 +3,13 @@ import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate, formatMonthYear } from '../lib/formatters'
 import { navigateBack } from '../lib/router'
+import { useModalHistory } from '../hooks/useModalHistory'
 import OfferteDetailView from './OfferteDetailView'
 import DocumentCreateModal from '../components/DocumentCreateModal'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import StatCard from '../components/StatCard'
+import StatusBadge from '../components/ui/StatusBadge'
+import { IconChart, IconDocument, IconFolder, IconBauunternehmung, IconSearch, IconClose } from '../components/icons/BrandIcons'
 
 export default function OffertenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
@@ -20,7 +23,10 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
   const [filterMonth, setFilterMonth] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [showFilterSheet, setShowFilterSheet] = useState(false)
+  const [showChartMobile, setShowChartMobile] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
+
+  useModalHistory(showFilterSheet, () => setShowFilterSheet(false), 'offerten_filter')
 
   const tileStats = useMemo(() => {
     let versendetAnz = 0, versendetTotal = 0;
@@ -107,7 +113,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
       if (data) {
         setOfferten(data)
         if (viewParams?.offerteId) {
-          const off = data.find(x => x.id === viewParams.offerteId)
+          const off = data.find(x => String(x.id) === String(viewParams.offerteId))
           if (off) setSelectedOfferte(off)
         }
       }
@@ -124,11 +130,66 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedOfferte with viewParams
   useEffect(() => {
-    if (!offerten.length) return
     if (viewParams?.offerteId) {
-      const off = offerten.find(x => x.id === viewParams.offerteId)
-      if (off && (!selectedOfferte || selectedOfferte.id !== off.id)) {
-        setSelectedOfferte(off)
+      if (viewParams.offerteId === 'demo') {
+        setSelectedOfferte({
+          id: 'demo',
+          offerte_nr: 'OF-2026-088',
+          status: 'Entwurf',
+          created_at: new Date().toISOString(),
+          gueltig_bis: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+          total: 4895.50,
+          kunden: {
+            name: 'Architekturbüro Steiner AG',
+            strasse: 'Limmatquai 45',
+            plz: '8001',
+            ort: 'Zürich',
+            email: 'info@steiner-arch.ch'
+          },
+          projekte: {
+            name: 'Sanierung Altbau Penthouse',
+            adresse: 'Gotthardstrasse 18, 8002 Zürich'
+          },
+          daten: {
+            titel: 'Schreiner- und Ausbauarbeiten Penthouse',
+            einleitungstext: 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns für Ihre geschätzte Anfrage und bieten Ihnen die gewünschten Massivholz- und Montagearbeiten wie folgt an:',
+            schlusstext: 'Wir freuen uns auf Ihre Auftragserteilung und stehen für Fragen jederzeit gerne zur Verfügung.',
+            leistungen: [
+              { _id: 1, posNr: '1.0', beschreibung: 'Vorbereitungsarbeiten und Schutzabdeckungen', menge: 8, einheit: 'Std', einzelpreis: 115, optional: false },
+              { _id: 2, posNr: '2.0', beschreibung: 'Massivholztüren Eiche geölt liefern und passgenau montieren', menge: 4, einheit: 'Stk', einzelpreis: 850, optional: false },
+              { _id: 3, posNr: '3.0', beschreibung: 'Sockelleisten Eiche furniert zuschneiden und unsichtbar befestigen', menge: 32, einheit: 'm', einzelpreis: 28, optional: false },
+              { _id: 4, posNr: '4.0', beschreibung: 'Option: Akustik-Wandpaneele Echtholzlamelle liefern & anbringen', menge: 12, einheit: 'm²', einzelpreis: 185, optional: true }
+            ],
+            konditionen: {
+              rabatt: 3,
+              mwst: 8.1,
+              gueltigkeit: '30 Tage'
+            }
+          }
+        })
+        return
+      }
+      const off = offerten.find(x => String(x.id) === String(viewParams.offerteId))
+      if (off) {
+        if (!selectedOfferte || String(selectedOfferte.id) !== String(off.id)) {
+          setSelectedOfferte(off)
+        }
+      } else if (supabase) {
+        // If not found in current offerten list, fetch it directly
+        supabase
+          .from('offerten')
+          .select('*, kunden(name), projekte(name, adresse)')
+          .eq('id', viewParams.offerteId)
+          .single()
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setSelectedOfferte(data)
+              setOfferten(prev => {
+                if (prev.some(x => String(x.id) === String(data.id))) return prev
+                return [data, ...prev]
+              })
+            }
+          })
       }
     } else if (!viewParams?.offerteId && selectedOfferte) {
       setSelectedOfferte(null)
@@ -249,14 +310,32 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
   return (
     <>
       <div className="space-y-6">
-      {/* Header with CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Mobile Header (sm:hidden) */}
+      <div className="flex sm:hidden items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-text-primary">Offerten</h2>
+          <p className="text-xs text-text-secondary mt-0.5">Offerten verwalten & überwachen</p>
+        </div>
+        {userRole !== 'treuhand' && (
+          <button
+            type="button"
+            onClick={() => onNavigate ? onNavigate('offerten', { action: 'create' }) : setShowCreateDrawer(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-bold text-xs rounded-xl shadow-xs active:scale-95 transition-all shrink-0 cursor-pointer"
+          >
+            <span className="text-sm font-bold leading-none">+</span>
+            <span>Neu</span>
+          </button>
+        )}
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden sm:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-text-primary">Offerten</h2>
           <p className="text-text-secondary mt-1">Alle Offerten und Angebote verwalten.</p>
         </div>
 
-        {/* ★ THE TRIGGER BUTTON ★ */}
+        {/* Main Action Button */}
         {userRole !== 'treuhand' && (
           <button
             id="btn-neue-offerte"
@@ -269,7 +348,64 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         )}
       </div>
 
-      {/* Stats Cards (Desktop) */}
+      {/* 3-Column KPI Summary (Mobile sm:hidden) */}
+      <div className="grid grid-cols-3 gap-2 sm:hidden">
+        {/* Versendet */}
+        <button
+          type="button"
+          onClick={() => handleTileClick(['Versendet'])}
+          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeFilter === 'Versendet' 
+              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20 shadow-xs' 
+              : 'bg-surface-card border-border hover:bg-surface'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Versendet</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+          </div>
+          <p className="text-base font-extrabold text-amber-700 leading-tight">{tileStats.versendet.anz}</p>
+          <p className="text-[10px] text-text-secondary truncate mt-0.5">{formatCurrency(tileStats.versendet.total)}</p>
+        </button>
+
+        {/* Gewonnen */}
+        <button
+          type="button"
+          onClick={() => handleTileClick(['Akzeptiert', 'Verrechnet'])}
+          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeFilter === 'Akzeptiert,Verrechnet' 
+              ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-400/20 shadow-xs' 
+              : 'bg-surface-card border-border hover:bg-surface'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Gewonnen</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          </div>
+          <p className="text-base font-extrabold text-emerald-700 leading-tight">{tileStats.akzeptiert.anz}</p>
+          <p className="text-[10px] text-text-secondary truncate mt-0.5">{formatCurrency(tileStats.akzeptiert.total)}</p>
+        </button>
+
+        {/* Verloren */}
+        <button
+          type="button"
+          onClick={() => handleTileClick(['Abgelehnt'])}
+          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            activeFilter === 'Abgelehnt' 
+              ? 'bg-red-50 border-red-300 ring-2 ring-red-400/20 shadow-xs' 
+              : 'bg-surface-card border-border hover:bg-surface'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-700">Verloren</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+          </div>
+          <p className="text-base font-extrabold text-red-700 leading-tight">{tileStats.abgelehnt.anz}</p>
+          <p className="text-[10px] text-text-secondary truncate mt-0.5">{formatCurrency(tileStats.abgelehnt.total)}</p>
+        </button>
+      </div>
+
+      {/* Stats Cards (Desktop hidden sm:grid) */}
       <div className="hidden sm:grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard 
           title="Versendet"
@@ -305,74 +441,65 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         />
       </div>
 
-      {/* Stats Pills (Mobile) */}
-      <div className="flex sm:hidden items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-        <div 
-          onClick={() => handleTileClick(['Versendet'])}
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 shadow-sm whitespace-nowrap cursor-pointer transition-all ${activeFilter === 'Versendet' ? 'bg-amber-100 border-amber-300' : 'bg-surface-card border-border hover:bg-surface'}`}
+      {/* Umsatz Chart (Collapsible on Mobile) */}
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+        {/* Mobile Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setShowChartMobile(!showChartMobile)}
+          className="w-full sm:hidden flex items-center justify-between p-3.5 text-left text-xs font-bold text-text-primary hover:bg-surface/50 transition-colors"
         >
-          <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-          <span className={`text-sm font-medium ${activeFilter === 'Versendet' ? 'text-amber-800' : 'text-text-secondary'}`}>Versendet:</span>
-          <span className={`font-bold ${activeFilter === 'Versendet' ? 'text-amber-700' : 'text-text-primary'}`}>{tileStats.versendet.anz}</span>
-        </div>
-        
-        <div 
-          onClick={() => handleTileClick(['Akzeptiert', 'Verrechnet'])}
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 shadow-sm whitespace-nowrap cursor-pointer transition-all ${activeFilter === 'Akzeptiert,Verrechnet' ? 'bg-emerald-100 border-emerald-300' : 'bg-surface-card border-border hover:bg-surface'}`}
-        >
-          <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-          <span className={`text-sm font-medium ${activeFilter === 'Akzeptiert,Verrechnet' ? 'text-emerald-800' : 'text-text-secondary'}`}>Gewonnen:</span>
-          <span className={`font-bold ${activeFilter === 'Akzeptiert,Verrechnet' ? 'text-emerald-700' : 'text-text-primary'}`}>{tileStats.akzeptiert.anz}</span>
-        </div>
+          <span className="flex items-center gap-2">
+            <IconChart className="w-4 h-4 text-amber-600" />
+            <span>Offertenvolumen {new Date().getFullYear()}</span>
+          </span>
+          <span className="text-[11px] text-primary-600 font-semibold flex items-center gap-1">
+            {showChartMobile ? 'Ausblenden' : 'Anzeigen'}
+            <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${showChartMobile ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </span>
+        </button>
 
-        <div 
-          onClick={() => handleTileClick(['Abgelehnt'])}
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 shadow-sm whitespace-nowrap cursor-pointer transition-all ${activeFilter === 'Abgelehnt' ? 'bg-red-100 border-red-300' : 'bg-surface-card border-border hover:bg-surface'}`}
-        >
-          <div className="w-2 h-2 rounded-full bg-red-400"></div>
-          <span className={`text-sm font-medium ${activeFilter === 'Abgelehnt' ? 'text-red-800' : 'text-text-secondary'}`}>Verloren:</span>
-          <span className={`font-bold ${activeFilter === 'Abgelehnt' ? 'text-red-700' : 'text-text-primary'}`}>{tileStats.abgelehnt.anz}</span>
-        </div>
-      </div>
-
-      {/* Umsatz Chart */}
-      <div className="bg-surface-card rounded-2xl border border-border shadow-sm p-6">
-        <h3 className="font-semibold text-text-primary mb-6">Offertenvolumen {new Date().getFullYear()}</h3>
-        <div className="flex items-end justify-between h-48 gap-2">
-          {chartData.map((d, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full">
-              <div className="w-full h-full flex items-end justify-center gap-1 relative">
-                {/* Erstellt Bar */}
-                <div 
-                  className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-primary-300"
-                  style={{ height: `${Math.max(d.createdHeight, 1)}%`, backgroundColor: '#d1d5db' }}
-                >
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                    Erstellt: {formatCurrency(d.createdTotal)}
+        {/* Chart Content */}
+        <div className={`${showChartMobile ? 'block' : 'hidden sm:block'} p-4 sm:p-6 pt-0 sm:pt-6`}>
+          <h3 className="hidden sm:block font-semibold text-text-primary mb-6">Offertenvolumen {new Date().getFullYear()}</h3>
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="min-w-[300px] flex items-end justify-between h-40 sm:h-48 gap-1.5 sm:gap-2">
+              {chartData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group h-full">
+                  <div className="w-full h-full flex items-end justify-center gap-1 relative">
+                    {/* Erstellt Bar */}
+                    <div 
+                      className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-primary-300"
+                      style={{ height: `${Math.max(d.createdHeight, 1)}%`, backgroundColor: '#d1d5db' }}
+                    >
+                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                        Erstellt: {formatCurrency(d.createdTotal)}
+                      </div>
+                    </div>
+                    {/* Akzeptiert Bar */}
+                    <div 
+                      className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-[#b08e4d]"
+                      style={{ height: `${Math.max(d.acceptedHeight, 1)}%`, backgroundColor: '#c5a057' }}
+                    >
+                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                        Akzeptiert: {formatCurrency(d.acceptedTotal)}
+                      </div>
+                    </div>
                   </div>
+                  <span className="text-[11px] sm:text-xs text-text-secondary font-medium">{d.month}</span>
                 </div>
-                {/* Akzeptiert Bar */}
-                <div 
-                  className="w-full max-w-[20px] rounded-t-md transition-all duration-300 relative group-hover:bg-[#b08e4d]"
-                  style={{ height: `${Math.max(d.acceptedHeight, 1)}%`, backgroundColor: '#c5a057' }}
-                >
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                    Akzeptiert: {formatCurrency(d.acceptedTotal)}
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs text-text-secondary font-medium">{d.month}</span>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="flex justify-center gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-300"></div>
-            <span className="text-xs text-text-secondary">Erstellt</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#c5a057' }}></div>
-            <span className="text-xs text-text-secondary">Akzeptiert</span>
+          <div className="flex justify-center gap-6 mt-3 sm:mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+              <span className="text-xs text-text-secondary">Erstellt</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#c5a057' }}></div>
+              <span className="text-xs text-text-secondary">Akzeptiert</span>
+            </div>
           </div>
         </div>
       </div>
@@ -381,7 +508,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
       <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         
         {/* Integrated Toolbar */}
-        <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="p-3 sm:p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-md w-full">
             <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -409,7 +536,10 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
           <div className="hidden sm:flex flex-row gap-3 items-center">
             <select 
               value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
+              onChange={e => {
+                setFilterStatus(e.target.value)
+                setActiveFilter(null)
+              }}
               className="px-3 py-2 bg-surface border border-border rounded-xl text-xs font-medium text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer w-36"
             >
               <option value="">Alle Status</option>
@@ -446,18 +576,54 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
               {filteredOfferten.length} {filteredOfferten.length === 1 ? 'Offerte' : 'Offerten'}
             </span>
           </div>
+        </div>
 
-          {/* Mobile Filter Button */}
+        {/* Mobile Filter Pills Bar (sm:hidden) */}
+        <div className="flex sm:hidden items-center gap-1.5 px-3 py-2 border-b border-border bg-surface/50">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-1 touch-action-manipulation">
+            {[
+              { id: '', label: 'Alle' },
+              { id: 'Versendet', label: 'Versendet' },
+              { id: 'Akzeptiert', label: 'Akzeptiert' },
+              { id: 'Entwurf', label: 'Entwurf' },
+              { id: 'In Überarbeitung', label: 'Überarbeitung' },
+              { id: 'Abgelehnt', label: 'Abgelehnt' },
+              { id: 'Verrechnet', label: 'Verrechnet' },
+            ].map((f) => {
+              const isSelected = activeFilter 
+                ? (f.id === '' ? false : activeFilter.split(',').includes(f.id))
+                : filterStatus === f.id
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveFilter(null)
+                    setFilterStatus(f.id)
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap min-h-[36px] transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-primary-600 text-white shadow-xs'
+                      : 'bg-surface-card border border-border text-text-secondary active:bg-neutral-100'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+          </div>
           <button 
             type="button"
             onClick={() => setShowFilterSheet(true)}
-            className="sm:hidden w-full py-2.5 px-3 flex items-center justify-center gap-2 bg-surface border border-border rounded-xl text-xs font-semibold text-text-secondary hover:text-text-primary active:scale-95 transition-all relative shrink-0"
+            className={`p-2 rounded-xl border flex items-center justify-center min-h-[36px] min-w-[36px] shrink-0 transition-all cursor-pointer ${
+              (filterMonth || showArchived)
+                ? 'bg-primary-50 border-primary-300 text-primary-700'
+                : 'bg-surface-card border-border text-text-secondary hover:text-text-primary'
+            }`}
+            title="Erweiterte Filter"
+            aria-label="Erweiterte Filter"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-            <span>Filter</span>
-            {(filterStatus || filterMonth || showArchived) && (
-              <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
-            )}
           </button>
         </div>
 
@@ -482,8 +648,8 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
           </div>
         ) : filteredOfferten.length === 0 ? (
           <div className="text-center py-16 px-4 text-text-secondary">
-            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl">
-              📄
+            <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-3 text-xl text-primary-600">
+              <IconDocument className="w-6 h-6" />
             </div>
             <p className="text-sm font-semibold text-text-primary">Keine Offerten gefunden</p>
             <p className="text-xs text-text-secondary mt-1">Passe deine Filterkriterien an oder erstelle eine neue Offerte.</p>
@@ -494,20 +660,33 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
             <div
               key={o.id}
               onClick={() => onNavigate ? onNavigate('offerten', { offerteId: o.id }) : setSelectedOfferte(o)}
-              className={`flex flex-col lg:grid lg:grid-cols-[120px_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(110px,1fr)_110px_130px_110px_110px_36px] gap-3 lg:gap-3 p-4 lg:px-5 lg:py-3.5 hover:bg-primary-50/20 transition-colors items-start lg:items-center cursor-pointer border-l-4 ${getBorderColor(o.status)} group`}
+              className={`flex flex-col lg:grid lg:grid-cols-[120px_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(110px,1fr)_110px_130px_110px_110px_36px] gap-2 sm:gap-3 p-3.5 sm:p-4 lg:px-5 lg:py-3.5 hover:bg-primary-50/20 active:bg-neutral-50 transition-colors cursor-pointer border-l-4 ${getBorderColor(o.status)} group`}
             >
+              {/* Mobile Card Header / Desktop Column 1 */}
               <div className="flex items-center justify-between w-full lg:w-auto">
-                <span className="text-xs font-mono font-bold text-primary-600">
-                  {o.offerte_nr || `OF-2026-${String(o.id).padStart(3, '0')}`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-primary-600">
+                    {o.offerte_nr || `OF-2026-${String(o.id).padStart(3, '0')}`}
+                  </span>
+                  {o.is_archived && (
+                    <span className="lg:hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <IconFolder className="w-3 h-3 text-amber-700" />
+                      <span>Archiv</span>
+                    </span>
+                  )}
+                </div>
                 <span className="lg:hidden text-xs text-text-secondary">{formatDate(o.created_at)}</span>
               </div>
               
+              {/* Kunde & Projekt */}
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-semibold text-text-primary truncate">{o.kunden?.name || 'Unbekannt'}</span>
-                <span className="text-xs text-text-secondary truncate mt-0.5 lg:hidden">
-                  🏗️ {o.projekte?.name || 'Kein Projekt'}
-                  {o.projekte?.adresse && ` - ${o.projekte.adresse.split(',')[0]}`}
+                <span className="text-xs text-text-secondary truncate mt-0.5 lg:hidden flex items-center gap-1">
+                  <IconBauunternehmung className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                  <span className="truncate">
+                    {o.projekte?.name || 'Kein Projekt'}
+                    {o.projekte?.adresse && ` · ${o.projekte.adresse.split(',')[0]}`}
+                  </span>
                 </span>
               </div>
               
@@ -519,26 +698,20 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
               <span className="hidden lg:block text-xs text-text-secondary truncate">{o.daten?.ausfuehrung?.start || '-'}</span>
               <span className="hidden lg:block text-xs text-text-secondary truncate">{o.daten?.konditionen?.gueltigkeit || '-'}</span>
               
-              <div className="flex items-center justify-between w-full lg:contents mt-2 lg:mt-0 pt-3 border-t border-dashed border-gray-200 lg:border-none lg:pt-0">
-                <span className="text-sm font-bold text-text-primary lg:text-right">
+              {/* Mobile Card Footer: Total, Status, Chevron */}
+              <div className="flex items-center justify-between w-full lg:contents mt-1.5 lg:mt-0 pt-2 lg:pt-0 border-t border-dashed border-gray-100 lg:border-none">
+                <span className="text-sm font-semibold text-text-primary lg:text-right tabular-nums">
                   {formatCurrency(o.total)}
                 </span>
-                <div className="lg:flex lg:justify-center lg:items-center">
-                  {o.is_archived ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                      <span>📁</span> Archiviert
-                    </span>
-                  ) : (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${statusStyles[o.status] || statusStyles['Entwurf']}`}>
-                      {o.status || 'Entwurf'}
-                    </span>
-                  )}
+                <div className="flex items-center gap-2 lg:justify-center">
+                  <StatusBadge status={o.is_archived ? 'Archiviert' : (o.status || 'Entwurf')} size="xs" />
+                  <svg className="w-4 h-4 text-text-secondary lg:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </div>
               </div>
 
-              <span className="hidden lg:block text-xs text-text-secondary lg:text-right">{formatDate(o.created_at)}</span>
+              <span className="hidden lg:block text-xs text-text-secondary lg:text-right tabular-nums">{formatDate(o.created_at)}</span>
 
-              {/* Chevron Icon for details (Right Arrow) */}
+              {/* Chevron Icon for details (Desktop) */}
               <div className="hidden lg:flex items-center justify-end text-text-secondary group-hover:text-primary-600 transition-colors">
                 <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </div>
@@ -549,27 +722,41 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
       </div>
     </div>
 
-      {/* Mobile Filter Bottom Sheet */}
+      {/* Mobile Filter Bottom Sheet (No drag bar, useModalHistory) */}
       {showFilterSheet && (
-        <div className="fixed inset-0 z-[100] sm:hidden flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShowFilterSheet(false)}></div>
-          <div className="bg-surface rounded-t-3xl w-full flex flex-col relative animate-slide-up pb-8 shadow-2xl">
-            <div className="w-full flex justify-center pt-4 pb-2 shrink-0" onClick={() => setShowFilterSheet(false)}>
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
-            </div>
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-lg font-bold text-text-primary">Filter</h3>
-              <button onClick={() => setShowFilterSheet(false)} className="p-2 -mr-2 text-text-secondary hover:text-text-primary">
-                ✕
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 shadow-2xl border border-gray-200 animate-slide-up sm:animate-scale-in max-h-[85vh] flex flex-col">
+            {/* Header with Title and explicit round close button (No drag bar!) */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <IconSearch className="w-5 h-5 text-primary-600" />
+                <h3 className="font-bold text-base text-gray-900">Filter anpassen</h3>
+                {(filterStatus || filterMonth || showArchived) && (
+                  <span className="text-[10px] bg-primary-50 text-primary-700 font-bold px-2 py-0.5 rounded-full border border-primary-200">
+                    Aktiv
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFilterSheet(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm transition-colors cursor-pointer"
+                aria-label="Schliessen"
+              >
+                <IconClose className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-6 space-y-6 overflow-y-auto">
+
+            <div className="py-4 space-y-4 overflow-y-auto">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Status</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Status</label>
                 <select 
                   value={filterStatus}
-                  onChange={e => setFilterStatus(e.target.value)}
-                  className="w-full px-4 py-3 min-h-[48px] bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onChange={e => {
+                    setFilterStatus(e.target.value)
+                    setActiveFilter(null)
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer"
                 >
                   <option value="">Alle Status</option>
                   <option value="Entwurf">Entwurf</option>
@@ -580,12 +767,13 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
                   <option value="Verrechnet">Verrechnet</option>
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Monat</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Monat</label>
                 <select 
                   value={filterMonth}
                   onChange={e => setFilterMonth(e.target.value)}
-                  className="w-full px-4 py-3 min-h-[48px] bg-surface-card border border-border rounded-xl text-base text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 cursor-pointer"
                 >
                   <option value="">Alle Monate</option>
                   {availableMonths.map(m => (
@@ -593,22 +781,39 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
                   ))}
                 </select>
               </div>
-              <label className="flex items-center gap-3 py-2 text-base text-text-primary cursor-pointer">
+
+              <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer">
                 <input 
                   type="checkbox" 
                   checked={showArchived} 
                   onChange={(e) => setShowArchived(e.target.checked)}
-                  className="w-5 h-5 rounded border-border text-primary-600 focus:ring-primary-500"
+                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                Archivierte einblenden
+                <span className="text-sm font-medium text-gray-700">Archivierte Offerten einblenden</span>
               </label>
             </div>
-            <div className="px-6 pt-2">
+
+            <div className="pt-3 border-t border-gray-100 flex gap-2">
+              {(filterStatus || filterMonth || showArchived) && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setFilterStatus('')
+                    setActiveFilter(null)
+                    setFilterMonth('')
+                    setShowArchived(false)
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-xs hover:bg-gray-50 transition-colors"
+                >
+                  Zurücksetzen
+                </button>
+              )}
               <button 
+                type="button"
                 onClick={() => setShowFilterSheet(false)}
-                className="w-full py-3 min-h-[48px] bg-primary-600 text-white rounded-xl font-bold text-center active:scale-[0.98] transition-transform shadow-md text-base"
+                className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-sm text-center active:scale-[0.98] transition-all shadow-sm"
               >
-                Filter anwenden
+                Fertig
               </button>
             </div>
           </div>
@@ -633,11 +838,21 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         <DocumentCreateModal 
           type="offerte"
           isOpen={showCreateDrawer}
+          initialKundeId={viewParams?.kundeId}
+          initialProjektId={viewParams?.projektId}
           onClose={() => {
             if (viewParams?.action === 'create') {
               navigateBack('offerten')
             } else {
               setShowCreateDrawer(false)
+            }
+          }}
+          onSuccess={(newOfferte) => {
+            setShowCreateDrawer(false)
+            setOfferten(prev => [newOfferte, ...prev.filter(x => String(x.id) !== String(newOfferte.id))])
+            setSelectedOfferte(newOfferte)
+            if (onNavigate) {
+              onNavigate('offerten', { offerteId: newOfferte.id, edit: true }, { replace: true })
             }
           }}
           onNavigate={onNavigate}
