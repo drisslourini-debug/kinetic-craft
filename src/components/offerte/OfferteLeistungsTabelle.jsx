@@ -363,34 +363,38 @@ export default function OfferteLeistungsTabelle({
                   )}
 
                   {/* Row: Order controls + Description */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2 sm:gap-3">
                     {/* Move & Delete */}
-                    <div className="flex flex-col gap-0.5 pt-1">
+                    <div className="flex flex-col gap-1 pt-0.5 shrink-0">
                       <button
+                        type="button"
                         onClick={() => movePosition(idx, -1)}
                         disabled={idx === 0}
-                        className="p-1 rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                        className="w-8 h-8 rounded-lg hover:bg-surface active:bg-neutral-200 text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors flex items-center justify-center touch-action-manipulation"
                         title="Nach oben"
+                        aria-label="Position nach oben"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
                       </button>
                       <button
+                        type="button"
                         onClick={() => movePosition(idx, 1)}
                         disabled={idx === editLeistungen.length - 1}
-                        className="p-1 rounded hover:bg-surface text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                        className="w-8 h-8 rounded-lg hover:bg-surface active:bg-neutral-200 text-text-secondary hover:text-text-primary disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors flex items-center justify-center touch-action-manipulation"
                         title="Nach unten"
+                        aria-label="Position nach unten"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                       </button>
                     </div>
 
                     {/* Position Number (Read Only Auto-Calc) */}
-                    <div className="shrink-0 w-12 pt-2 text-center">
-                      <span className="text-xs font-bold text-text-secondary">{pos.posNr}</span>
+                    <div className="shrink-0 w-8 sm:w-12 pt-2 text-center">
+                      <span className="text-xs font-bold text-text-secondary font-mono">{pos.posNr}</span>
                     </div>
 
                     {/* Description Field */}
-                    <div className="flex-1 space-y-1.5">
+                    <div className="flex-1 space-y-1.5 min-w-0">
                       {pos.type !== 'title' && (
                         <div className="flex items-center gap-2">
                           <input
@@ -421,8 +425,9 @@ export default function OfferteLeistungsTabelle({
                       )}
                     </div>
 
-                    <div className="pt-1.5 flex items-center">
+                    <div className="pt-1.5 flex items-center shrink-0">
                       <button
+                        type="button"
                         onClick={() => deletePosition(pos._id)}
                         className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                         title="Löschen"
@@ -433,14 +438,14 @@ export default function OfferteLeistungsTabelle({
                   </div>
 
                   {/* Options row: Optional toggle & Page break toggle */}
-                  <div className="pl-[76px] flex flex-wrap items-center gap-4">
+                  <div className="pl-0 sm:pl-[76px] flex flex-wrap items-center gap-3 sm:gap-4 mt-1.5">
                     {pos.type !== 'title' && (
                       <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                         <input
                           type="checkbox"
                           checked={pos.optional || false}
                           onChange={(e) => updatePosition(pos._id, 'optional', e.target.checked)}
-                          className="w-3.5 h-3.5 text-amber-600 rounded border-border focus:ring-amber-500 accent-amber-500"
+                          className="w-4 h-4 text-amber-600 rounded border-border focus:ring-amber-500 accent-amber-500"
                         />
                         <span className="font-semibold text-text-secondary uppercase tracking-wider">Optionale Position</span>
                       </label>
@@ -451,7 +456,7 @@ export default function OfferteLeistungsTabelle({
                         type="checkbox"
                         checked={pos.page_break || false}
                         onChange={(e) => updatePosition(pos._id, 'page_break', e.target.checked)}
-                        className="w-3.5 h-3.5 text-blue-600 rounded border-border focus:ring-blue-500 accent-blue-600"
+                        className="w-4 h-4 text-blue-600 rounded border-border focus:ring-blue-500 accent-blue-600"
                       />
                       <span className={`font-semibold uppercase tracking-wider flex items-center gap-1 ${pos.page_break ? 'text-blue-700 font-bold' : 'text-text-secondary'}`}>
                         <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
@@ -462,20 +467,21 @@ export default function OfferteLeistungsTabelle({
 
                   {/* Quantity & Price Row (Not for Titles) */}
                   {pos.type !== 'title' && (
-                    <div className="pl-[76px] grid grid-cols-2 sm:grid-cols-[140px_130px_1fr] gap-3 pt-2">
+                    <div className="pl-0 sm:pl-[76px] grid grid-cols-2 sm:grid-cols-[140px_130px_1fr] gap-2 sm:gap-3 pt-2">
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="any"
                           value={pos.menge}
                           onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm text-right focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                          className="w-full px-3 py-2 sm:py-1.5 bg-surface border border-border rounded-lg text-sm text-right focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 font-mono"
                           placeholder="Menge"
                         />
                         <button
                           type="button"
                           onClick={() => setAusmassModalPos(pos)}
-                          className={`px-2 py-1.5 rounded-lg border text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1 transition-colors ${
+                          className={`px-2.5 py-2 sm:py-1.5 rounded-lg border text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1 transition-colors min-h-[38px] ${
                             pos.ausmass_details && pos.ausmass_details.length > 0
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
                               : 'bg-surface text-text-secondary border-border hover:text-primary-700 hover:border-primary-300'
@@ -490,7 +496,7 @@ export default function OfferteLeistungsTabelle({
                         <select
                           value={pos.einheit}
                           onChange={(e) => updatePosition(pos._id, 'einheit', e.target.value)}
-                          className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                          className="w-full px-3 py-2 sm:py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
                         >
                           <option value="Stück (Stk)">Stück (Stk)</option>
                           <option value="Stunde (h)">Stunde (h)</option>
@@ -501,16 +507,23 @@ export default function OfferteLeistungsTabelle({
                           <option value="Quadratmeter (m²)">Quadratmeter (m²)</option>
                         </select>
                       </div>
-                      <div className="col-span-2 sm:col-span-1 flex items-center gap-2">
-                        <span className="text-text-secondary text-sm">à CHF</span>
-                        <input
-                          type="number"
-                          step="0.05"
-                          value={pos.einzelpreis}
-                          onChange={(e) => updatePosition(pos._id, 'einzelpreis', e.target.value)}
-                          className="flex-1 px-3 py-1.5 bg-surface border border-border rounded-lg text-sm text-right focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                          placeholder="0.00"
-                        />
+                      <div className="col-span-2 sm:col-span-1 flex items-center justify-between sm:justify-start gap-2">
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <span className="text-text-secondary text-xs sm:text-sm shrink-0">à CHF</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.05"
+                            value={pos.einzelpreis}
+                            onChange={(e) => updatePosition(pos._id, 'einzelpreis', e.target.value)}
+                            className="w-full px-3 py-2 sm:py-1.5 bg-surface border border-border rounded-lg text-sm text-right focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 font-mono"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        {/* Live row total on mobile */}
+                        <div className="text-xs font-mono font-bold text-primary-700 bg-primary-50 px-2.5 py-1.5 rounded-lg shrink-0 sm:hidden border border-primary-200">
+                          = {formatCurrency((parseFloat(pos.menge) || 0) * (parseFloat(pos.einzelpreis) || 0))}
+                        </div>
                       </div>
                     </div>
                   )}

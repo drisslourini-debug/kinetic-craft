@@ -98,6 +98,13 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
     }
   }, [viewParams?.action, selectedProjekt, isCreateModalOpen])
 
+  useEffect(() => {
+    if (viewParams?.action === 'create_rapport' && !selectedProjekt && projekte.length > 0) {
+      const targetProj = projekte.find(p => p.status === 'Aktiv' || p.status === 'In Arbeit') || projekte[0]
+      setSelectedProjekt(targetProj)
+    }
+  }, [viewParams?.action, selectedProjekt, projekte])
+
   const statusColor = {
     'Aktiv': 'bg-primary-100 text-primary-700',
     'In Arbeit': 'bg-emerald-100 text-emerald-700',
@@ -111,7 +118,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
         onNavigate={onNavigate}
         userRole={userRole}
         userName={userName}
-        initialTab={viewParams?.activeTab || 'projektdaten'}
+        initialTab={viewParams?.action === 'create_rapport' ? 'rapporte' : (viewParams?.activeTab || 'projektdaten')}
+        initialAction={viewParams?.action}
         onBack={() => {
           navigateBack('projekte')
           // Refresh to capture potential name/status changes

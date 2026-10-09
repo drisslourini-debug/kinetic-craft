@@ -57,6 +57,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   });
   const [mobileWeekOnly, setMobileWeekOnly] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mobileViewTab, setMobileViewTab] = useState('strip'); // 'strip' | 'agenda'
   const [activeViewMode, setActiveViewMode] = useState('monat'); // 'monat', 'woche', 'agenda'
 
   // Data State
@@ -833,13 +834,41 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0 flex-wrap" onClick={e => e.stopPropagation()}>
+                        {ev.ort && (
+                          <a
+                            href={`https://maps.apple.com/?q=${encodeURIComponent(ev.ort)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-text-primary font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                            title="Route in Karten-App öffnen"
+                          >
+                            <IconMapsRoute className="w-3.5 h-3.5 text-primary-600" />
+                            <span>Route</span>
+                          </a>
+                        )}
+                        {(ev.kunden?.telefon || ev.telefon) && (
+                          <a
+                            href={`tel:${ev.kunden?.telefon || ev.telefon}`}
+                            className="min-h-[40px] px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                            title="Kunden direkt anrufen"
+                          >
+                            <IconPhone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Anrufen</span>
+                          </a>
+                        )}
                         {ev.isSyntheticProject ? (
-                          <span className="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                          <span 
+                            onClick={() => handleEventClick(ev)}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 p-2 cursor-pointer"
+                          >
                             Zum Projekt →
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-primary-600 hover:text-primary-800">
+                          <span 
+                            onClick={() => handleEventClick(ev)}
+                            className="text-xs font-bold text-primary-600 hover:text-primary-800 p-2 cursor-pointer"
+                          >
                             Details ansehen →
                           </span>
                         )}
@@ -1110,24 +1139,24 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/50 text-xs flex-wrap" onClick={e => e.stopPropagation()}>
                       {locationQuery && (
                         <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${locationQuery}`}
+                          href={`https://maps.apple.com/?q=${locationQuery}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-text-primary font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-text-primary font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
-                          <IconMapsRoute className="w-3.5 h-3.5" />
+                          <IconMapsRoute className="w-4 h-4 text-primary-600" />
                           <span>Route</span>
                         </a>
                       )}
                       {customerPhone && (
                         <a
                           href={`tel:${customerPhone}`}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                          className="min-h-[44px] px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
-                          <IconPhone className="w-3.5 h-3.5" />
+                          <IconPhone className="w-4 h-4 text-emerald-600" />
                           <span>Anrufen</span>
                         </a>
                       )}
@@ -1135,20 +1164,20 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
                         <button
                           type="button"
                           onClick={() => handleStatusChange(ev.id, ev.status === 'Erledigt' ? 'Geplant' : 'Erledigt')}
-                          className={`ml-auto px-2.5 py-1.5 rounded-lg font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer ${
+                          className={`min-h-[44px] ml-auto px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
                             ev.status === 'Erledigt'
-                              ? 'bg-neutral-100 text-text-secondary'
-                              : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100'
+                              ? 'bg-neutral-100 text-text-secondary active:bg-neutral-200'
+                              : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 active:bg-primary-200'
                           }`}
                         >
                           {ev.status === 'Erledigt' ? (
                             <span className="flex items-center gap-1">
-                              <IconRefresh className="w-3 h-3" />
+                              <IconRefresh className="w-3.5 h-3.5" />
                               Reaktivieren
                             </span>
                           ) : (
                             <span className="flex items-center gap-1">
-                              <IconCheck className="w-3 h-3" />
+                              <IconCheck className="w-3.5 h-3.5" />
                               Erledigt
                             </span>
                           )}
@@ -1442,6 +1471,32 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
             </button>
           </div>
         </div>
+
+        {/* Mobile View Toggle: Tagesansicht vs. Agenda-Liste */}
+        <div className="flex bg-neutral-100 p-1 rounded-xl gap-1">
+          <button
+            type="button"
+            onClick={() => setMobileViewTab('strip')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mobileViewTab === 'strip'
+                ? 'bg-white text-text-primary shadow-xs'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            📅 Tages-Kalender
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileViewTab('agenda')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              mobileViewTab === 'agenda'
+                ? 'bg-white text-text-primary shadow-xs'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            📋 Alle Termine (Agenda)
+          </button>
+        </div>
       </div>
 
       {/* Main View Area */}
@@ -1454,7 +1509,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         <>
           {/* Mobile Calendar + Day Agenda */}
           <div className="md:hidden">
-            {renderMobileCalendarView()}
+            {mobileViewTab === 'strip' ? renderMobileCalendarView() : renderAgendaView()}
           </div>
 
           {/* Desktop Full Views */}

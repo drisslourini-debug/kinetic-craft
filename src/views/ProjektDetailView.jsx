@@ -43,7 +43,15 @@ import {
 // MAIN COMPONENT
 // ----------------------
 
-export default function ProjektDetailView({ projekt: initialProjekt, onBack, onNavigate, userRole, initialTab, userName = '' }) {
+export default function ProjektDetailView({ 
+  projekt: initialProjekt, 
+  onBack, 
+  onNavigate, 
+  userRole, 
+  initialTab, 
+  userName = '',
+  initialAction = null 
+}) {
   const [parent] = useAutoAnimate()
   const [projekt, setProjekt] = useState(initialProjekt)
   const [offerten, setOfferten] = useState([])
@@ -57,17 +65,24 @@ export default function ProjektDetailView({ projekt: initialProjekt, onBack, onN
   const [selectedTimeEntriesForConversion, setSelectedTimeEntriesForConversion] = useState(null)
   const [kunde, setKunde] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState(initialTab || 'projektdaten')
+  const [activeTab, setActiveTab] = useState(() => initialAction === 'create_rapport' ? 'rapporte' : (initialTab || 'projektdaten'))
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
   const [selectedTerminForDetail, setSelectedTerminForDetail] = useState(null)
-  const [isRapportCreateOpen, setIsRapportCreateOpen] = useState(false)
+  const [isRapportCreateOpen, setIsRapportCreateOpen] = useState(() => initialAction === 'create_rapport')
   const [selectedRapport, setSelectedRapport] = useState(null)
   const [showDeleteWarning, setShowDeleteWarning] = useState(false)
   const [showArchiveWarning, setShowArchiveWarning] = useState(false)
   const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (initialAction === 'create_rapport') {
+      setIsRapportCreateOpen(true)
+      setActiveTab('rapporte')
+    }
+  }, [initialAction])
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })

@@ -32,7 +32,7 @@ import {
   IconPhotoScanner
 } from '../components/icons/BrandIcons'
 
-export default function BuchhaltungView({ onNavigate, userRole }) {
+export default function BuchhaltungView({ onNavigate, userRole, viewParams }) {
   const [ausgaben, setAusgaben] = useState([])
   const [einnahmen, setEinnahmen] = useState([])
   const [allInvoices, setAllInvoices] = useState([])
@@ -46,6 +46,17 @@ export default function BuchhaltungView({ onNavigate, userRole }) {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [mobileExportMenuOpen, setMobileExportMenuOpen] = useState(false)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+
+  // React to mobile quick actions (e.g. Gemini KI scan_beleg)
+  useEffect(() => {
+    if (viewParams?.action === 'scan_beleg') {
+      setIsCreateModalOpen(true)
+      setAutoTriggerScan(true)
+    } else if (viewParams?.action === 'create') {
+      setIsCreateModalOpen(true)
+      setAutoTriggerScan(false)
+    }
+  }, [viewParams?.action])
 
   // Treuhand- & MWST-Einstellungen aus Mandantenprofil / Einstellungen
   const [settings, setSettings] = useState({

@@ -95,6 +95,19 @@ export default function App() {
   const [tenantInfo, setTenantInfo] = useState(null)
   const [userName, setUserName] = useState('')
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false)
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' ? !navigator.onLine : false)
+
+  // Listen to network status (Baustellen-Offline-Erkennung)
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // ⌘K / Ctrl+K keyboard shortcut listener for CommandBar
   useEffect(() => {
@@ -545,6 +558,16 @@ export default function App() {
 
       {/* Main content scrollable column */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto overflow-x-hidden print:h-auto print:overflow-visible">
+        
+        {/* Baustellen-Offline-Banner (Keller/Rohbau ohne Mobilfunkempfang) */}
+        {isOffline && (
+          <div className="bg-amber-900 text-amber-100 text-xs px-4 py-2 flex items-center justify-center gap-2 border-b border-amber-800 backdrop-blur-xs sticky top-0 z-30 animate-fade-in print:hidden shadow-md">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span className="font-bold">📡 Offline-Modus aktiv:</span>
+            <span>Änderungen und Rapporte werden lokal im Browser gesichert & bei Empfang synchronisiert.</span>
+          </div>
+        )}
+
         {/* Top bar - hidden during print */}
         <header className="sticky top-0 z-20 bg-surface-card/85 backdrop-blur-md border-b border-border px-4 py-3 md:px-8 md:py-4 print:hidden pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">

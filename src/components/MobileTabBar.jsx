@@ -5,17 +5,21 @@ import { IconNav } from './icons/BrandIcons';
 
 export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isQuickActionsOpen, setIsQuickActionsOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  let currentMainTabs = [
+  // Left 2 tabs and Right 1 tab + Menu button
+  let leftTabs = [
     { id: 'dashboard', label: 'Home' },
     { id: 'kalender', label: 'Kalender' },
+  ];
+  let rightTabs = [
     { id: 'projekte', label: 'Projekte' },
-    { id: 'kunden', label: 'Kunden' },
   ];
 
   let currentMenuItems = [
+    { id: 'kunden', label: 'Kunden', desc: 'Stammdaten & Adressen' },
     { id: 'offerten', label: 'Offerten', desc: 'Angebote & Kalkulationen' },
     { id: 'rechnungen', label: 'Rechnungen', desc: 'Fakturierung & QR-Rechnung' },
     { id: 'buchhaltung', label: 'Buchhaltung', desc: 'Einnahmen, Ausgaben & MWST' },
@@ -25,22 +29,26 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   ];
 
   if (userRole === 'monteur') {
-    currentMainTabs = [
+    leftTabs = [
       { id: 'kalender', label: 'Kalender' },
       { id: 'projekte', label: 'Projekte' },
+    ];
+    rightTabs = [
       { id: 'dateien', label: 'Fotos & Pläne' },
-      { id: 'kunden', label: 'Kunden' },
     ];
     currentMenuItems = [
       { id: 'dashboard', label: 'Home', desc: 'Übersicht' },
+      { id: 'kunden', label: 'Kunden', desc: 'Kontaktdaten' },
       { id: 'katalog', label: 'Katalog', desc: 'Material & Arbeit' },
       { id: 'einstellungen', label: 'Mein Profil', desc: 'Benutzerkonto' },
     ];
   } else if (userRole === 'treuhand') {
-    currentMainTabs = [
+    leftTabs = [
       { id: 'buchhaltung', label: 'Buchhaltung' },
-      { id: 'kunden', label: 'Kunden' },
       { id: 'rechnungen', label: 'Rechnungen' },
+    ];
+    rightTabs = [
+      { id: 'kunden', label: 'Kunden' },
     ];
     currentMenuItems = [
       { id: 'dateien', label: 'Archiv', desc: 'Export & Belege' },
@@ -62,21 +70,114 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const handleTabClick = (id, params = null) => {
     onNavigate(id, params);
     setIsMenuOpen(false);
+    setIsQuickActionsOpen(false);
   };
 
   return (
     <>
-      {/* Native Bottom Sheet für sekundäre Module & Quick-Actions */}
+      {/* 1. NATIVE BOTTOM SHEET FÜR BAUSTELLEN-SCHNELLAKTIONEN (Zentraler Button) */}
+      <BottomSheet
+        isOpen={isQuickActionsOpen}
+        onClose={() => setIsQuickActionsOpen(false)}
+        title="⚡ Baustellen-Schnellaktionen"
+        subtitle="Direktzugriff für Handwerker & Montage"
+      >
+        <div className="space-y-2.5 pb-2">
+          {/* 1. Stempeluhr starten */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsQuickActionsOpen(false);
+              window.dispatchEvent(new CustomEvent('a77-open-timer-start'));
+            }}
+            className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-amber-100/60"
+          >
+            <div className="w-11 h-11 rounded-xl bg-amber-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+              ⏱️
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-bold text-slate-900 block truncate">Stempeluhr starten</span>
+              <span className="text-xs text-amber-900 block truncate">Arbeitszeit für Baustelle erfassen</span>
+            </div>
+            <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">Live</span>
+          </button>
+
+          {/* 2. Neuer Tagesrapport */}
+          <button
+            type="button"
+            onClick={() => handleTabClick('projekte', { action: 'create_rapport' })}
+            className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-emerald-100/60"
+          >
+            <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+              📝
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-bold text-slate-900 block truncate">Neuer Regierapport</span>
+              <span className="text-xs text-emerald-900 block truncate">Stunden, Material & Kundenunterschrift</span>
+            </div>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">Sign</span>
+          </button>
+
+          {/* 3. Beleg mit Gemini KI scannen */}
+          <button
+            type="button"
+            onClick={() => handleTabClick('buchhaltung', { action: 'scan_beleg' })}
+            className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-sky-100/60"
+          >
+            <div className="w-11 h-11 rounded-xl bg-sky-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+              📸
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-bold text-slate-900 block truncate">Beleg mit Gemini KI scannen</span>
+              <span className="text-xs text-sky-900 block truncate">Quittung fotografieren & automatische OCR</span>
+            </div>
+            <span className="text-xs font-semibold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">KI</span>
+          </button>
+
+          {/* 4. Neue Offerte & Neue Rechnung */}
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => handleTabClick('offerten', { action: 'create' })}
+              className="flex items-center gap-2.5 p-3 rounded-2xl bg-white border border-slate-200 text-left active:scale-[0.98] transition-all min-h-[50px] touch-action-manipulation cursor-pointer hover:border-amber-300"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center font-bold shrink-0 text-sm">
+                📄
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-900 block truncate">Neue Offerte</span>
+                <span className="text-[10px] text-slate-500 block truncate">Kalkulieren</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick('rechnungen', { action: 'create' })}
+              className="flex items-center gap-2.5 p-3 rounded-2xl bg-white border border-slate-200 text-left active:scale-[0.98] transition-all min-h-[50px] touch-action-manipulation cursor-pointer hover:border-amber-300"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold shrink-0 text-sm">
+                🧾
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-bold text-slate-900 block truncate">Neue Rechnung</span>
+                <span className="text-[10px] text-slate-500 block truncate">Swiss QR-Bill</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      {/* 2. NATIVE BOTTOM SHEET FÜR SEKUNDÄRE MODULE & WEITERE AKTIONEN */}
       <BottomSheet
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
-        title="Menü & Aktionen"
-        subtitle="Schnellzugriff auf alle Bereiche"
+        title="Menü & Module"
+        subtitle="Vollständige Übersicht aller Bereiche"
       >
         {/* Quick Action Buttons */}
         {userRole !== 'treuhand' && (
           <div className="mb-3">
-            <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Schnellaktionen</h4>
+            <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Stammdaten Schnellzugriff</h4>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
@@ -111,7 +212,7 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
 
         {/* Sekundäre Module */}
         <div>
-          <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Module</h4>
+          <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Alle Module</h4>
           <div className="space-y-1.5">
             {currentMenuItems.map((item) => {
               const isActive = activeView === item.id;
@@ -166,10 +267,49 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
         </div>
       </BottomSheet>
 
-      {/* Fixierte Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-surface-card/95 backdrop-blur-lg border-t border-border pb-[env(safe-area-inset-bottom)] md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-around h-16 px-1">
-          {currentMainTabs.map((tab) => {
+      {/* 3. FIXIERTE BOTTOM NAVIGATION BAR MIT ZENTRIERTEM SCHNELLAKTIONS-BUTTON */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-surface-card/95 backdrop-blur-lg border-t border-border pb-[env(safe-area-inset-bottom)] md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between h-16 px-1 max-w-md mx-auto">
+          {/* Left Tabs */}
+          {leftTabs.map((tab) => {
+            const isActive = activeView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabClick(tab.id)}
+                className="flex-1 flex flex-col items-center justify-center h-full min-h-[48px] touch-action-manipulation relative active:scale-90 transition-transform cursor-pointer"
+              >
+                <span className={`transition-all duration-200 ${isActive ? 'scale-110 -translate-y-0.5' : 'opacity-70'}`}>
+                  <IconNav id={tab.id} className={`w-5 h-5 ${isActive ? 'text-primary-600' : 'text-slate-600'}`} />
+                </span>
+                <span className={`text-[11px] font-semibold mt-0.5 transition-colors ${isActive ? 'text-primary-600 font-bold' : 'text-text-secondary'}`}>
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-1 w-5 h-1 bg-primary-600 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+
+          {/* Central Elevated Quick-Action Button (+) */}
+          {userRole !== 'treuhand' && (
+            <div className="flex-1 flex flex-col items-center justify-center relative">
+              <button
+                type="button"
+                onClick={() => setIsQuickActionsOpen(true)}
+                aria-label="Baustellen-Schnellaktionen öffnen"
+                className="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-amber-600 via-amber-700 to-yellow-600 text-white shadow-lg shadow-amber-900/30 flex items-center justify-center text-2xl font-bold active:scale-95 hover:scale-105 transition-all cursor-pointer ring-4 ring-white"
+              >
+                <span className="leading-none pb-0.5">+</span>
+              </button>
+              <span className="text-[10px] font-bold text-amber-800 mt-1">Aktion</span>
+            </div>
+          )}
+
+          {/* Right Tabs */}
+          {rightTabs.map((tab) => {
             const isActive = activeView === tab.id;
             return (
               <button

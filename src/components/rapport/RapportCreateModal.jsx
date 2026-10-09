@@ -190,13 +190,13 @@ export default function RapportCreateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
       <div 
-        className="bg-surface-card border border-border w-full max-w-3xl max-h-[92vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+        className="bg-surface-card border border-border w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[92vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
+        <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between bg-surface/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
               <IconRapport className="w-5 h-5" />
@@ -220,11 +220,11 @@ export default function RapportCreateModal({
         </div>
 
         {/* Tab Selector */}
-        <div className="flex border-b border-border bg-neutral-50 px-6 pt-2 gap-4 text-xs font-bold">
+        <div className="flex border-b border-border bg-neutral-50 px-4 sm:px-6 pt-2 gap-2 sm:gap-4 text-xs font-bold overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveStep('work')}
-            className={`pb-2.5 border-b-2 transition-all cursor-pointer ${
+            className={`pb-2.5 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeStep === 'work' ? 'border-amber-500 text-amber-900' : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -233,7 +233,7 @@ export default function RapportCreateModal({
           <button
             type="button"
             onClick={() => setActiveStep('material')}
-            className={`pb-2.5 border-b-2 transition-all cursor-pointer ${
+            className={`pb-2.5 border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeStep === 'material' ? 'border-amber-500 text-amber-900' : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -242,7 +242,7 @@ export default function RapportCreateModal({
           <button
             type="button"
             onClick={() => setActiveStep('sign')}
-            className={`pb-2.5 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`pb-2.5 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeStep === 'sign' ? 'border-amber-500 text-amber-900' : 'border-transparent text-text-secondary hover:text-text-primary'
             }`}
           >
@@ -252,7 +252,7 @@ export default function RapportCreateModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           {errorMessage && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
               <IconWarning className="w-4 h-4 text-red-600 shrink-0" />
@@ -272,7 +272,7 @@ export default function RapportCreateModal({
                     type="date"
                     value={datum}
                     onChange={(e) => setDatum(e.target.value)}
-                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
+                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -284,7 +284,7 @@ export default function RapportCreateModal({
                     value={monteurName}
                     onChange={(e) => setMonteurName(e.target.value)}
                     placeholder="Name des Handwerkers"
-                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
+                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -311,7 +311,7 @@ export default function RapportCreateModal({
                   <button
                     type="button"
                     onClick={handleAddHourRow}
-                    className="text-xs text-amber-600 hover:text-amber-700 font-bold cursor-pointer"
+                    className="text-xs text-amber-600 hover:text-amber-700 font-bold cursor-pointer py-1 px-2 rounded-lg active:bg-amber-50"
                   >
                     + Zeile hinzufügen
                   </button>
@@ -319,46 +319,63 @@ export default function RapportCreateModal({
 
                 <div className="space-y-2.5">
                   {stunden.map((row) => (
-                    <div key={row.id} className="flex items-center gap-2 bg-neutral-50 p-2.5 rounded-2xl border border-border">
-                      <input
-                        type="text"
-                        placeholder="Tätigkeit"
-                        value={row.taetigkeit}
-                        onChange={(e) => handleHourChange(row.id, 'taetigkeit', e.target.value)}
-                        className="flex-1 bg-white border border-border rounded-xl px-3 py-1.5 text-xs text-text-primary focus:outline-hidden focus:border-amber-500"
-                      />
-                      <div className="flex items-center gap-1 w-24">
+                    <div key={row.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-neutral-50 p-3 rounded-2xl border border-border">
+                      <div className="flex items-center gap-2 flex-1">
                         <input
-                          type="number"
-                          step="0.5"
-                          min="0.25"
-                          placeholder="Std"
-                          value={row.stunden}
-                          onChange={(e) => handleHourChange(row.id, 'stunden', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-white border border-border rounded-xl px-2.5 py-1.5 text-xs text-text-primary text-right focus:outline-hidden focus:border-amber-500 font-bold"
+                          type="text"
+                          placeholder="Tätigkeit (z. B. Montage, Vorbereitung)"
+                          value={row.taetigkeit}
+                          onChange={(e) => handleHourChange(row.id, 'taetigkeit', e.target.value)}
+                          className="flex-1 bg-white border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
                         />
-                        <span className="text-xs text-text-secondary">h</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHourRow(row.id)}
+                          className="sm:hidden w-9 h-9 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 flex items-center justify-center cursor-pointer shrink-0"
+                          aria-label="Zeile entfernen"
+                        >
+                          <IconClose className="w-4 h-4" />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1 w-28">
-                        <input
-                          type="number"
-                          step="5"
-                          min="0"
-                          placeholder="Ansatz"
-                          value={row.ansatz}
-                          onChange={(e) => handleHourChange(row.id, 'ansatz', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-white border border-border rounded-xl px-2.5 py-1.5 text-xs text-text-primary text-right focus:outline-hidden focus:border-amber-500"
-                        />
-                        <span className="text-xs text-text-secondary">CHF</span>
+                      <div className="flex items-center gap-2 justify-between sm:justify-start">
+                        <div className="flex items-center gap-1.5 flex-1 sm:w-28">
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0.25"
+                            inputMode="decimal"
+                            placeholder="Std"
+                            value={row.stunden}
+                            onChange={(e) => handleHourChange(row.id, 'stunden', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-border rounded-xl px-3 py-2 text-sm text-text-primary text-right focus:outline-hidden focus:border-amber-500 font-bold"
+                          />
+                          <span className="text-xs text-text-secondary font-medium">Std</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-1 sm:w-32">
+                          <input
+                            type="number"
+                            step="5"
+                            min="0"
+                            inputMode="decimal"
+                            placeholder="Ansatz"
+                            value={row.ansatz}
+                            onChange={(e) => handleHourChange(row.id, 'ansatz', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-border rounded-xl px-3 py-2 text-sm text-text-primary text-right focus:outline-hidden focus:border-amber-500"
+                          />
+                          <span className="text-xs text-text-secondary font-medium">CHF/h</span>
+                        </div>
+                        <span className="text-xs font-bold text-amber-950 sm:hidden">
+                          = {formatCurrency((row.stunden || 0) * (row.ansatz || 0))}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHourRow(row.id)}
+                          className="hidden sm:flex w-8 h-8 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 items-center justify-center cursor-pointer shrink-0"
+                          aria-label="Zeile entfernen"
+                        >
+                          <IconClose className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveHourRow(row.id)}
-                        className="w-8 h-8 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
-                        aria-label="Zeile entfernen"
-                      >
-                        <IconClose className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -379,7 +396,7 @@ export default function RapportCreateModal({
                 <button
                   type="button"
                   onClick={handleAddMaterialRow}
-                  className="text-xs text-amber-600 hover:text-amber-700 font-bold cursor-pointer"
+                  className="text-xs text-amber-600 hover:text-amber-700 font-bold cursor-pointer py-1 px-2 rounded-lg active:bg-amber-50"
                 >
                   + Material hinzufügen
                 </button>
@@ -396,48 +413,68 @@ export default function RapportCreateModal({
               ) : (
                 <div className="space-y-2.5">
                   {material.map((row) => (
-                    <div key={row.id} className="flex items-center gap-2 bg-neutral-50 p-2.5 rounded-2xl border border-border">
-                      <input
-                        type="text"
-                        placeholder="Artikel / Bezeichnung (z. B. Tiefgrund 5L)"
-                        value={row.artikel}
-                        onChange={(e) => handleMaterialChange(row.id, 'artikel', e.target.value)}
-                        className="flex-1 bg-white border border-border rounded-xl px-3 py-1.5 text-xs text-text-primary focus:outline-hidden focus:border-amber-500"
-                      />
-                      <input
-                        type="number"
-                        step="1"
-                        min="0.1"
-                        placeholder="Menge"
-                        value={row.menge}
-                        onChange={(e) => handleMaterialChange(row.id, 'menge', parseFloat(e.target.value) || 0)}
-                        className="w-16 bg-white border border-border rounded-xl px-2 py-1.5 text-xs text-text-primary text-right focus:outline-hidden focus:border-amber-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Einheit"
-                        value={row.einheit}
-                        onChange={(e) => handleMaterialChange(row.id, 'einheit', e.target.value)}
-                        className="w-16 bg-white border border-border rounded-xl px-2 py-1.5 text-xs text-text-primary text-center focus:outline-hidden focus:border-amber-500"
-                      />
-                      <div className="flex items-center gap-1 w-24">
+                    <div key={row.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-neutral-50 p-3 rounded-2xl border border-border">
+                      <div className="flex items-center gap-2 flex-1">
                         <input
-                          type="number"
-                          step="1"
-                          placeholder="CHF"
-                          value={row.preis}
-                          onChange={(e) => handleMaterialChange(row.id, 'preis', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-white border border-border rounded-xl px-2 py-1.5 text-xs text-text-primary text-right focus:outline-hidden focus:border-amber-500"
+                          type="text"
+                          placeholder="Artikel / Bezeichnung (z. B. Tiefgrund 5L)"
+                          value={row.artikel}
+                          onChange={(e) => handleMaterialChange(row.id, 'artikel', e.target.value)}
+                          className="flex-1 bg-white border border-border rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-hidden focus:border-amber-500"
                         />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMaterialRow(row.id)}
+                          className="sm:hidden w-9 h-9 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 flex items-center justify-center cursor-pointer shrink-0"
+                          aria-label="Zeile entfernen"
+                        >
+                          <IconClose className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMaterialRow(row.id)}
-                        className="w-8 h-8 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
-                        aria-label="Zeile entfernen"
-                      >
-                        <IconClose className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2 justify-between sm:justify-start">
+                        <div className="flex items-center gap-1 w-20">
+                          <input
+                            type="number"
+                            step="1"
+                            min="0.1"
+                            inputMode="decimal"
+                            placeholder="Menge"
+                            value={row.menge}
+                            onChange={(e) => handleMaterialChange(row.id, 'menge', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-border rounded-xl px-2.5 py-2 text-sm text-text-primary text-right focus:outline-hidden focus:border-amber-500"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Einheit"
+                          value={row.einheit}
+                          onChange={(e) => handleMaterialChange(row.id, 'einheit', e.target.value)}
+                          className="w-20 bg-white border border-border rounded-xl px-2.5 py-2 text-sm text-text-primary text-center focus:outline-hidden focus:border-amber-500"
+                        />
+                        <div className="flex items-center gap-1 flex-1 sm:w-28">
+                          <input
+                            type="number"
+                            step="1"
+                            inputMode="decimal"
+                            placeholder="CHF"
+                            value={row.preis}
+                            onChange={(e) => handleMaterialChange(row.id, 'preis', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-white border border-border rounded-xl px-2.5 py-2 text-sm text-text-primary text-right focus:outline-hidden focus:border-amber-500"
+                          />
+                          <span className="text-xs text-text-secondary font-medium">CHF</span>
+                        </div>
+                        <span className="text-xs font-bold text-amber-950 sm:hidden">
+                          = {formatCurrency((row.menge || 0) * (row.preis || 0))}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMaterialRow(row.id)}
+                          className="hidden sm:flex w-8 h-8 rounded-xl text-neutral-400 hover:text-red-600 hover:bg-neutral-100 items-center justify-center cursor-pointer shrink-0"
+                          aria-label="Zeile entfernen"
+                        >
+                          <IconClose className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
