@@ -13,10 +13,13 @@ import StatCard from '../components/StatCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { IconBank, IconChart, IconQrBill, IconFolder, IconBauunternehmung, IconSearch, IconClose, IconCheck, IconWarning } from '../components/icons/BrandIcons'
 
+// Modulweiter In-Memory-Cache für verzögerungsfreie Stale-While-Revalidate Tab-Wechsel
+let cachedRechnungen = null
+
 export default function RechnungenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
-  const [rechnungen, setRechnungen] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [rechnungen, setRechnungen] = useState(() => cachedRechnungen || [])
+  const [isLoading, setIsLoading] = useState(() => !cachedRechnungen)
   const [selectedRechnung, setSelectedRechnung] = useState(null)
   const [showWizard, setShowWizard] = useState(false)
   const [isBankabgleichOpen, setIsBankabgleichOpen] = useState(false)
@@ -46,7 +49,9 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
     if (!supabase) return
     
     try {
-      setIsLoading(true)
+      if (!cachedRechnungen) {
+        setIsLoading(true)
+      }
       const { data, error } = await supabase
         .from('rechnungen')
         .select('*, kunden(name), projekte(name, adresse)')
@@ -74,6 +79,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
           }
         }
         
+        cachedRechnungen = data
         setRechnungen(data)
         if (viewParams?.rechnungId) {
           const rech = data.find(x => String(x.id) === String(viewParams.rechnungId))
@@ -93,6 +99,10 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedRechnung with viewParams
   useEffect(() => {
+    if (viewParams?.action === 'create' && selectedRechnung) {
+      setSelectedRechnung(null)
+      return
+    }
     if (viewParams?.rechnungId) {
       if (viewParams.rechnungId === 'demo') {
         setSelectedRechnung({

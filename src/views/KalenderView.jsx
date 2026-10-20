@@ -45,6 +45,9 @@ function formatLocalYMD(d) {
   return `${y}-${m}-${day}`;
 }
 
+// Modulweiter In-Memory-Cache für Kalender-Termine und Fristen
+let cachedKalender = null
+
 export default function KalenderView({ onNavigate, viewParams, userRole, globalSettings }) {
   // Navigation & Date State
   const [currentDate, setCurrentDate] = useState(() => {
@@ -60,15 +63,15 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   const [mobileViewTab, setMobileViewTab] = useState('strip'); // 'strip' | 'agenda'
   const [activeViewMode, setActiveViewMode] = useState('monat'); // 'monat', 'woche', 'agenda'
 
-  // Data State
-  const [termine, setTermine] = useState([]);
-  const [projekte, setProjekte] = useState([]);
-  const [kunden, setKunden] = useState([]);
-  const [rechnungen, setRechnungen] = useState([]);
-  const [offerten, setOfferten] = useState([]);
-  const [holidays, setHolidays] = useState([]);
+  // Data State mit Stale-While-Revalidate In-Memory Cache
+  const [termine, setTermine] = useState(() => cachedKalender?.termine || []);
+  const [projekte, setProjekte] = useState(() => cachedKalender?.projekte || []);
+  const [kunden, setKunden] = useState(() => cachedKalender?.kunden || []);
+  const [rechnungen, setRechnungen] = useState(() => cachedKalender?.rechnungen || []);
+  const [offerten, setOfferten] = useState(() => cachedKalender?.offerten || []);
+  const [holidays, setHolidays] = useState(() => cachedKalender?.holidays || []);
   const [firmenname, setFirmenname] = useState('Muster Malerei Bern AG');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !cachedKalender);
   const [schemaWarning, setSchemaWarning] = useState(false);
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
 
@@ -99,7 +102,9 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   const loadKalenderData = useCallback(async () => {
     if (!supabase) return;
     try {
-      setIsLoading(true);
+      if (!cachedKalender) {
+        setIsLoading(true);
+      }
 
       // 1. Settings (Firmenname & Kanton für Feiertage)
       let kanton = 'BE';
@@ -121,8 +126,9 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       if (settingsData?.firmenname) setFirmenname(settingsData.firmenname);
 
       // 2. Holidays
+      let hList = [];
       try {
-        const hList = await getHolidays(year, kanton);
+        hList = await getHolidays(year, kanton);
         setHolidays(hList || []);
       } catch (err) {
         console.error('Failed to fetch holidays:', err);
@@ -144,6 +150,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
       if (projekteData) setProjekte(projekteData);
 
       // 5. Termine (mit Fallback bei fehlender Tabelle)
+      let tData = [];
       try {
         const { data: termineData, error: tError } = await supabase
           .from('termine')
@@ -158,7 +165,8 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
           }
           setTermine([]);
         } else {
-          setTermine(termineData || []);
+          tData = termineData || [];
+          setTermine(tData);
           setSchemaWarning(false);
         }
       } catch (tErr) {
@@ -180,6 +188,16 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         .eq('is_archived', false)
         .in('status', ['Entwurf', 'Versendet']);
       if (oData) setOfferten(oData);
+
+      // Update cache
+      cachedKalender = {
+        termine: tData,
+        projekte: projekteData || [],
+        kunden: kundenData || [],
+        rechnungen: rData || [],
+        offerten: oData || [],
+        holidays: hList || []
+      };
 
     } catch (err) {
       console.error('Error loading calendar data:', err);

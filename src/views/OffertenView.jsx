@@ -11,11 +11,14 @@ import StatCard from '../components/StatCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { IconChart, IconDocument, IconFolder, IconBauunternehmung, IconSearch, IconClose } from '../components/icons/BrandIcons'
 
+// Modulweiter In-Memory-Cache für verzögerungsfreie Stale-While-Revalidate Tab-Wechsel
+let cachedOfferten = null
+
 export default function OffertenView({ onNavigate, viewParams, userRole }) {
   const [parent] = useAutoAnimate()
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
-  const [offerten, setOfferten] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [offerten, setOfferten] = useState(() => cachedOfferten || [])
+  const [isLoading, setIsLoading] = useState(() => !cachedOfferten)
   const [selectedOfferte, setSelectedOfferte] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -103,7 +106,9 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
     if (!supabase) return
     
     try {
-      setIsLoading(true)
+      if (!cachedOfferten) {
+        setIsLoading(true)
+      }
       const { data, error } = await supabase
         .from('offerten')
         .select('*, kunden(name), projekte(name, adresse)')
@@ -111,6 +116,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         
       if (error) throw error
       if (data) {
+        cachedOfferten = data
         setOfferten(data)
         if (viewParams?.offerteId) {
           const off = data.find(x => String(x.id) === String(viewParams.offerteId))
@@ -130,6 +136,10 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedOfferte with viewParams
   useEffect(() => {
+    if (viewParams?.action === 'create' && selectedOfferte) {
+      setSelectedOfferte(null)
+      return
+    }
     if (viewParams?.offerteId) {
       if (viewParams.offerteId === 'demo') {
         setSelectedOfferte({

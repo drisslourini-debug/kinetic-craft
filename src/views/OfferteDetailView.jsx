@@ -80,6 +80,29 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const [terminModalInitial, setTerminModalInitial] = useState(null)
   const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [katalogList, setKatalogList] = useState([])
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
+
+  const handleBackClick = () => {
+    if (isEditing) {
+      setShowUnsavedWarning(true)
+    } else {
+      onBack()
+    }
+  }
+
+  const handleSaveAndBack = async () => {
+    setIsUpdating(true)
+    try {
+      await saveEditing()
+      setShowUnsavedWarning(false)
+      onBack()
+    } catch (err) {
+      console.error('Fehler beim Speichern & Verlassen:', err)
+      showToast('error', 'Fehler beim automatischen Speichern.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   useUnsavedChanges(isEditing)
   useModalHistory(showPrintView, () => setShowPrintView(false), 'print_offerte')
@@ -798,7 +821,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
         {/* Row 1: Back + Title + Archive Info */}
         <div className="flex items-center gap-3 sm:gap-4">
           <button 
-            onClick={onBack}
+            onClick={handleBackClick}
             className="p-2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-xl hover:bg-surface-card border border-transparent hover:border-border transition-all text-text-secondary hover:text-text-primary cursor-pointer shrink-0"
             aria-label="Zurück"
           >
@@ -2200,6 +2223,48 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               >
                 Anhang löschen
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ungespeicherte Änderungen Warning Modal */}
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-border">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Ungespeicherte Änderungen</h3>
+            <p className="text-text-secondary mb-5 text-sm">
+              Du hast Änderungen an dieser Offerte vorgenommen. Wie möchtest du fortfahren?
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <button 
+                onClick={handleSaveAndBack}
+                disabled={isUpdating}
+                className="w-full px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <IconSave className="w-4 h-4" />
+                <span>{isUpdating ? 'Speichert...' : 'Speichern & Verlassen'}</span>
+              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowUnsavedWarning(false)}
+                  className="flex-1 px-3 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium text-xs sm:text-sm transition-colors cursor-pointer text-center"
+                >
+                  Weiter bearbeiten
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowUnsavedWarning(false)
+                    onBack()
+                  }}
+                  className="flex-1 px-3 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 font-medium text-xs sm:text-sm transition-colors cursor-pointer text-center"
+                >
+                  Verwerfen
+                </button>
+              </div>
             </div>
           </div>
         </div>

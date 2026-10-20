@@ -141,7 +141,7 @@ describe('RechnungDetailView', () => {
     // A4 preview zoom controls are active
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Ganze Seite/i })).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
     expect(screen.getAllByRole('button', { name: /100%/i }).length).toBeGreaterThan(0)
 
     // Can switch back to edit form

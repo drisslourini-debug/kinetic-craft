@@ -1,0 +1,109 @@
+version: '3.8'
+
+# ==============================================================================
+# Kinetic Craft - Schweizer Private AI Node (revDSG-konforme Mandanteninstanz)
+# ==============================================================================
+# Bereitstellung auf Schweizer VPS (z. B. Infomaniak Genf/Winterthur oder Exoscale Zürich)
+# Vollkommen isoliert pro Handwerksbetrieb · Keine Datenübertragung ins Ausland
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Reverse Proxy & SSL (Caddy mit automatischem Schweizer Let's Encrypt TLS)
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - private_ai_net
+    depends_on:
+      - n8n
+      - ollama
+
+  # ----------------------------------------------------------------------------
+  # 2. Lokale Schweizer LLM-Engine (Ollama)
+  #    Ausführung von Mistral Small, Llama 3.3 8B oder spezialisierten Schweizer Modellen
+  # ----------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=4
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - private_ai_net
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+
+  # ----------------------------------------------------------------------------
+  # 3. Firmenwissen Vektor-Datenbank (PostgreSQL mit pgvector)
+  #    Speichert firmeneigene Offerten, NPK-Kataloge, Regierapporte & Stundensätze
+  # ----------------------------------------------------------------------------
+  postgres-vectordb:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kinetic_rag_db}
+      POSTGRES_USER: ${POSTGRES_USER:-kinetic_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-GeheimPasswort123_CH}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-rag.sql:/docker-entrypoint-initdb.d/init-rag.sql:ro
+    networks:
+      - private_ai_net
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # ----------------------------------------------------------------------------
+  # 4. Automations- & Gateway-Layer (n8n Workflow Engine)
+  #    Nimmt Webhooks vom Kinetic Craft CRM entgegen, formatiert Prompts & ruft RAG ab
+  # ----------------------------------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=${DOMAIN:-node.handwerker-domain.ch}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${DOMAIN:-node.handwerker-domain.ch}/
+      - GENERIC_TIMEZONE=Europe/Zurich
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres-vectordb
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-kinetic_rag_db}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-kinetic_admin}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-GeheimPasswort123_CH}
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168 # 7 Tage
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - private_ai_net
+    depends_on:
+      - postgres-vectordb
+      - ollama
+
+networks:
+  private_ai_net:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  ollama_models:
+  pgdata:
+  n8n_data:

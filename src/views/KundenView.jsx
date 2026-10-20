@@ -84,6 +84,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
   // Sync selectedKunde with viewParams
   useEffect(() => {
+    if (viewParams?.action === 'create' && selectedKunde) {
+      setSelectedKunde(null)
+      return
+    }
     if (viewParams?.kundeId) {
       let kunde = kunden.find(x => String(x.id) === String(viewParams.kundeId))
       if (!kunde && import.meta.env.DEV) {

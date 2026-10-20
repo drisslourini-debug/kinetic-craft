@@ -163,7 +163,10 @@ export function setHistoryIndex(idx) {
 export function pushRoute(view, params = {}, options = {}) {
   if (typeof window === 'undefined') return
 
-  const { replace = false } = options
+  const currentState = window.history.state || {}
+  const hasModalOpen = !!currentState.modalOpen
+  // If a modal was open, replace its temporary history entry with the target route
+  const replace = options.replace || hasModalOpen
   const targetUrl = formatUrl(view, params)
 
   if (!replace) {
@@ -181,6 +184,13 @@ export function pushRoute(view, params = {}, options = {}) {
   } else {
     window.history.pushState(state, '', targetUrl)
   }
+
+  // Notify any active modal hooks that route navigation occurred so they do not history.back()
+  window.dispatchEvent(
+    new CustomEvent('a77-route-navigated', {
+      detail: { view, params, replacedModal: hasModalOpen },
+    })
+  )
 }
 
 /**
@@ -189,9 +199,12 @@ export function pushRoute(view, params = {}, options = {}) {
 export function navigateBack(fallbackView = 'dashboard', fallbackParams = null) {
   if (typeof window !== 'undefined' && historyIndex > 0) {
     window.history.back()
-  } else if (typeof window !== 'undefined' && window.history.length > 1) {
-    window.history.back()
-  } else {
-    pushRoute(fallbackView, fallbackParams || {})
+  } else if (typeof window !== 'undefined') {
+    pushRoute(fallbackView, fallbackParams || {}, { replace: true })
+    window.dispatchEvent(
+      new PopStateEvent('popstate', {
+        state: { view: fallbackView, params: fallbackParams || {}, historyIndex },
+      })
+    )
   }
 }

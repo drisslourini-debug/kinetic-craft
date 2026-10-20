@@ -42,12 +42,21 @@ export function useModalHistory(isOpen, onClose, modalName = 'modal') {
         }
       }
 
+      const handleRouteNavigated = () => {
+        // A route navigation occurred while this modal was open.
+        // The modal's history entry has already been superseded/replaced.
+        // Clear isPushedRef so cleanup does NOT perform window.history.back()!
+        isPushedRef.current = false
+      }
+
       window.addEventListener('popstate', handlePopState)
+      window.addEventListener('a77-route-navigated', handleRouteNavigated)
 
       return () => {
         window.removeEventListener('popstate', handlePopState)
+        window.removeEventListener('a77-route-navigated', handleRouteNavigated)
         // If modal was closed from inside the UI (e.g. clicking 'X' or 'Cancel'),
-        // and it wasn't triggered by popstate, pop the history entry!
+        // and it wasn't triggered by popstate or route navigation, pop the history entry!
         if (isPushedRef.current && !isPoppingRef.current) {
           isPushedRef.current = false
           window.history.back()

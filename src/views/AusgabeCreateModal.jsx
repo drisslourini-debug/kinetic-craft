@@ -28,6 +28,25 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
   const [aiScanSuccess, setAiScanSuccess] = useState(false)
   const [aiWarning, setAiWarning] = useState(null)
   const [aiFields, setAiFields] = useState({})
+  const [filePreview, setFilePreview] = useState(null)
+  const [isZoomOpen, setIsZoomOpen] = useState(false)
+
+  // Erzeuge Objekt-URL für Belegvorschau
+  useEffect(() => {
+    if (!file) {
+      setFilePreview(null)
+      return
+    }
+    if (file.type && file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file)
+      setFilePreview(url)
+      return () => {
+        URL.revokeObjectURL(url)
+      }
+    } else {
+      setFilePreview(null)
+    }
+  }, [file])
   const fileInputRef = useRef(null)
 
   // Automatische Berechnungen
@@ -223,7 +242,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-gray-900/40 backdrop-blur-md animate-fade-in">
-      <div className="bg-white rounded-t-[28px] sm:rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-slide-up sm:animate-scale-up flex flex-col max-h-[92dvh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)] sm:pb-0">
+      <div className={`bg-white rounded-t-[28px] sm:rounded-2xl shadow-xl w-full ${filePreview ? 'max-w-4xl' : 'max-w-lg'} overflow-hidden animate-slide-up sm:animate-scale-up flex flex-col max-h-[92dvh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)] sm:pb-0 transition-all duration-300`}>
         {/* Mobile Pull Handle */}
         <div className="w-full pt-3 pb-1.5 flex justify-center sm:hidden shrink-0 touch-action-manipulation cursor-pointer" onClick={onClose}>
           <div className="w-12 h-1.5 bg-neutral-300 rounded-full" />
@@ -306,6 +325,132 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
             </div>
           )}
           <form id="ausgabeForm" onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Mobile Vorher-Nachher Kachel (auf Smartphone direkt über den Feldern) */}
+            {filePreview && (
+              <div className="md:hidden p-3.5 rounded-2xl bg-slate-900 text-white shadow-md border border-slate-800 animate-fade-in">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                    <IconPhotoScanner className="w-4 h-4 text-amber-400" />
+                    <span>Sichtprüfung Beleg vs. KI-Erkennung</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsZoomOpen(true)}
+                    className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer bg-slate-800 px-2 py-0.5 rounded-md"
+                  >
+                    <span>🔍 Zoomen</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div 
+                    onClick={() => setIsZoomOpen(true)}
+                    className="w-16 h-16 rounded-xl overflow-hidden bg-slate-950 border border-slate-700 shrink-0 cursor-pointer relative group"
+                  >
+                    <img src={filePreview} alt="Beleg" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                      <span className="text-[9px] bg-black/70 px-1 py-0.5 rounded text-white font-mono font-bold">Zoom</span>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1 text-xs">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-slate-400">Betrag Brutto:</span>
+                      <span className="font-bold text-emerald-400 font-mono text-sm">
+                        {formData.betrag_brutto ? `CHF ${parseFloat(formData.betrag_brutto).toFixed(2)}` : '–'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-slate-400">MWST ({formData.mwst_satz}%):</span>
+                      <span className="font-semibold text-amber-300 font-mono">
+                        {formatCurrency(mwstBetragNum)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-baseline truncate">
+                      <span className="text-slate-400">Händler:</span>
+                      <span className="text-slate-200 truncate font-medium">{formData.titel || '–'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className={filePreview ? "grid grid-cols-1 md:grid-cols-12 gap-6 items-start" : ""}>
+              
+              {/* Desktop Originalbeleg Spalte links */}
+              {filePreview && (
+                <div className="hidden md:flex md:col-span-5 flex-col gap-3 p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-md sticky top-0">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                      <IconPhotoScanner className="w-4 h-4 text-amber-400" />
+                      <span>Originalbeleg</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsZoomOpen(true)}
+                      className="text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition"
+                    >
+                      <span>🔍 Vollbild</span>
+                    </button>
+                  </div>
+
+                  <div 
+                    onClick={() => setIsZoomOpen(true)}
+                    className="relative group rounded-xl overflow-hidden bg-slate-950 border border-slate-800 cursor-zoom-in max-h-[340px] flex items-center justify-center p-1"
+                  >
+                    <img 
+                      src={filePreview} 
+                      alt="Beleg Vorschau" 
+                      className="w-full h-auto max-h-[330px] object-contain transition-transform duration-200 group-hover:scale-105" 
+                    />
+                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-3 py-1.5 bg-black/80 rounded-xl text-white text-xs font-bold backdrop-blur-xs">
+                        Klicken zum Vergrössern
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5 text-xs font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Händler / Titel:</span>
+                      <span className="text-white font-sans font-bold truncate max-w-[150px]">{formData.titel || '–'}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Betrag Brutto:</span>
+                      <span className="text-emerald-400 font-bold">{formData.betrag_brutto ? `CHF ${parseFloat(formData.betrag_brutto).toFixed(2)}` : '–'}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>MWST ({formData.mwst_satz}%):</span>
+                      <span className="text-amber-400 font-bold">{formatCurrency(mwstBetragNum)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Belegdatum:</span>
+                      <span className="text-slate-300">{formData.beleg_datum || '–'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition cursor-pointer text-center"
+                    >
+                      Anderer Beleg
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRunAiScan(file)}
+                      disabled={isAiScanning}
+                      className="px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition cursor-pointer flex items-center gap-1"
+                    >
+                      <IconRefresh className="w-3.5 h-3.5" />
+                      <span>Neu scannen</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Formular-Felder Spalte */}
+              <div className={filePreview ? "md:col-span-7 space-y-4" : "space-y-4"}>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -545,6 +690,9 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
               }}
             />
 
+              </div> {/* Ende md:col-span-7 */}
+            </div> {/* Ende grid md:grid-cols-12 */}
+
             <div className="bg-gray-50 rounded-xl p-4 flex justify-between items-center border border-gray-200 mt-4">
               <div className="text-sm">
                 <p className="text-gray-500">Netto: <span className="font-semibold text-gray-700">{formatCurrency(nettoNum)}</span></p>
@@ -577,6 +725,32 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
           </button>
         </div>
       </div>
+
+      {/* Fullscreen Zoom Modal für Beleg-Sichtprüfung */}
+      {isZoomOpen && filePreview && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in"
+          onClick={() => setIsZoomOpen(false)}
+        >
+          <div className="absolute top-4 right-4 flex items-center gap-3 z-10" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setIsZoomOpen(false)}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Schliessen (ESC)
+            </button>
+          </div>
+          <div className="max-w-4xl max-h-[85vh] overflow-auto rounded-2xl border border-white/10 p-2 cursor-default bg-black/50" onClick={e => e.stopPropagation()}>
+            <img 
+              src={filePreview} 
+              alt="Beleg Vollbild" 
+              className="max-h-[80vh] w-auto mx-auto object-contain rounded-xl"
+            />
+          </div>
+          <p className="text-slate-400 text-xs mt-3">Klicke auf den Hintergrund oder 'Schliessen', um zum Formular zurückzukehren.</p>
+        </div>
+      )}
     </div>
   )
 }

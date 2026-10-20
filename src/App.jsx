@@ -35,8 +35,21 @@ const DatenschutzModal = lazy(() => import('./components/legal/DatenschutzModal'
 
 function ViewLoader() {
   return (
-    <div className="flex h-[50vh] w-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-3 border-amber-500 border-t-transparent" />
+    <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto animate-pulse">
+      <div className="flex items-center justify-between pb-4 border-b border-border/70">
+        <div className="space-y-2">
+          <div className="h-7 w-48 bg-neutral-200/80 rounded-xl" />
+          <div className="h-3.5 w-64 bg-neutral-200/50 rounded-md" />
+        </div>
+        <div className="h-10 w-32 bg-neutral-200/70 rounded-xl" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="h-28 bg-neutral-200/60 rounded-2xl" />
+        <div className="h-28 bg-neutral-200/60 rounded-2xl" />
+        <div className="h-28 bg-neutral-200/60 rounded-2xl" />
+        <div className="h-28 bg-neutral-200/60 rounded-2xl" />
+      </div>
+      <div className="h-72 bg-neutral-200/40 rounded-2xl border border-neutral-200/60" />
     </div>
   )
 }
@@ -109,6 +122,20 @@ export default function App() {
     }
   }, [])
 
+  // Hintergrund-Vorladen (Preload) der Kern-Ansichten für verzögerungsfreie Tab-Wechsel
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const preloadTimer = setTimeout(() => {
+      import('./views/RechnungenView')
+      import('./views/OffertenView')
+      import('./views/KalenderView')
+      import('./views/BuchhaltungView')
+      import('./views/ProjekteView')
+      import('./views/KundenView')
+    }, 1000)
+    return () => clearTimeout(preloadTimer)
+  }, [])
+
   // ⌘K / Ctrl+K keyboard shortcut listener for CommandBar
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -166,6 +193,7 @@ export default function App() {
   const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
   const currentRouteRef = useRef({ view: initialRoute.view, params: initialRoute.params })
+  const targetRouteRef = useRef(initialRoute)
   useEffect(() => {
     currentRouteRef.current = { view: activeView, params: viewParams }
   }, [activeView, viewParams])

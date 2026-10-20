@@ -248,6 +248,25 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     }
   }
 
+  const handleSaveAndBack = async () => {
+    setIsUpdating(true)
+    try {
+      if (isEditing) {
+        await saveEditing()
+      }
+      if (isDirty) {
+        await handleSaveStammdaten()
+      }
+      setShowUnsavedWarning(false)
+      onBack()
+    } catch (err) {
+      console.error('Fehler beim Speichern & Verlassen:', err)
+      showToast('error', 'Fehler beim automatischen Speichern.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handleArchive = async () => {
     setIsUpdating(true)
     try {
@@ -2542,25 +2561,35 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
             </div>
             <h3 className="text-xl font-bold text-text-primary mb-2">Ungespeicherte Änderungen</h3>
-            <p className="text-text-secondary mb-6 text-sm">
-              Möchtest du sie verwerfen oder abbrechen und speichern?
+            <p className="text-text-secondary mb-5 text-sm">
+              Du hast Änderungen an dieser Rechnung vorgenommen. Wie möchtest du fortfahren?
             </p>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-2.5">
               <button 
-                onClick={() => setShowUnsavedWarning(false)}
-                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors"
+                onClick={handleSaveAndBack}
+                disabled={isUpdating}
+                className="w-full px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                Abbrechen
+                <IconSave className="w-4 h-4" />
+                <span>{isUpdating ? 'Speichert...' : 'Speichern & Verlassen'}</span>
               </button>
-              <button 
-                onClick={() => {
-                  setShowUnsavedWarning(false)
-                  onBack()
-                }}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors"
-              >
-                Änderungen verwerfen
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowUnsavedWarning(false)}
+                  className="flex-1 px-3 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium text-xs sm:text-sm transition-colors cursor-pointer text-center"
+                >
+                  Weiter bearbeiten
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowUnsavedWarning(false)
+                    onBack()
+                  }}
+                  className="flex-1 px-3 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 font-medium text-xs sm:text-sm transition-colors cursor-pointer text-center"
+                >
+                  Verwerfen
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,0 +1,32 @@
+{
+    email admin@kinetic-craft.ch
+}
+
+# Schweizer Private AI Node API Gateway
+{$DOMAIN:node.handwerker-domain.ch} {
+    # n8n Webhook & Management Endpoints
+    reverse_proxy n8n:5678 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Optional: Direkter geschützter API-Zugriff auf lokales LLM
+    handle_path /v1/* {
+        basicauth {
+            # Standard API-Token Authentifizierung für CRM-Anbindung
+            kinetic_crm $2a$14$ZkO... # bcrypt Hash des Mandanten-Tokens
+        }
+        reverse_proxy ollama:11434
+    }
+
+    # revDSG Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Server "Kinetic-CH-Secure"
+    }
+}

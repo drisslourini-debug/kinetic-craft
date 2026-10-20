@@ -69,6 +69,10 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
 
   // Sync selectedProjekt with viewParams
   useEffect(() => {
+    if (viewParams?.action === 'create' && selectedProjekt) {
+      setSelectedProjekt(null)
+      return
+    }
     if (viewParams?.projektId) {
       let p = projekte.find(x => String(x.id) === String(viewParams.projektId))
       if (!p && import.meta.env.DEV) {
