@@ -385,7 +385,7 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
   const scanSamples = {
     hornbach: {
       label: '1. Quittung Hornbach Biel',
-      badge: 'Gemini Vision OCR · 1.1 Sek.',
+      badge: 'Kinetic Private AI · 1.1 Sek.',
       rawType: 'Kassenbon (Zerknittertes Foto)',
       rawTitle: 'HORNBACH Baumarkt AG · 2504 Biel/Bienne',
       rawLines: [
@@ -409,7 +409,7 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
     },
     debrunner: {
       label: '2. Debrunner Acifer Lieferschein',
-      badge: 'Gemini Vision OCR · 1.4 Sek.',
+      badge: 'Kinetic Private AI · 1.4 Sek.',
       rawType: 'Grosshandels-Rechnung (A4 Foto)',
       rawTitle: 'Debrunner Acifer AG · 3052 Zollikofen',
       rawLines: [
@@ -474,13 +474,13 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
       id: 'node_gateway',
       step: '02',
       title: 'Caddy Zero-Trust TLS Gateway',
-      location: 'Schweizer Rechenzentrum (Zürich / Genf)',
+      location: 'Schweizer Cloud (Zürich/Genf) oder Vor Ort',
       badge: '100% CH-Jurisdiktion',
-      desc: 'Jeder Betrieb mit «Private AI Node» erhält einen eigenen, kryptografisch isolierten Endpunkt bei Infomaniak (Genf/Winterthur) oder Exoscale (Zürich).',
+      desc: 'Jeder Betrieb mit «Private AI Node» erhält eine isolierte Instanz – wahlweise gehostet in Schweizer Rechenzentren (Infomaniak / Exoscale) ODER auf Wunsch als eigene geschützte Firmen-Box direkt vor Ort im Betrieb.',
       specs: [
-        'Kein US CLOUD Act · 100% Schweizer Standortgarantie',
+        'Wahlfreiheit: 100% Schweizer Cloud oder On-Premise im Betrieb',
+        'Kein US CLOUD Act · Keine US-APIs · Keine Drittanbieter',
         'Strikte API-Key-Authentifizierung & Rate-Limiting pro Mandant',
-        'Null Hardware im staubigen Handwerksbetrieb nötig',
       ],
     },
     {

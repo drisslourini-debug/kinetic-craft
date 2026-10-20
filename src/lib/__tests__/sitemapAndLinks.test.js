@@ -24,15 +24,10 @@ describe('Sitemap & Links & Navigation Audit', () => {
 
       const expectedUrls = [
         'https://kinetic-craft.vercel.app/',
-        'https://kinetic-craft.vercel.app/#funktionen',
-        'https://kinetic-craft.vercel.app/#ki-superpowers',
-        'https://kinetic-craft.vercel.app/#einblicke',
-        'https://kinetic-craft.vercel.app/#baustellen-cockpit',
-        'https://kinetic-craft.vercel.app/#rechner',
-        'https://kinetic-craft.vercel.app/#gewerke',
-        'https://kinetic-craft.vercel.app/#tarife',
-        'https://kinetic-craft.vercel.app/#anfrage',
-        'https://kinetic-craft.vercel.app/#faq',
+        'https://kinetic-craft.vercel.app/funktionen',
+        'https://kinetic-craft.vercel.app/ki-cloud',
+        'https://kinetic-craft.vercel.app/gewerke',
+        'https://kinetic-craft.vercel.app/preise',
         'https://kinetic-craft.vercel.app/#impressum',
         'https://kinetic-craft.vercel.app/#datenschutz',
       ]

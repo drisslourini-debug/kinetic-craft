@@ -49,10 +49,10 @@ const MARKETING_PAGES = [
   {
     id: 'ki-cloud',
     path: '/ki-cloud',
-    label: 'KI & Private Cloud',
+    label: 'Firmeneigene KI (Enterprise)',
     badge: 'revDSG',
-    shortTitle: 'Gemini KI & Schweizer Private Cloud',
-    subtitle: 'Belegscan, Sprachdiktat & dedizierter Private AI Node (Zürich/Genf)',
+    shortTitle: 'Firmeneigene KI & Private Cloud',
+    subtitle: 'Isolierter Private AI Node auf Schweizer Cloud (Zürich/Genf) oder Vor Ort',
   },
   {
     id: 'gewerke',
@@ -289,18 +289,18 @@ export default function LandingPageView({
     },
     {
       id: 'mobile_ai',
-      tabLabel: '2. Gemini KI & Baustelle',
-      tag: 'Gemini 3.8 Flash AI',
+      tabLabel: '2. Baustelle & Foto-Belege',
+      tag: 'Baustelle & Belegablage',
       tagColor: 'bg-purple-50 text-purple-900 border-purple-200',
-      title: 'KI-Belegscanner & Baustellen-Sprachdiktat',
-      desc: 'Materialquittungen fotografieren – die Gemini KI erkennt Betrag, Schweizer MWST (8.1% / 2.6%) und Lieferanten automatisch. Regieberichte direkt per Sprache auf der Baustelle diktieren.',
+      title: 'Mobile Foto-Belege & Baustellen-Dossiers',
+      desc: 'Materialquittungen direkt mit dem Smartphone abfotografieren und der Baustelle zuweisen. Regiestunden per digitaler Stempeluhr erfassen. (Automatische KI-Auslesung exklusiv im Enterprise Private AI Node verfügbar).',
       image: '/screenshots/09_ai_beleg_scanner.png',
-      alt: 'Kinetic Craft KI Beleg Scanner',
+      alt: 'Kinetic Craft Beleg- und Baustellenverwaltung',
       fallbackImage: '/screenshots/06_mobile_baustelle.png',
       features: [
-        'Gemini Vision OCR: Quittungen von Hornbach, OBI, Debrunner in 2s erfassen',
-        'Baustellen-Diktat: Gesprochene Notizen werden zu sauberen Rapportzeilen',
-        'Offline-fähig: Fotos und Stundenerfassung direkt vor Ort im Transporter',
+        'Foto-Belegablage: Quittungen von Hornbach, OBI, Debrunner direkt vor Ort zuweisen',
+        'Baustellen-Dossiers: Fotos, Skizzen und Kundenhistorie an einem Ort',
+        'Upgrade-Option: Firmeneigene Schweizer KI für automatisches Auslesen im Enterprise-Tarif',
       ],
     },
     {
@@ -349,8 +349,8 @@ export default function LandingPageView({
       a: 'Sie erhalten sofort vollen Zugriff auf alle Funktionen von Kinetic Craft Professional – ohne Eingabe einer Kreditkarte und ohne automatische Verlängerung. Nach den 14 Tagen können Sie nahtlos für CHF 49.– / Monat weiterarbeiten. Ihre Daten, Baustellen und Dokumente bleiben stets sicher erhalten.',
     },
     {
-      q: 'Wie funktioniert der Gemini KI-Belegscanner & das Baustellen-Diktat?',
-      a: 'Mit der integrierten Gemini 3.8 Flash KI fotografieren Sie Materialquittungen (z.B. Baumarkt oder Großhändler) mit Ihrem Smartphone. Die KI liest Lieferant, Datum, MWST (8.1% / 2.6%) und Endbetrag automatisch aus und weist den Beleg der Baustelle zu. Per Sprachnotiz können Sie außerdem Arbeitszeiten und Materialien freihändig einsprechen.',
+      q: 'Wie funktioniert die KI und in welchem Tarif ist sie enthalten?',
+      a: 'In Kinetic Craft Professional und während der 14-tägigen kostenlosen Testphase setzen wir bewusst keine KI ein. So garantieren wir einen extrem schnellen, schlanken und 100% DSG-sicheren Kernbetrieb. Die KI ist exklusiv im Enterprise-Tarif als «Kinetic Private AI Node» enthalten: Jeder Betrieb erhält eine vollkommen isolierte eigene Instanz auf Schweizer Cloudservern (Zürich/Genf) oder auf Kundenwunsch lokal im eigenen Betrieb – trainiert ausschliesslich mit Ihren firmeneigenen Offerten und NPK-Katalogen.',
     },
     {
       q: 'Unterstützt Kinetic Craft den Export zu Banana Buchhaltung und Schweizer Treuhändern?',
@@ -387,7 +387,7 @@ export default function LandingPageView({
       <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-600/10 border-b border-amber-200/80 px-4 py-1.5 text-center text-xs sm:text-sm font-medium text-slate-900 flex items-center justify-center gap-2">
         <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
         <span>
-          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> mit Gemini AI Beleg-Scanner, Private AI Node & 100% Swiss QR-Rechnung.
+          <strong>Kinetic Schweiz</strong> präsentiert: <strong>Kinetic Craft</strong> mit 100% Swiss QR-Rechnung, 3-Stufen-Mahnwesen & Banana-Export. (Firmeneigene KI als Enterprise-Node verfügbar).
         </span>
         <button
           onClick={onGoToRegistration}
@@ -563,7 +563,7 @@ export default function LandingPageView({
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-amber-300 text-amber-950 text-xs sm:text-sm font-semibold mb-4 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-amber-600 animate-pulse"></span>
-                  <span>Handwerk 2.0: Schweizer Präzision trifft Gemini AI · 100% Swiss QR-Bill</span>
+                  <span>Handwerk 2.0: Schweizer Präzision · 100% Swiss QR-Bill & Banana-Treuhand</span>
                 </div>
 
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] max-w-4xl mx-auto">
@@ -574,7 +574,7 @@ export default function LandingPageView({
                 </h1>
 
                 <p className="mt-4 sm:mt-5 text-base sm:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
-                  Schluss mit Zettelwirtschaft am Feierabend: <strong>Belege per Gemini KI scannen</strong>, Offerten per Spracheingabe auf der Baustelle erfassen und Rechnungen mit <strong>Schweizer QR-Code in unter 60 Sekunden</strong> drucken oder versenden.
+                  Schluss mit Zettelwirtschaft am Feierabend: <strong>Foto-Belege mobil erfassen</strong>, Offerten direkt auf der Baustelle erstellen und Rechnungen mit <strong>Schweizer QR-Code in unter 60 Sekunden</strong> drucken oder versenden.
                 </p>
 
                 <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5">
@@ -590,7 +590,7 @@ export default function LandingPageView({
                     onClick={() => navigateToSubpage('ki-cloud')}
                     className="w-full sm:w-auto px-7 py-3.5 text-base font-semibold text-slate-800 hover:text-slate-950 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>🇨🇭 KI & Schweizer Private Cloud</span>
+                    <span>🇨🇭 Firmeneigene KI & Cloud (Enterprise)</span>
                     <span className="text-amber-700 font-bold">→</span>
                   </button>
                 </div>
@@ -626,7 +626,7 @@ export default function LandingPageView({
                       <span>craft.kinetic-schweiz.ch/dashboard</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-                      <span className="hidden sm:inline">Schweizer Cloud & Gemini AI</span>
+                      <span className="hidden sm:inline">Schweizer Cloud · 100% revDSG</span>
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     </div>
                   </div>
@@ -668,15 +668,15 @@ export default function LandingPageView({
 
                   <button
                     type="button"
-                    onClick={() => navigateToSubpage('ki-cloud')}
+                    onClick={() => navigateToSubpage('funktionen')}
                     className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200/90 hover:border-amber-400 shadow-xs transition-all text-left cursor-pointer"
                   >
                     <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                      <IconSparkles className="w-4 h-4 text-amber-600" />
+                      <IconShieldCheck className="w-4 h-4 text-amber-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 truncate">Gemini 3.8 Flash</p>
-                      <p className="text-[11px] text-slate-500 truncate">KI-Belegscan in 1,2 Sekunden</p>
+                      <p className="text-xs font-bold text-slate-900 truncate">3-Stufen-Mahnung</p>
+                      <p className="text-[11px] text-slate-500 truncate">Automatischer Liquiditäts-Schutz</p>
                     </div>
                   </button>
 
@@ -690,7 +690,7 @@ export default function LandingPageView({
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-900 truncate">Swiss QR-Bill</p>
-                      <p className="text-[11px] text-slate-500 truncate">ISO 20022 & 3-Stufen-Mahnung</p>
+                      <p className="text-[11px] text-slate-500 truncate">ISO 20022 & QR-Referenz</p>
                     </div>
                   </button>
 
@@ -932,7 +932,7 @@ export default function LandingPageView({
                     </div>
                   </div>
 
-                  {/* Portal 2: KI & Schweizer Private Cloud */}
+                  {/* Portal 2: Firmeneigene KI & Schweizer Private Cloud */}
                   <div
                     onClick={() => navigateToSubpage('ki-cloud')}
                     className="group p-7 sm:p-8 rounded-3xl bg-slate-950 text-white border border-slate-800 hover:border-emerald-400 shadow-xl transition-all cursor-pointer flex flex-col justify-between"
@@ -945,14 +945,14 @@ export default function LandingPageView({
                         <IconShieldCheck className="w-6 h-6 text-emerald-400" />
                       </div>
                       <h3 className="text-2xl font-black text-white group-hover:text-emerald-300 transition-colors">
-                        Gemini KI & Schweizer Private Cloud (revDSG)
+                        Firmeneigene Schweizer KI & Private AI Node (Enterprise)
                       </h3>
                       <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-                        Erleben Sie den <strong>Vorher/Nachher Belegscan- & Mundart-Simulator</strong> und erkunden Sie die 4 Sicherheits-Schichten des isolierten «Kinetic Private AI Node» (Zürich/Genf).
+                        Erleben Sie den <strong>Vorher/Nachher Belegscan- & Mundart-Simulator</strong> und erkunden Sie die 4 Sicherheits-Schichten des isolierten «Kinetic Private AI Node» – wahlweise auf Schweizer Cloudservern (Zürich/Genf) oder direkt vor Ort im Betrieb.
                       </p>
                     </div>
                     <div className="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-400">
-                      <span>Zur Unterseite «KI & Private Cloud»</span>
+                      <span>Zur Unterseite «Firmeneigene KI & Cloud»</span>
                       <span className="group-hover:translate-x-1 transition-transform">→</span>
                     </div>
                   </div>
@@ -1342,15 +1342,15 @@ export default function LandingPageView({
         {/* ========================================================================= */}
         {activePage === 'ki-cloud' && (
           <>
-            {/* Obsidian Dark-Mode Tech Hero & Gemini Superpowers */}
+            {/* Obsidian Dark-Mode Tech Hero & Kinetic Private AI Node (Enterprise) */}
             <section id="ki-superpowers" className="py-20 bg-slate-950 text-white relative overflow-hidden">
               <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-purple-600/15 blur-3xl pointer-events-none rounded-full" />
 
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <div className="text-center max-w-3xl mx-auto mb-16">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-xs font-bold uppercase tracking-wider mb-4">
-                    <IconSparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                    <span>Gemini 3.8 Flash Inside · Multimodal AI & Private Cloud</span>
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold uppercase tracking-wider mb-4">
+                    <IconSparkles className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
+                    <span>Kinetic Private AI Node · Firmeneigene Schweizer KI (Enterprise)</span>
                   </div>
                   <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
                     Ihr digitaler Polier:{' '}
@@ -1359,7 +1359,7 @@ export default function LandingPageView({
                     </span>
                   </h1>
                   <p className="mt-4 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-                    Vergessen Sie mühsames Abtippen von Materialquittungen und das Tippen auf kleinen Handytastaturen mit staubigen Händen. Kinetic Craft denkt mit – per Kamera, Stimme und 100% Schweizer Datensouveränität.
+                    Vergessen Sie mühsames Abtippen von Materialquittungen und das Tippen auf kleinen Handytastaturen mit staubigen Händen. Als Enterprise-Kunde erhalten Sie Ihre isolierte Schweizer Firmen-KI – per Kamera, Stimme und 100% Schweizer Datensouveränität.
                   </p>
                 </div>
 
@@ -1370,10 +1370,10 @@ export default function LandingPageView({
                       <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6">
                         <IconCamera className="w-6 h-6 text-amber-400" />
                       </div>
-                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">Vision OCR</span>
+                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">Private AI OCR</span>
                       <h3 className="text-xl font-bold text-white mb-3">Belege & Quittungen scannen</h3>
                       <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                        Fotografieren Sie Belege von Hornbach, OBI, Debrunner oder HGC. Gemini erkennt Beträge, MWST (8.1% / 2.6%) und Händler vollautomatisch und weist sie der Baustelle zu.
+                        Fotografieren Sie Belege von Hornbach, OBI, Debrunner oder HGC. Ihre isolierte Firmen-KI erkennt Beträge, MWST (8.1% / 2.6%) und Händler vollautomatisch und weist sie der Baustelle zu.
                       </p>
                     </div>
                     <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs font-mono">
@@ -1400,7 +1400,7 @@ export default function LandingPageView({
                       <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">Audio Dictation</span>
                       <h3 className="text-xl font-bold text-white mb-3">Baustellen-Sprachdiktat</h3>
                       <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                        Sprechen Sie Notizen, geleistete Stunden und verbaute Materialien einfach ins Smartphone. Kinetic Craft formuliert saubere Offertentexte und Regierapporte.
+                        Sprechen Sie Notizen, geleistete Stunden und verbaute Materialien einfach ins Smartphone. Die firmeneigene KI formuliert saubere Offertentexte und Regierapporte.
                       </p>
                     </div>
                     <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
@@ -1415,10 +1415,10 @@ export default function LandingPageView({
                       <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6">
                         <IconShieldCheck className="w-6 h-6 text-amber-400" />
                       </div>
-                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">DSG & Security</span>
+                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-2">DSG & Souveränität</span>
                       <h3 className="text-xl font-bold text-white mb-3">100% Datenschutz & Privatsphäre</h3>
                       <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                        Ihre geschäftlichen Unterlagen und Kundenfotos bleiben vertraulich. Keine Verwendung von Kundendaten für KI-Trainingszwecke. Strikte Mandantentrennung.
+                        Ihre geschäftlichen Unterlagen und Kundenfotos bleiben vertraulich. Keine Verwendung von Kundendaten für fremde KI-Trainingszwecke. Volle Wahlfreiheit: Schweizer Cloud oder vor Ort.
                       </p>
                     </div>
                     <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1.5 text-xs text-slate-300">
@@ -1455,82 +1455,82 @@ export default function LandingPageView({
                   <h2 className="text-3xl sm:text-5xl font-black mt-4 tracking-tight">
                     Ihre Betriebsdaten gehören Ihnen. <br />
                     <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">
-                      Nicht US-Konzernen. Und nicht in eine staubige Box.
+                      100% Schweizer Souveränität. Keine US-Cloud.
                     </span>
                   </h2>
                   <p className="text-slate-300 text-base sm:text-lg mt-4 leading-relaxed font-normal">
-                    Warum ein physischer Server im Betrieb ein Wartungsalbtraum ist – und wie unsere Schweizer Private Cloud maximale Datensicherheit mit null Wartungsaufwand verbindet.
+                    Volle Wahlfreiheit für Enterprise-Kunden: Betreiben Sie Ihre firmeneigene KI auf einer dedizierten Schweizer Private Cloud (Infomaniak / Exoscale in Zürich &amp; Genf) oder auf Wunsch als lokalen Server vor Ort in Ihrem Betrieb.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                  {/* Spalte 1: Hardware-Box im Betrieb */}
+                  {/* Spalte 1: Hardware-Box im Betrieb (Auf Wunsch) */}
+                  <div className="p-6 sm:p-8 rounded-3xl bg-slate-950/80 border border-slate-700/80 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-300 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-md">
+                          Modell A · Vor Ort im Betrieb
+                        </span>
+                        <span className="text-xl">🏢</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">Lokaler Server vor Ort</h3>
+                      <p className="text-xs text-slate-400 mb-6">Für Betriebe mit Wunsch nach 100% physischer Datenhoheit im eigenen Haus.</p>
+
+                      <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
+                        <li className="flex items-start gap-2.5 text-slate-200">
+                          <span className="font-bold text-emerald-400 shrink-0">✓</span>
+                          <span><strong>100% lokale Datenhoheit:</strong> Eigener Mini-Server im Meisterbüro oder in der Werkstatt.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5 text-slate-200">
+                          <span className="font-bold text-emerald-400 shrink-0">✓</span>
+                          <span><strong>Lokale Open-Source-KI:</strong> Ausführung über Ollama / vLLM ohne Datenversand nach aussen.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5 text-slate-400">
+                          <span className="font-bold text-amber-400 shrink-0">!</span>
+                          <span><strong>Hardware & Wartung:</strong> Einmalige Hardware-Anschaffung und Netzwerk-Einrichtung für Baustellenzugriff.</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="mt-8 p-3 rounded-xl bg-slate-800/50 border border-slate-700 text-xs text-slate-300 text-center font-medium">
+                      Fazit: Maximal autark · Physisch in Ihrem Betrieb (Auf Wunsch)
+                    </div>
+                  </div>
+
+                  {/* Spalte 2: Klassische US-Cloud APIs (Ausgeschlossen) */}
                   <div className="p-6 sm:p-8 rounded-3xl bg-slate-950/80 border border-red-500/30 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <span className="text-xs font-bold uppercase tracking-wider text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-md">
-                          Modell A · Veraltet
+                          Modell C · US-Cloud APIs
                         </span>
-                        <span className="text-xl">⚠️</span>
+                        <span className="text-xl">❌</span>
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-2">Hardware-Box im Betrieb</h3>
-                      <p className="text-xs text-slate-400 mb-6">Mini-PC oder Mac Mini in der Werkstatt oder im Meisterbüro vor Ort.</p>
+                      <h3 className="text-xl font-bold text-white mb-2">Klassische US-Cloud APIs</h3>
+                      <p className="text-xs text-slate-400 mb-6">Standard-SaaS & öffentliche US-Modelle mit Drittanbieter-Zugriff.</p>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
                         <li className="flex items-start gap-2.5 text-red-300">
                           <span className="font-bold text-red-400 shrink-0">✕</span>
-                          <span><strong>Hohe Anschaffungskosten:</strong> Einmalig CHF 1&apos;500.– Hardware plus teure Einrichtung.</span>
+                          <span><strong>US CLOUD Act Risiko:</strong> Daten unterliegen dem Zugriff ausländischer Sicherheitsbehörden.</span>
                         </li>
                         <li className="flex items-start gap-2.5 text-red-300">
                           <span className="font-bold text-red-400 shrink-0">✕</span>
-                          <span><strong>Werkstatt-Risiko:</strong> Holzstaub, Sommerhitze, Stromausfall & Lüfterschäden.</span>
+                          <span><strong>Unklare Modell-Trainings:</strong> Handwerker-Kalkulationen landen potenziell im Modelltraining.</span>
                         </li>
                         <li className="flex items-start gap-2.5 text-red-300">
                           <span className="font-bold text-red-400 shrink-0">✕</span>
-                          <span><strong>Baustellen-Probleme:</strong> Dynamische IPs, Port-Forwarding & fehlerhafte VPNs im Rohbau.</span>
+                          <span><strong>Strikter Verzicht:</strong> Kinetic Craft nutzt in Basis-Tarifen bewusst KEINE US-KI-Dienste.</span>
                         </li>
                       </ul>
                     </div>
 
                     <div className="mt-8 p-3 rounded-xl bg-red-950/30 border border-red-900/50 text-xs text-red-400 text-center font-medium">
-                      Fazit: Wartungsalbtraum ohne eigene IT-Abteilung
+                      Fazit: Für Kinetic Craft strikt ausgeschlossen
                     </div>
                   </div>
 
-                  {/* Spalte 2: Klassische US-Cloud */}
-                  <div className="p-6 sm:p-8 rounded-3xl bg-slate-950/80 border border-amber-500/30 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-md">
-                          Modell C · Riskant
-                        </span>
-                        <span className="text-xl">🌐</span>
-                      </div>
-                      <h3 className="text-xl font-bold text-white mb-2">Klassische US-Cloud</h3>
-                      <p className="text-xs text-slate-400 mb-6">Standard-SaaS über US-Hyperscaler (Bexio & US-APIs).</p>
-
-                      <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
-                        <li className="flex items-start gap-2.5 text-emerald-300">
-                          <span className="font-bold text-emerald-400 shrink-0">✓</span>
-                          <span><strong>Sofort startklar:</strong> Keine eigene Serverwartung notwendig.</span>
-                        </li>
-                        <li className="flex items-start gap-2.5 text-amber-300">
-                          <span className="font-bold text-amber-400 shrink-0">!</span>
-                          <span><strong>US CLOUD Act Risiko:</strong> Daten liegen oft auf US-Servern oder unterliegen US-Zugriff.</span>
-                        </li>
-                        <li className="flex items-start gap-2.5 text-amber-300">
-                          <span className="font-bold text-amber-400 shrink-0">!</span>
-                          <span><strong>Geteilte Multi-Tenant-DB:</strong> Keine dedizierte KI-Instanz für Ihre eigenen Kalkulationen.</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="mt-8 p-3 rounded-xl bg-amber-950/30 border border-amber-900/50 text-xs text-amber-300 text-center font-medium">
-                      Fazit: Bequem, aber Kompromisse beim Datenschutz
-                    </div>
-                  </div>
-
-                  {/* Spalte 3: Kinetic Private Cloud (Empfehlung) */}
+                  {/* Spalte 3: Kinetic Private Cloud (Schweizer Empfehlung) */}
                   <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-emerald-950/60 via-slate-900 to-slate-950 border-2 border-emerald-400 shadow-2xl shadow-emerald-950/50 flex flex-col justify-between relative">
                     <span className="absolute -top-3.5 right-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-[11px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-md">
                       Schweizer Empfehlung
@@ -1555,7 +1555,7 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-start gap-2.5">
                           <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
-                          <span><strong>Null Hardware-Wartung:</strong> Kein Server im Betrieb, keine Stromkosten, keine Ausfälle.</span>
+                          <span><strong>Null Hardware-Wartung:</strong> Kein Server im Betrieb, keine Stromkosten, automatische Backups.</span>
                         </li>
                         <li className="flex items-start gap-2.5">
                           <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">✓</span>
@@ -1569,7 +1569,7 @@ export default function LandingPageView({
                     </div>
 
                     <div className="mt-8 p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs text-emerald-300 text-center font-bold">
-                      Fazit: Maximale Souveränität · Null IT-Wartung
+                      Fazit: Beste Kombination · Höchste Sicherheit & Null Wartung
                     </div>
                   </div>
                 </div>
@@ -1752,7 +1752,7 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-center gap-2 font-medium">
                           <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span>Gemini 3.8 Flash Beleg-Scanner & Vor-Ort-Diktat</span>
+                          <span>Mobile Foto-Belegablage & Dokumentation (Standard)</span>
                         </li>
                         <li className="flex items-center gap-2 font-medium">
                           <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
@@ -1765,6 +1765,10 @@ export default function LandingPageView({
                         <li className="flex items-center gap-2 font-medium">
                           <IconCheck className="w-4 h-4 text-amber-600 shrink-0" />
                           <span>Zefix-Handelsregisterabgleich & Live-Baustellenwetter</span>
+                        </li>
+                        <li className="flex items-center gap-2 font-medium">
+                          <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-emerald-800 font-semibold">Keine externe KI / keine US-APIs (100% schlank & revDSG-konform)</span>
                         </li>
                       </ul>
                     </div>
@@ -1786,20 +1790,24 @@ export default function LandingPageView({
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <h3 className="text-2xl font-black text-slate-900">Enterprise</h3>
                         <span className="text-xs bg-emerald-950 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold border border-emerald-800">
-                          Private AI Node
+                          Exklusiv: Firmeneigene KI
                         </span>
                       </div>
                       <div className="text-3xl font-black text-slate-900 my-4 font-mono">
                         ab CHF 149.00 <span className="text-xs font-normal text-slate-500 font-sans">/ Monat</span>
                       </div>
                       <p className="text-xs text-slate-600 mb-6 font-medium">
-                        Inkl. dedizierter Schweizer Private-Cloud Instanz (Infomaniak / Exoscale) & firmeneigenem RAG-Wissen.
+                        Inkl. dedizierter Schweizer Private-Cloud Instanz (Zürich/Genf) oder auf Wunsch lokal vor Ort im Betrieb.
                       </p>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
                         <li className="flex items-center gap-2">
                           <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span><strong>100% isolierte Schweizer Instanz</strong> (Zürich / Genf)</span>
+                          <span><strong>Kinetic Private AI Node:</strong> Automatischer Belegscan & Baustellen-Sprachdiktat</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span><strong>100% isolierte Schweizer Instanz</strong> (Zürich / Genf oder vor Ort)</span>
                         </li>
                         <li className="flex items-center gap-2">
                           <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1815,7 +1823,7 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-center gap-2">
                           <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span>Persönliche Datenmigration (Bexio, Sorba, Excel)</span>
+                          <span>Persönliche Datenmigration (Bexio, Sorba, Excel) & Setup</span>
                         </li>
                       </ul>
                     </div>
@@ -1843,7 +1851,7 @@ export default function LandingPageView({
                     Wie viel Bürozeit & Geld sparen Sie pro Monat?
                   </h2>
                   <p className="text-sm text-slate-300 mt-2">
-                    Berechnen Sie Ihre individuelle Entlastung durch automatische Belege, KI-Diktat und 60s-QR-Rechnungen.
+                    Berechnen Sie Ihre individuelle Entlastung durch mobile Belege, 3-Stufen-Mahnwesen und 60s-QR-Rechnungen.
                   </p>
                 </div>
 
@@ -2265,7 +2273,7 @@ export default function LandingPageView({
                 </div>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Das moderne Handwerker-CRM für Schweizer Betriebe mit nativer Gemini AI, Private AI Node, Zefix-Schnittstelle und 100% Swiss QR-Rechnung.
+                Das moderne Handwerker-CRM für Schweizer Betriebe mit Kinetic Private AI Node (Enterprise), Zefix-Schnittstelle und 100% Swiss QR-Rechnung.
               </p>
               <div className="flex items-center gap-2 text-xs text-slate-700 font-semibold pt-1">
                 <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
@@ -2373,7 +2381,7 @@ export default function LandingPageView({
                   Kinetic Craft – Schweizer Handwerker-CRM
                 </span>
                 <span className="text-[11px] text-slate-500 hidden md:block">
-                  Mit Gemini AI Beleg-Scanner, Private AI Node & 100% Swiss QR-Rechnung in 60s
+                  Mit Foto-Belegen, 100% Swiss QR-Rechnung in 60s & optionaler Schweizer Firmen-KI
                 </span>
               </div>
             </div>

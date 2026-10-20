@@ -87,10 +87,10 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(screen.getByText(/Vom Erstversand bis zur 2\. Mahnung: 100% automatisiert\./i)).toBeInTheDocument()
 
     // Navigate to /ki-cloud
-    const kiNav = screen.getAllByRole('button', { name: /KI & Private Cloud/i })[0]
+    const kiNav = screen.getAllByRole('button', { name: /Firmeneigene KI/i })[0]
     fireEvent.click(kiNav)
     expect(window.location.pathname).toBe('/ki-cloud')
-    expect(screen.getByText(/Gemini 3\.8 Flash Inside/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
 
     // Navigate to /gewerke
     const gewerkeNav = screen.getAllByRole('button', { name: /Branchen & NPK/i })[0]
@@ -252,10 +252,10 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
 
     expect(screen.getByText(/Das neue Bento-Dashboard mit Live-Wetter/i)).toBeInTheDocument()
 
-    const tab2Btn = screen.getByRole('button', { name: /2\. Gemini KI & Baustelle/i })
+    const tab2Btn = screen.getByRole('button', { name: /2\. Baustelle & Foto-Belege/i })
     fireEvent.click(tab2Btn)
-    expect(screen.getByText(/KI-Belegscanner & Baustellen-Sprachdiktat/i)).toBeInTheDocument()
-    expect(screen.getByAltText(/Kinetic Craft KI Beleg Scanner/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mobile Foto-Belege & Baustellen-Dossiers/i)).toBeInTheDocument()
+    expect(screen.getByAltText(/Kinetic Craft Beleg- und Baustellenverwaltung/i)).toBeInTheDocument()
 
     const tab3Btn = screen.getByRole('button', { name: /3\. CRM & Zefix-Handelsregister/i })
     fireEvent.click(tab3Btn)
@@ -291,7 +291,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(onGoToRegistration).toHaveBeenCalled()
   })
 
-  it('renders Gemini AI section, Vorher/Nachher Simulator, Private AI Node Explorer and revDSG comparison on /ki-cloud', () => {
+  it('renders Kinetic Private AI Node section, Vorher/Nachher Simulator, Private AI Node Explorer and revDSG comparison on /ki-cloud', () => {
     render(
       <LandingPageView
         initialPage="ki-cloud"
@@ -300,7 +300,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
       />
     )
 
-    expect(screen.getByText(/Gemini 3\.8 Flash Inside/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/Ihr digitaler Polier:/i)).toBeInTheDocument()
     expect(screen.getByText(/Belege & Quittungen scannen/i)).toBeInTheDocument()
     expect(screen.getByText(/Baustellen-Sprachdiktat/i)).toBeInTheDocument()
@@ -313,8 +313,8 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
 
     // Check 3-column revDSG section
     expect(screen.getByText(/100% Schweizer Datensouveränität \(revDSG\)/i)).toBeInTheDocument()
-    expect(screen.getByText(/Hardware-Box im Betrieb/i)).toBeInTheDocument()
-    expect(screen.getByText(/Klassische US-Cloud/i)).toBeInTheDocument()
+    expect(screen.getByText(/Lokaler Server vor Ort/i)).toBeInTheDocument()
+    expect(screen.getByText(/Klassische US-Cloud APIs/i)).toBeInTheDocument()
     expect(screen.getByText(/Kinetic Private Cloud/i)).toBeInTheDocument()
   })
 })
