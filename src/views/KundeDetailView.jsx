@@ -431,42 +431,54 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
                 <button
                   type="button"
                   aria-label="Weitere Aktionen"
-                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsMobileMenuOpen(prev => !prev)
+                  }}
                   className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 active:scale-95 text-text-secondary hover:text-text-primary transition-all cursor-pointer"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                   </svg>
                 </button>
                 {isMobileMenuOpen && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in p-1">
+                    <div 
+                      className="fixed inset-0 z-[50]" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsMobileMenuOpen(false)
+                      }} 
+                    />
+                    <div 
+                      className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-2xl shadow-xl z-[60] overflow-hidden animate-fade-in p-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {kunde.is_archived ? (
                         <button 
                           type="button"
-                          onClick={() => { setIsMobileMenuOpen(false); handleRestore(); }}
+                          onClick={(e) => { e.stopPropagation(); setIsMobileMenuOpen(false); handleRestore(); }}
                           className="w-full text-left px-3 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer font-medium"
                         >
-                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          <svg className="w-4 h-4 text-emerald-600 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                           Aus Archiv wiederherstellen
                         </button>
                       ) : (
                         <button 
                           type="button"
-                          onClick={() => { setIsMobileMenuOpen(false); setShowArchiveWarning(true); }}
-                          className="w-full text-left px-3 py-2.5 text-sm text-text-primary hover:bg-neutral-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); setIsMobileMenuOpen(false); setShowArchiveWarning(true); }}
+                          className="w-full text-left px-3 py-2.5 text-sm text-text-primary hover:bg-neutral-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer font-medium"
                         >
-                          <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                          <svg className="w-4 h-4 text-text-secondary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                           Kunde archivieren
                         </button>
                       )}
                       <button 
                         type="button"
-                        onClick={() => { setIsMobileMenuOpen(false); setShowDeleteWarning(true); }}
-                        className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer mt-0.5"
+                        onClick={(e) => { e.stopPropagation(); setIsMobileMenuOpen(false); setShowDeleteWarning(true); }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer mt-0.5 font-medium"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         Unwiderruflich löschen
                       </button>
                     </div>
@@ -616,42 +628,54 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
               <button 
                 type="button"
                 aria-label="Weitere Aktionen"
-                onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsHeaderMenuOpen(prev => !prev)
+                }}
+                className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 active:bg-black/10 transition-colors cursor-pointer"
               >
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                <svg className="w-5 h-5 sm:w-5 sm:h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
               </button>
             )}
             {isHeaderMenuOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                <div 
+                  className="fixed inset-0 z-[50]" 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsHeaderMenuOpen(false)
+                  }} 
+                />
+                <div 
+                  className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-xl z-[60] overflow-hidden animate-fade-in"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="p-1">
                     {kunde.is_archived ? (
                       <button 
                         type="button"
-                        onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
+                        onClick={(e) => { e.stopPropagation(); setIsHeaderMenuOpen(false); handleRestore(); }}
                         className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
                       >
-                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        <svg className="w-4 h-4 text-emerald-600 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                         Aus Archiv wiederherstellen
                       </button>
                     ) : (
                       <button 
                         type="button"
-                        onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
-                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
+                        onClick={(e) => { e.stopPropagation(); setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
+                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
                       >
-                        <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                        <svg className="w-4 h-4 text-text-secondary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
                         Kunde archivieren
                       </button>
                     )}
                     <button 
                       type="button"
-                      onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-medium"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <svg className="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       Unwiderruflich löschen
                     </button>
                   </div>
