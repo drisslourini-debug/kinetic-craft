@@ -294,7 +294,7 @@ export default function LandingPageView({
       tagColor: 'bg-purple-50 text-purple-900 border-purple-200',
       title: 'Mobile Foto-Belege & Baustellen-Dossiers',
       desc: 'Materialquittungen direkt mit dem Smartphone abfotografieren und der Baustelle zuweisen. Regiestunden per digitaler Stempeluhr erfassen. (Automatische KI-Auslesung exklusiv im Enterprise Private AI Node verfügbar).',
-      image: '/screenshots/09_ai_beleg_scanner.png',
+      image: '/screenshots/05_buchhaltung_belege.png',
       alt: 'Kinetic Craft Beleg- und Baustellenverwaltung',
       fallbackImage: '/screenshots/06_mobile_baustelle.png',
       features: [
