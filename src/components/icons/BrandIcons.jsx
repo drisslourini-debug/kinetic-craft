@@ -728,6 +728,14 @@ export function IconMail({ className = 'w-5 h-5', ...props }) {
   )
 }
 
+export function IconSend({ className = 'w-5 h-5', ...props }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+    </svg>
+  )
+}
+
 // 34. Hinzufügen / Neue Zeile 
 export function IconPlus({ className = 'w-5 h-5', ...props }) {
   return (
@@ -1590,5 +1598,23 @@ export function IconShield({ className = 'w-5 h-5', ...props }) {
     </svg>
   )
 }
+
+// Ops & Platform CRM Icons
+export function IconUsers({ className = 'w-5 h-5', ...props }) {
+  return <IconTeam className={className} {...props} />
+}
+
+export function IconEuro({ className = 'w-5 h-5', ...props }) {
+  return <IconMoney className={className} {...props} />
+}
+
+export function IconArrowRight({ className = 'w-4 h-4', ...props }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  )
+}
+
 
 

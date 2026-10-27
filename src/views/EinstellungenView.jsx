@@ -34,12 +34,12 @@ const DEFAULT_TEXT_VORLAGEN = [
   { id: 'os_1', category: 'offerte_schluss', label: 'Standard', text: 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
   { id: 'os_2', category: 'offerte_schluss', label: 'Förmlich', text: 'Für die Auftragserteilung danken wir Ihnen im Voraus bestens. Bei Unklarheiten stehen wir Ihnen jederzeit gerne zur Verfügung.' },
   { id: 'os_3', category: 'offerte_schluss', label: 'Kurz', text: 'Besten Dank für Ihre Anfrage.' },
-  { id: 're_1', category: 'rechnung_einleitung', label: 'Standard', text: 'Gerne unterbreiten wir Ihnen folgende Rechnung:' },
-  { id: 're_2', category: 'rechnung_einleitung', label: 'Förmlich', text: 'Bezugnehmend auf unsere Besichtigung vor Ort erlauben wir uns, Ihnen folgende Rechnung zu unterbreiten:' },
-  { id: 're_3', category: 'rechnung_einleitung', label: 'Persönlich', text: 'Vielen Dank für Ihre Anfrage und das entgegengebrachte Vertrauen. Gerne offerieren wir Ihnen die gewünschten Arbeiten wie folgt:' },
+  { id: 're_1', category: 'rechnung_einleitung', label: 'Standard', text: 'Wir danken für Ihren geschätzten Auftrag und stellen Ihnen folgende Leistungen in Rechnung:' },
+  { id: 're_2', category: 'rechnung_einleitung', label: 'Förmlich', text: 'Bezugnehmend auf den ausgeführten Auftrag erlauben wir uns, Ihnen die vereinbarten Leistungen in Rechnung zu stellen:' },
+  { id: 're_3', category: 'rechnung_einleitung', label: 'Persönlich', text: 'Vielen Dank für Ihr Vertrauen und die angenehme Zusammenarbeit. Gerne stellen wir Ihnen die ausgeführten Arbeiten wie folgt in Rechnung:' },
   { id: 'rs_1', category: 'rechnung_schluss', label: 'Standard', text: 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' },
-  { id: 'rs_2', category: 'rechnung_schluss', label: 'Mit Gültigkeit', text: 'Diese Rechnung ist 30 Tage gültig. Materialpreisänderungen bleiben vorbehalten. Wir danken Ihnen für das Vertrauen und freuen uns auf Ihren Auftrag.' },
-  { id: 'rs_3', category: 'rechnung_schluss', label: 'Ausführlich', text: 'Die Rechnung versteht sich exkl. allfälliger Gerüstkosten und bauseitiger Vorleistungen. Materialpreisänderungen bleiben vorbehalten. Nicht offerierte Arbeiten werden nach Aufwand verrechnet. Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.' }
+  { id: 'rs_2', category: 'rechnung_schluss', label: 'Mit Zahlungsziel', text: 'Zahlbar innert der angegebenen Zahlungsfrist netto auf unser Bankkonto. Wir danken Ihnen herzlich für Ihren geschätzten Auftrag.' },
+  { id: 'rs_3', category: 'rechnung_schluss', label: 'Ausführlich', text: 'Zahlbar rein netto innert Frist. Bei Fragen zu den aufgeführten Positionen stehen wir Ihnen jederzeit gerne zur Verfügung. Vielen Dank für die geschätzte Zusammenarbeit!' }
 ]
 
 export default function EinstellungenView({ onNavigate, userRole, refreshGlobalSettings, userName: initialUserName, onUserNameChange: parentOnUserNameChange }) {
@@ -88,6 +88,7 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
     konto_kreditoren: '2000',
     konto_ertrag: '3200',
     konto_skonto: '3800',
+    fenster_position: 'rechts',
     text_vorlagen: []
   })
   
@@ -272,7 +273,7 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
           'zahlungsfrist_tage', 'startnummer_offerten', 'startnummer_rechnungen', 'text_vorlagen',
           'archiv_kunden_kategorien', 'archiv_projekt_kategorien', 'archiv_max_size_mb',
           'archiv_allowed_types', 'tenant_id', 'primary_color', 'logo_url', 'qr_iban',
-          'hr_nummer', 'gerichtsstand', 'pdf_kopfzeile', 'pdf_fusszeile', 'pdf_absenderzeile',
+          'hr_nummer', 'gerichtsstand', 'pdf_kopfzeile', 'pdf_fusszeile', 'pdf_absenderzeile', 'fenster_position',
           'plz', 'ort', 'land', 'startnummer_kunden', 'prefix_kunden', 'startnummer_projekte', 'prefix_projekte'
         ])
 
@@ -447,10 +448,12 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
 
       {/* Mobile Nav Selector (Dropdown) */}
       <div className="md:hidden">
-        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5">
+        <label htmlFor="settings-nav-select" className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5">
           Bereich auswählen
         </label>
         <select
+          id="settings-nav-select"
+          aria-label="Bereich auswählen"
           value={activeNav}
           onChange={e => setActiveNav(e.target.value)}
           className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-base font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-500/30"

@@ -193,17 +193,21 @@ export default function OffertePrintView({
     html2canvas: { 
       scale: 2, 
       useCORS: true, 
-      letterRendering: true, 
+      letterRendering: false, 
       windowWidth: 1024,
       logging: false 
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], after: '.a4-page' }
+    pagebreak: { 
+      mode: ['css', 'legacy'], 
+      before: '.a4-page-break-before' 
+    }
   })
 
   const handleDownloadPDF = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('pdf-pages-container')
       const opt = getPdfOptions()
       await generatePdf(element, opt, 'save')
@@ -219,6 +223,7 @@ export default function OffertePrintView({
   const handleSaveToArchive = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('pdf-pages-container')
       const opt = getPdfOptions()
       const blob = await generatePdf(element, opt, 'blob')
@@ -296,6 +301,7 @@ export default function OffertePrintView({
   const handleEmailWithPDF = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('pdf-pages-container')
       const opt = getPdfOptions()
 
@@ -373,9 +379,10 @@ export default function OffertePrintView({
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
       // 4. Open mailto link
-      const subject = encodeURIComponent(`Offerte ${docNr} - ${settings?.firmenname || 'Muster Malerei Bern AG'}`)
+      const companyName = settings?.firmenname || ''
+      const subject = encodeURIComponent(`Offerte ${docNr}${companyName ? ` - ${companyName}` : ''}`)
       const recipientName = kunde?.nachname ? ` ${kunde.nachname}` : (kunde?.firmenname ? ` ${kunde.firmenname}` : '')
-      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die Offerte ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Muster Malerei Bern AG'}\n${settings?.website || ''}`)
+      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die Offerte ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${companyName}\n${settings?.website || ''}`)
       window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
 
       showToast('success', 'PDF archiviert, heruntergeladen & E-Mail vorbereitet!')
@@ -557,7 +564,10 @@ export default function OffertePrintView({
 
       {/* ===== A4 PAGES CONTAINER ===== */}
       <div className={previewMode ? "p-2 sm:p-4" : "p-2 sm:p-6"}>
-        <div id="pdf-pages-container" className="flex flex-col items-center pb-8">
+        <div 
+          id="pdf-pages-container" 
+          className="flex flex-col items-center pb-8"
+        >
           {paginatedPages.map((pageItems, pageIdx) => {
             const isFirst = pageIdx === 0
             const isLast = pageIdx === totalPages - 1
@@ -565,29 +575,29 @@ export default function OffertePrintView({
             return (
               <div
                 key={pageIdx}
-                className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
-                style={!isGenerating ? {
+                className={`mx-auto mb-6 sm:mb-8 block print:m-0 print:block ${pageIdx > 0 ? 'a4-page-break-before' : ''}`}
+                style={{
                   width: `${Math.round(794 * effectiveScale)}px`,
                   height: `${Math.round(1123 * effectiveScale)}px`,
                   position: 'relative',
                   flexShrink: 0,
-                } : {}}
+                }}
               >
                 <div
-                  className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                  className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none shadow-2xl rounded-sm border border-neutral-200 print:border-none"
                   style={{
-                    width: isGenerating ? '210mm' : '794px',
-                    minWidth: isGenerating ? '210mm' : '794px',
-                    height: isGenerating ? '297mm' : '1123px',
-                    minHeight: isGenerating ? '297mm' : '1123px',
-                    maxHeight: isGenerating ? '297mm' : '1123px',
+                    width: '794px',
+                    minWidth: '794px',
+                    height: '1123px',
+                    minHeight: '1123px',
+                    maxHeight: '1123px',
                     boxSizing: 'border-box',
-                    padding: '20mm 20mm 20mm 25mm', // Swiss standard margins: 25mm left binder, 20mm right/top/bottom
+                    padding: '20mm 20mm 24mm 25mm',
                     position: 'relative',
                     backgroundColor: '#ffffff',
                     overflow: 'hidden',
                     flexShrink: 0,
-                    transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                    transform: `scale(${effectiveScale})`,
                     transformOrigin: 'top left',
                   }}
                 >
@@ -616,7 +626,10 @@ export default function OffertePrintView({
                       docType="Offerte" 
                       docNr={docNr} 
                       date={docDate} 
-                      konditionen={daten.konditionen} 
+                      konditionen={{
+                        ...daten.konditionen,
+                        gueltigkeit: daten.konditionen?.gueltigkeit || (offerte.gueltig_bis ? `bis ${formatDateLong(offerte.gueltig_bis)}` : (offerte.gueltigkeit_tage ? `${offerte.gueltigkeit_tage} Tage` : '30 Tage'))
+                      }} 
                       projekt={projekt} 
                     />
                     <div style={{ fontSize: '9.5pt', marginBottom: '6mm', lineHeight: '1.5', color: '#333' }}>
@@ -666,27 +679,27 @@ export default function OffertePrintView({
           {hasAusmass && (
             <div
               className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
-              style={!isGenerating ? {
+              style={{
                 width: `${Math.round(794 * effectiveScale)}px`,
                 height: `${Math.round(1123 * effectiveScale)}px`,
                 position: 'relative',
                 flexShrink: 0,
-              } : {}}
+              }}
             >
               <div
-                className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none shadow-2xl rounded-sm border border-neutral-200 print:border-none"
                 style={{
-                  width: isGenerating ? '210mm' : '794px',
-                  minWidth: isGenerating ? '210mm' : '794px',
-                  height: isGenerating ? '297mm' : '1123px',
-                  minHeight: isGenerating ? '297mm' : '1123px',
-                  maxHeight: isGenerating ? '297mm' : '1123px',
+                  width: '794px',
+                  minWidth: '794px',
+                  height: '1123px',
+                  minHeight: '1123px',
+                  maxHeight: '1123px',
                   boxSizing: 'border-box',
                   position: 'relative',
                   backgroundColor: '#ffffff',
                   overflow: 'hidden',
                   flexShrink: 0,
-                  transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                  transform: `scale(${effectiveScale})`,
                   transformOrigin: 'top left',
                 }}
               >
@@ -723,20 +736,22 @@ export default function OffertePrintView({
         }
         .a4-page {
           width: 210mm !important;
-          height: 297mm !important;
-          max-height: 297mm !important;
+          height: 296.5mm !important;
+          max-height: 296.5mm !important;
           transform: none !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            margin: 0 !important;
-            padding: 20mm 20mm 20mm 25mm !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            overflow: hidden !important;
-          }
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          margin: 0 !important;
+          padding: 20mm 20mm 24mm 25mm !important;
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          overflow: hidden !important;
+        }
+        .a4-page-break-before {
+          page-break-before: always !important;
+          break-before: page !important;
+        }
         }
       `}</style>
 

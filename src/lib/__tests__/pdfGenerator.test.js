@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { sanitizeColorString } from '../pdfGenerator'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { sanitizeColorString, colorCache } from '../pdfGenerator'
 
 describe('pdfGenerator - sanitizeColorString', () => {
+  beforeEach(() => {
+    colorCache.clear()
+  })
+
   it('leaves normal color strings untouched', () => {
     expect(sanitizeColorString('#ffffff')).toBe('#ffffff')
     expect(sanitizeColorString('rgb(255, 255, 255)')).toBe('rgb(255, 255, 255)')
@@ -33,6 +37,18 @@ describe('pdfGenerator - sanitizeColorString', () => {
     const input = '1px solid oklab(0.92 0 0)'
     const output = sanitizeColorString(input, mockCtx)
     expect(output).toBe('1px solid rgb(226, 232, 240)')
+  })
+
+  it('converts colors via getImageData if supported', () => {
+    const mockCtx = {
+      clearRect: () => {},
+      fillRect: () => {},
+      getImageData: () => ({ data: [13, 146, 152, 255] })
+    }
+
+    const input = 'oklch(0.6 0.1 200)'
+    const output = sanitizeColorString(input, mockCtx)
+    expect(output).toBe('rgb(13, 146, 152)')
   })
 
   it('falls back to safe rgba when context fails or is not provided', () => {

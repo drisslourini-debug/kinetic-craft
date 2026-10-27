@@ -11,6 +11,7 @@ import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 import TerminModal from '../components/kalender/TerminModal'
 import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
+import { canEditOfferte, canDeleteOfferte, isOffertePermanentlyLocked } from '../lib/statusLogic'
 import {
   IconFolder,
   IconEye,
@@ -35,7 +36,9 @@ import {
   IconTrash,
   IconQrBill,
   IconWarning,
-  IconCheck
+  IconCheck,
+  IconLock,
+  IconSend
 } from '../components/icons/BrandIcons'
 
 export default function OfferteDetailView({ offerte, onBack, onNavigate, viewParams, userRole }) {
@@ -299,16 +302,30 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
 
   const handleStatusChange = async (newStatus) => {
     if (!supabase) return
+    if (isOffertePermanentlyLocked(offerte)) {
+      showToast('error', 'Diese Offerte wurde bereits in eine Rechnung überführt (Verrechnet) und ist dauerhaft gesperrt.')
+      return
+    }
+    const oldStatus = status
     setStatus(newStatus)
+    if (newStatus !== 'Entwurf' && newStatus !== 'In Überarbeitung') {
+      setIsEditing(false)
+      setIsDirty(false)
+    }
     setIsUpdating(true)
     
     try {
-      await supabase
+      const { error } = await supabase
         .from('offerten')
         .update({ status: newStatus })
         .eq('id', offerte.id)
+      if (error) throw error
+      offerte.status = newStatus
+      showToast('success', `Status auf "${newStatus}" aktualisiert.`)
     } catch (err) {
       console.error('Failed to update status:', err)
+      showToast('error', 'Fehler beim Aktualisieren des Status.')
+      setStatus(oldStatus)
     } finally {
       setIsUpdating(false)
     }
@@ -365,6 +382,11 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   }
 
   const handleDeleteOfferte = async () => {
+    if (!canDeleteOfferte(offerte)) {
+      showToast('error', 'Nur Offerten im Status "Entwurf" oder "In Überarbeitung" können gelöscht werden.')
+      setShowDeleteModal(false)
+      return
+    }
     setIsUpdating(true)
     try {
       const { error } = await supabase.from('offerten').delete().eq('id', offerte.id)
@@ -432,6 +454,17 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       const rechnungsdatum = new Date()
       const faelligAm = calculateDueDate(rechnungsdatum, fristTage) || calculateDueDate(rechnungsdatum.toISOString().split('T')[0], 30)
 
+      // Clean invoice daten (Swiss invoice texts and strip quote validity)
+      const cleanedKonditionen = { ...(offerte.daten?.konditionen || {}) }
+      delete cleanedKonditionen.gueltigkeit
+
+      const rechnungDaten = {
+        ...(offerte.daten || {}),
+        einleitungstext: 'Wir danken für Ihren geschätzten Auftrag und stellen Ihnen folgende Leistungen in Rechnung:',
+        schlusstext: offerte.daten?.schlusstext || 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.',
+        konditionen: cleanedKonditionen
+      }
+
       const { data: newRechnung, error } = await supabase
         .from('rechnungen')
         .insert([{
@@ -441,7 +474,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           offerte_id: offerte.id,
           typ: 'gesamt',
           total: offerte.total,
-          daten: offerte.daten,
+          daten: rechnungDaten,
           rechnungsdatum: rechnungsdatum.toISOString().split('T')[0],
           zahlungsfrist_tage: fristTage,
           faellig_am: faelligAm,
@@ -868,7 +901,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           <select
             value={status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isUpdating || isEditing || userRole === 'treuhand'}
+            disabled={isUpdating || isEditing || userRole === 'treuhand' || isOffertePermanentlyLocked(offerte)}
             className={`min-w-0 max-w-[125px] sm:max-w-none flex-1 sm:flex-none px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 text-xs sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 truncate ${
               status === 'Akzeptiert' || status === 'Verrechnet' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' :
               status === 'Versendet' ? 'border-primary-200 bg-primary-50 text-primary-700' :
@@ -877,12 +910,12 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               'border-gray-200 bg-gray-50 text-gray-700'
             }`}
           >
-            <option value="Entwurf">Entwurf</option>
-            <option value="Versendet">Versendet</option>
-            <option value="In Überarbeitung">In Überarbeitung</option>
-            <option value="Akzeptiert">Akzeptiert</option>
-            <option value="Abgelehnt">Abgelehnt</option>
-            <option value="Verrechnet">Verrechnet</option>
+            <option value="Entwurf" disabled={isOffertePermanentlyLocked(offerte)}>Entwurf</option>
+            <option value="Versendet" disabled={isOffertePermanentlyLocked(offerte)}>Versendet</option>
+            <option value="In Überarbeitung" disabled={isOffertePermanentlyLocked(offerte)}>In Überarbeitung</option>
+            <option value="Akzeptiert" disabled={isOffertePermanentlyLocked(offerte)}>Akzeptiert</option>
+            <option value="Abgelehnt" disabled={isOffertePermanentlyLocked(offerte)}>Abgelehnt</option>
+            <option value="Verrechnet">Verrechnet {isOffertePermanentlyLocked(offerte) ? '(gesperrt)' : ''}</option>
           </select>
 
           {/* Desktop Only: Live preview toggle */}
@@ -993,11 +1026,16 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                           Archivieren
                         </button>
                       )}
-                      {(status === 'Entwurf' || status === 'In Überarbeitung') && (
+                      {canDeleteOfferte(offerte) ? (
                         <button onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer mt-1 border-t border-border pt-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          Löschen
+                          <IconTrash className="w-4 h-4 text-red-600 shrink-0" />
+                          <span>Offerte löschen</span>
                         </button>
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-text-tertiary border-t border-border mt-1 pt-2 flex items-center gap-2">
+                          <IconLock className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                          <span>{status === 'Verrechnet' ? 'Offerte verrechnet (gesperrt)' : 'Offerte geschützt'}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1047,6 +1085,58 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
               <span>Rechnung erstellen</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Verrechnet Banner (Dauerhaft gesperrt) */}
+      {status === 'Verrechnet' && (
+        <div className="bg-neutral-100 border border-neutral-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-neutral-200 text-neutral-700 flex items-center justify-center shrink-0">
+              <IconLock className="w-5 h-5 text-neutral-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Offerte verrechnet (dauerhaft gesperrt)</p>
+              <p className="text-xs text-neutral-600 mt-0.5">
+                Diese Offerte wurde in eine Rechnung überführt. Alle Positionen und Beträge sind revisionssicher schreibgeschützt.
+              </p>
+            </div>
+          </div>
+          {offerte.rechnung_id && (
+            <button
+              type="button"
+              onClick={() => onNavigate && onNavigate('rechnungen', { rechnungId: offerte.rechnung_id })}
+              className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+            >
+              <IconDocument className="w-4 h-4" />
+              <span>Zur Rechnung wechseln</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Versendet Banner */}
+      {status === 'Versendet' && !isEditing && (
+        <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+              <IconSend className="w-5 h-5 text-sky-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-sky-950">Offerte an Kunden versendet</p>
+              <p className="text-xs text-sky-800 mt-0.5">
+                Positionen und Preise sind schreibgeschützt. Um Änderungen vorzunehmen, starte eine Revision.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleStatusChange('In Überarbeitung')}
+            className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+          >
+            <IconEdit className="w-4 h-4" />
+            <span>Revision starten (In Überarbeitung)</span>
+          </button>
         </div>
       )}
 

@@ -13,13 +13,14 @@ import StatCard from '../components/StatCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { IconBank, IconChart, IconQrBill, IconFolder, IconBauunternehmung, IconSearch, IconClose, IconCheck, IconWarning } from '../components/icons/BrandIcons'
 
-// Modulweiter In-Memory-Cache für verzögerungsfreie Stale-While-Revalidate Tab-Wechsel
-let cachedRechnungen = null
+// Modulweiter In-Memory-Cache pro Mandant fr verzgerungsfreie Stale-While-Revalidate Tab-Wechsel
+const cachedRechnungenByTenant = {}
 
-export default function RechnungenView({ onNavigate, viewParams, userRole }) {
+export default function RechnungenView({ onNavigate, viewParams, userRole, globalSettings }) {
   const [parent] = useAutoAnimate()
-  const [rechnungen, setRechnungen] = useState(() => cachedRechnungen || [])
-  const [isLoading, setIsLoading] = useState(() => !cachedRechnungen)
+  const currentTenantId = globalSettings?.tenant_id || 'default'
+  const [rechnungen, setRechnungen] = useState(() => cachedRechnungenByTenant[currentTenantId] || [])
+  const [isLoading, setIsLoading] = useState(() => !cachedRechnungenByTenant[currentTenantId])
   const [selectedRechnung, setSelectedRechnung] = useState(null)
   const [showWizard, setShowWizard] = useState(false)
   const [isBankabgleichOpen, setIsBankabgleichOpen] = useState(false)
@@ -49,7 +50,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
     if (!supabase) return
     
     try {
-      if (!cachedRechnungen) {
+      if (!cachedRechnungenByTenant[currentTenantId]) {
         setIsLoading(true)
       }
       const { data, error } = await supabase
@@ -79,7 +80,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
           }
         }
         
-        cachedRechnungen = data
+        cachedRechnungenByTenant[currentTenantId] = data
         setRechnungen(data)
         if (viewParams?.rechnungId) {
           const rech = data.find(x => String(x.id) === String(viewParams.rechnungId))
@@ -291,9 +292,9 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
     'Versendet': 'bg-blue-100 text-blue-800 border border-blue-200',
     'Teilbezahlt': 'bg-amber-100 text-amber-800 border border-amber-200',
     'Überfällig': 'bg-red-100 text-red-800 border border-red-200',
-    'Gemahnt': 'bg-red-100 text-red-800 border border-red-200',
+    'Gemahnt': 'bg-orange-100 text-orange-800 border border-orange-200',
     'Bezahlt': 'bg-emerald-100 text-emerald-800 border border-emerald-200',
-    'Storniert': 'bg-gray-100 text-gray-600 border border-gray-200 line-through',
+    'Storniert': 'bg-rose-50 text-rose-700 border border-rose-200 line-through',
   }
 
   const getBorderColor = (status) => {
@@ -301,10 +302,10 @@ export default function RechnungenView({ onNavigate, viewParams, userRole }) {
       case 'Entwurf': return 'border-l-gray-400'
       case 'Versendet': return 'border-l-blue-500'
       case 'Teilbezahlt': return 'border-l-amber-500'
-      case 'Überfällig':
-      case 'Gemahnt': return 'border-l-red-500'
+      case 'Überfällig': return 'border-l-red-500'
+      case 'Gemahnt': return 'border-l-orange-500'
       case 'Bezahlt': return 'border-l-emerald-500'
-      case 'Storniert': return 'border-l-gray-300'
+      case 'Storniert': return 'border-l-rose-300'
       default: return 'border-l-gray-400'
     }
   }

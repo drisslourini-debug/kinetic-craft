@@ -338,6 +338,8 @@ export function ContinuationHeader({ docType, docNr, projektName, date, brandCol
  * Swiss C5 envelope address window on Page 1.
  */
 export function AddressWindow({ kunde, settings }) {
+  const isRight = (settings?.fenster_position || 'rechts') === 'rechts'
+
   const getAbsender = () => {
     if (settings?.pdf_absenderzeile) return settings.pdf_absenderzeile
     const plzOrt = (settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort
@@ -345,33 +347,43 @@ export function AddressWindow({ kunde, settings }) {
   }
 
   return (
-    <div style={{ marginBottom: '10mm', minHeight: '32mm' }}>
-      {/* Absenderzeile über Adresse */}
-      <div style={{ 
-        fontSize: '7pt', 
-        color: '#888', 
-        marginBottom: '2mm', 
-        borderBottom: '0.5px solid #d1d5db', 
-        paddingBottom: '0.8mm', 
-        display: 'inline-block',
-        maxWidth: '85mm',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
-      }}>
-        {getAbsender()}
-      </div>
+    <div 
+      className="a4-address-window-wrapper"
+      style={{ 
+        marginBottom: '8mm', 
+        minHeight: '34mm',
+        display: 'flex',
+        justifyContent: isRight ? 'flex-end' : 'flex-start'
+      }}
+    >
+      <div className="a4-address-window" style={{ width: '90mm', textAlign: 'left' }}>
+        {/* Absenderzeile über Adresse */}
+        <div style={{ 
+          fontSize: '7pt', 
+          color: '#888', 
+          marginBottom: '2mm', 
+          borderBottom: '0.5px solid #d1d5db', 
+          paddingBottom: '0.8mm', 
+          display: 'block',
+          width: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
+          {getAbsender()}
+        </div>
 
-      {/* Empfänger-Adresse */}
-      <div style={{ fontSize: '10pt', lineHeight: '1.55', color: '#1a1a1a' }}>
-        {kunde?.firmenname && <div style={{ fontWeight: 700 }}>{kunde.firmenname}</div>}
-        {(kunde?.vorname || kunde?.nachname) && (
-          <div style={{ fontWeight: kunde?.firmenname ? 500 : 700 }}>
-            {kunde?.vorname} {kunde?.nachname}
-          </div>
-        )}
-        {kunde?.strasse && <div>{kunde.strasse}</div>}
-        <div>{kunde?.plz} {kunde?.ort}</div>
+        {/* Empfänger-Adresse */}
+        <div style={{ fontSize: '10pt', lineHeight: '1.55', color: '#1a1a1a' }}>
+          {kunde?.firmenname && <div style={{ fontWeight: 700 }}>{kunde.firmenname}</div>}
+          {(kunde?.vorname || kunde?.nachname) && (
+            <div style={{ fontWeight: kunde?.firmenname ? 500 : 700 }}>
+              {kunde?.vorname} {kunde?.nachname}
+            </div>
+          )}
+          {kunde?.strasse && <div>{kunde.strasse}</div>}
+          <div>{kunde?.plz} {kunde?.ort}</div>
+        </div>
       </div>
     </div>
   )
@@ -381,8 +393,11 @@ export function AddressWindow({ kunde, settings }) {
  * Meta details: Title, Date, Conditions, Project info.
  */
 export function DocumentMeta({ docType, docNr, date, konditionen = {}, projekt }) {
+  const isInvoice = (docType || '').toLowerCase().includes('rechnung') || (docType || '').toLowerCase().includes('gutschrift')
+  const gueltigkeitVal = konditionen?.gueltigkeit || (konditionen?.gueltig_bis ? `bis ${formatDateLong(konditionen.gueltig_bis)}` : (konditionen?.gueltigBis ? `bis ${formatDateLong(konditionen.gueltigBis)}` : null))
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8mm' }}>
+    <div className="a4-document-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6mm' }}>
       <div>
         <h1 style={{ fontSize: '18pt', fontWeight: 800, margin: '0 0 1mm 0', color: '#111', letterSpacing: '-0.3px' }}>
           {docType}
@@ -394,8 +409,8 @@ export function DocumentMeta({ docType, docNr, date, konditionen = {}, projekt }
 
       <div style={{ textAlign: 'right', fontSize: '9pt', lineHeight: '1.6', color: '#333' }}>
         <div><span style={{ color: '#777' }}>Datum:</span> <span style={{ fontWeight: 600 }}>{date}</span></div>
-        {konditionen?.gueltigkeit && (
-          <div><span style={{ color: '#777' }}>Gültigkeit:</span> <span style={{ fontWeight: 500 }}>{konditionen.gueltigkeit}</span></div>
+        {!isInvoice && gueltigkeitVal && (
+          <div><span style={{ color: '#777' }}>Gültigkeit:</span> <span style={{ fontWeight: 500 }}>{gueltigkeitVal}</span></div>
         )}
         {konditionen?.zahlungsfrist && (
           <div><span style={{ color: '#777' }}>Zahlungsfrist:</span> <span style={{ fontWeight: 500 }}>{konditionen.zahlungsfrist}</span></div>
@@ -759,64 +774,100 @@ export function TotalsAndClosing({
       )}
 
       {/* Closing text */}
-      <div style={{ fontSize: '9.5pt', color: '#333', lineHeight: '1.5', marginBottom: '8mm' }}>
-        <p style={{ margin: '0 0 4mm 0' }}>
+      <div style={{ fontSize: '9pt', color: '#333', lineHeight: '1.45', marginTop: '3mm', marginBottom: '4mm' }}>
+        <p style={{ margin: '0 0 2mm 0' }}>
           {daten.schlusstext || 'Wir danken Ihnen für das Vertrauen und stehen für Fragen gerne zur Verfügung.'}
         </p>
 
-        <p style={{ margin: '0 0 2mm 0', fontWeight: 500 }}>Freundliche Grüsse</p>
+        <p style={{ margin: '0 0 1.5mm 0', fontWeight: 500 }}>Freundliche Grüsse</p>
 
         {/* Signature Area */}
-        <div style={{ marginTop: '8mm', marginBottom: '2mm' }}>
+        <div style={{ marginTop: '3mm', marginBottom: '1.5mm' }}>
           {settings?.unterschrift_url ? (
-            <img src={settings.unterschrift_url} alt="Unterschrift" style={{ height: '16mm', objectFit: 'contain' }} />
+            <img src={settings.unterschrift_url} alt="Unterschrift" style={{ maxHeight: '12mm', objectFit: 'contain' }} />
           ) : (
-            <div style={{ height: '12mm', borderBottom: '0.5px solid #bbb', width: '45mm' }}></div>
+            <div style={{ height: '9mm', borderBottom: '0.5px solid #bbb', width: '42mm' }}></div>
           )}
         </div>
-        <div style={{ fontSize: '9pt', fontWeight: 700, color: '#1a1a1a' }}>{settings?.firmenname || ''}</div>
-        <div style={{ fontSize: '8pt', color: '#777' }}>{settings?.website || ''}</div>
+        <div style={{ fontSize: '8.5pt', fontWeight: 700, color: '#1a1a1a' }}>{settings?.firmenname || ''}</div>
+        {settings?.website && <div style={{ fontSize: '7.5pt', color: '#777' }}>{settings.website}</div>}
       </div>
     </div>
   )
 }
 
 /**
- * Pinned footer at the bottom of every A4 page (20mm from bottom).
+ * Pinned footer at the bottom of every A4 page (clean Swiss business stationery layout).
+ * 3-column structured overview: Company/Address, Contact/Web, Bank/IBAN/UID, Page numbers.
+ * Zero truncation, 100% legible, complies with Swiss KMU standards.
  */
 export function DocumentFooter({ pageNum, totalPages, settings, brandColor }) {
   const cleanString = (str) => (str || '').replace(/\r?\n/g, ' ').trim()
 
-  const effectiveUid = cleanString(settings?.uid || settings?.uid_nummer)
-  const formattedUid = effectiveUid ? `UID: ${effectiveUid}${!effectiveUid.toUpperCase().includes('MWST') ? ' MWST' : ''}` : ''
+  const firmenname = cleanString(settings?.firmenname)
+  const strasse = cleanString(settings?.strasse)
+  const plzOrt = cleanString((settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort)
 
-  const footerParts = [
-    cleanString(settings?.firmenname),
-    cleanString(settings?.strasse),
-    cleanString((settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort),
-    cleanString(settings?.telefon),
-    cleanString(settings?.email),
-    formattedUid,
-    cleanString(settings?.bankverbindung)
-  ].filter(Boolean)
+  const telefon = cleanString(settings?.telefon)
+  const email = cleanString(settings?.email)
+  const website = cleanString(settings?.website || settings?.webseite)
+
+  const rawUid = cleanString(settings?.uid || settings?.uid_nummer)
+  const formattedUid = rawUid ? `UID: ${rawUid}${!rawUid.toUpperCase().includes('MWST') ? ' MWST' : ''}` : ''
+
+  const bankName = cleanString(settings?.bankverbindung)
+  const iban = cleanString(settings?.qr_iban || settings?.iban)
 
   return (
     <div 
+      className="a4-document-footer"
       style={{ 
         position: 'absolute', 
-        bottom: '12mm', 
+        bottom: '8mm', 
         left: '25mm', 
         right: '20mm',
         boxSizing: 'border-box'
       }}
     >
       <div style={{ height: '0.8px', backgroundColor: brandColor, marginBottom: '2.5mm', opacity: 0.8 }}></div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '7pt', color: '#888', lineHeight: '1.4' }}>
-        <div style={{ maxWidth: '135mm', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {footerParts.join(' • ')}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-start',
+        fontSize: '7pt', 
+        color: '#666', 
+        lineHeight: '1.45' 
+      }}>
+        {/* Spalte 1: Firma & Adresse */}
+        <div style={{ flex: '1 1 0', paddingRight: '3mm' }}>
+          <div style={{ fontWeight: 700, color: '#111' }}>{firmenname}</div>
+          {strasse && <div>{strasse}</div>}
+          {plzOrt && <div>{plzOrt}</div>}
         </div>
-        <div style={{ fontWeight: 700, color: '#555', shrink: 0 }}>
-          Seite {pageNum} von {totalPages}
+
+        {/* Spalte 2: Kontakt & Web */}
+        <div style={{ flex: '1 1 0', paddingRight: '3mm' }}>
+          {telefon && <div>Tel. {telefon}</div>}
+          {email && <div>{email}</div>}
+          {website && <div>{website.replace(/^https?:\/\//, '')}</div>}
+        </div>
+
+        {/* Spalte 3: Bankverbindung & UID */}
+        <div style={{ flex: '1.2 1 0', paddingRight: '3mm' }}>
+          {bankName && <div style={{ fontWeight: 600, color: '#333' }}>{bankName}</div>}
+          {iban && (
+            <div style={{ fontFamily: 'monospace', fontSize: '6.8pt', color: '#444' }}>
+              IBAN: {iban}
+            </div>
+          )}
+          {formattedUid && <div>{formattedUid}</div>}
+        </div>
+
+        {/* Spalte 4: Seitennummer */}
+        <div style={{ flexShrink: 0, textAlign: 'right', alignSelf: 'flex-end' }}>
+          <span style={{ fontWeight: 700, color: '#444', fontSize: '7.5pt' }}>
+            Seite {pageNum} von {totalPages}
+          </span>
         </div>
       </div>
     </div>
@@ -832,8 +883,8 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
       className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none"
       style={{
         width: '210mm',
-        height: '297mm',
-        maxHeight: '297mm',
+        height: '296.5mm',
+        maxHeight: '296.5mm',
         boxSizing: 'border-box',
         position: 'relative',
         backgroundColor: '#ffffff',
@@ -842,7 +893,7 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
     >
       {/* Top half: Payment Overview & Advice */}
       <div style={{ padding: '20mm 20mm 10mm 25mm' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10mm' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8mm' }}>
           <div>
             <div style={{ fontSize: '14pt', fontWeight: 800, color: '#111' }}>
               Zahlteil & Empfangsschein
@@ -852,10 +903,10 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
             </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#666' }}>
-            <div style={{ fontWeight: 700, color: '#111' }}>{settings?.firmenname || ''}</div>
+            <div style={{ fontWeight: 700, color: '#1a1a1a' }}>{settings?.firmenname || ''}</div>
             <div>{(settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : (settings?.plz_ort || '')}</div>
             {pageNum && totalPages && (
-              <div style={{ fontSize: '8pt', color: '#888', marginTop: '1mm' }}>
+              <div style={{ fontSize: '8pt', color: '#888', marginTop: '1mm', fontWeight: 600 }}>
                 Seite {pageNum} von {totalPages}
               </div>
             )}
@@ -893,7 +944,7 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
           </div>
         </div>
 
-        <div style={{ marginTop: '6mm', fontSize: '8pt', color: '#888', fontStyle: 'italic' }}>
+        <div style={{ marginTop: '5mm', fontSize: '8pt', color: '#888', fontStyle: 'italic' }}>
           Bitte verwenden Sie für Ihre Zahlung den untenstehenden QR-Zahlteil oder scannen Sie den QR-Code mit Ihrer Banking-App.
         </div>
       </div>
@@ -908,7 +959,8 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
           display: 'flex', 
           alignItems: 'center', 
           gap: '2mm',
-          padding: '0 5mm'
+          padding: '0 5mm',
+          boxSizing: 'border-box'
         }}
       >
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -930,7 +982,8 @@ export function QrBillPage({ qrSvg, rechnung, kunde, settings, pageNum, totalPag
           width: '210mm', 
           height: '105mm', 
           backgroundColor: '#fff',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxSizing: 'border-box'
         }}
         dangerouslySetInnerHTML={{ __html: qrSvg }}
       />

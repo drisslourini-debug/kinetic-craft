@@ -15,6 +15,7 @@ export const VALID_VIEWS = [
   'dateien',
   'katalog',
   'einstellungen',
+  'admin',
 ]
 
 export const VIEW_ID_PARAM_MAP = {
@@ -22,6 +23,7 @@ export const VIEW_ID_PARAM_MAP = {
   projekte: 'projektId',
   offerten: 'offerteId',
   rechnungen: 'rechnungId',
+  admin: 'tab',
 }
 
 let historyIndex = 0
@@ -34,6 +36,21 @@ export function parseLocation(
   pathname = (typeof window !== 'undefined' ? window.location.pathname : '/'),
   search = (typeof window !== 'undefined' ? window.location.search : '')
 ) {
+  const hash = typeof window !== 'undefined' ? window.location.hash : ''
+  if (hash.startsWith('#admin')) {
+    const hashQuery = hash.includes('?') ? hash.split('?')[1] : ''
+    const hashParams = new URLSearchParams(hashQuery)
+    const params = {}
+    for (const [key, value] of hashParams.entries()) {
+      params[key] = value
+    }
+    const hashPart = hash.split('?')[0].replace('#admin/', '').replace('#admin', '')
+    if (hashPart) {
+      params.tab = decodeURIComponent(hashPart)
+    }
+    return { view: 'admin', params }
+  }
+
   const cleanPath = (pathname || '/').replace(/^\/+|\/+$/g, '')
   const segments = cleanPath ? cleanPath.split('/') : []
 

@@ -32,6 +32,8 @@ import {
   IconPhotoScanner
 } from '../components/icons/BrandIcons'
 
+const isImageUrl = (url) => typeof url === 'string' && /\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url)
+
 export default function BuchhaltungView({ onNavigate, userRole, viewParams }) {
   const [ausgaben, setAusgaben] = useState([])
   const [einnahmen, setEinnahmen] = useState([])
@@ -1327,10 +1329,18 @@ export default function BuchhaltungView({ onNavigate, userRole, viewParams }) {
                                 href={ausgabe.beleg_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-text-primary rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                                className="px-2 py-1 bg-neutral-100 hover:bg-neutral-200 text-text-primary rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors border border-border/60"
                                 title="Beleg anzeigen"
                               >
-                                <IconAttachment className="w-3.5 h-3.5 text-text-secondary" />
+                                {isImageUrl(ausgabe.beleg_url) ? (
+                                  <img 
+                                    src={ausgabe.beleg_url} 
+                                    alt="Beleg" 
+                                    className="w-5 h-5 object-cover rounded shadow-2xs border border-border/60" 
+                                  />
+                                ) : (
+                                  <IconAttachment className="w-3.5 h-3.5 text-text-secondary" />
+                                )}
                                 <span>Beleg</span>
                               </a>
                             ) : (
@@ -1453,12 +1463,22 @@ export default function BuchhaltungView({ onNavigate, userRole, viewParams }) {
                             href={ausgabe.beleg_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors"
+                            className="inline-flex items-center justify-center group/beleg relative"
                             title="Beleg ansehen"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                            </svg>
+                            {isImageUrl(ausgabe.beleg_url) ? (
+                              <img 
+                                src={ausgabe.beleg_url} 
+                                alt={ausgabe.titel || 'Beleg'} 
+                                className="w-9 h-9 object-cover rounded-lg border border-border group-hover/beleg:scale-110 shadow-2xs transition-transform" 
+                              />
+                            ) : (
+                              <span className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 flex items-center justify-center transition-colors">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                              </span>
+                            )}
                           </a>
                         ) : (
                           <span className="text-gray-300">-</span>

@@ -206,6 +206,22 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
       // ansonsten behalten wir die alte (beim Editieren).
       if (belegUrl) {
         payload.beleg_url = belegUrl
+
+        // Beleg auch direkt in der dateien-Tabelle ablegen (für Archiv, DateienView und Projekt)
+        if (file) {
+          try {
+            await supabase.from('dateien').insert([{
+              name: file.name || `Beleg_${formData.titel || 'Ausgabe'}`,
+              dateityp: file.type || 'image/jpeg',
+              groesse: file.size || 0,
+              url: belegUrl,
+              kategorie: 'Beleg',
+              projekt_id: formData.projekt_id || null
+            }])
+          } catch (dateienErr) {
+            console.warn('Sync to dateien table skipped or failed:', dateienErr)
+          }
+        }
       }
 
       let response;

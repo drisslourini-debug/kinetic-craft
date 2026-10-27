@@ -162,6 +162,7 @@ export default function MahnungPrintView({
 
   const gold = settings?.primary_color || '#c5a057'
   const isStufe3 = stufe === 3
+  const isRightWindow = (settings?.fenster_position || 'rechts') === 'rechts'
 
   // Generate Swiss QR-Bill for the dunning total
   useEffect(() => {
@@ -254,12 +255,12 @@ export default function MahnungPrintView({
     html2canvas: { 
       scale: 2, 
       useCORS: true, 
-      letterRendering: true, 
+      letterRendering: false, 
       windowWidth: 1024,
       logging: false 
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], after: '.a4-page' }
+    pagebreak: { mode: ['css', 'legacy'], before: '.a4-page-break-before' }
   })
 
   const handlePrint = () => {
@@ -269,6 +270,7 @@ export default function MahnungPrintView({
   const handleDownloadPdf = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('mahnung-pages-container')
       const opt = getPdfOptions()
       await generatePdf(element, opt, 'save')
@@ -284,6 +286,7 @@ export default function MahnungPrintView({
   const handleSaveToArchive = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('mahnung-pages-container')
       const opt = getPdfOptions()
       const blob = await generatePdf(element, opt, 'blob')
@@ -352,6 +355,7 @@ export default function MahnungPrintView({
   const handleEmailWithPDF = async () => {
     setIsGenerating(true)
     try {
+      await new Promise(resolve => setTimeout(resolve, 80))
       const element = document.getElementById('mahnung-pages-container')
       const opt = getPdfOptions()
       const blob = await generatePdf(element, opt, 'blob')
@@ -701,36 +705,39 @@ export default function MahnungPrintView({
 
       {/* ===== A4 PAGES CONTAINER ===== */}
       <div className={previewMode ? "p-2 sm:p-4" : "p-2 sm:p-6"}>
-        <div id="mahnung-pages-container" className="flex flex-col items-center pb-8">
+        <div 
+          id="mahnung-pages-container" 
+          className="flex flex-col items-center pb-8"
+        >
           {paginatedPages.map((pageConfig, pageIdx) => {
             const isFirst = pageIdx === 0
 
             return (
               <div
                 key={pageIdx}
-                className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
-                style={!isGenerating ? {
+                className={`mx-auto mb-6 sm:mb-8 block print:m-0 print:block ${pageIdx > 0 ? 'a4-page-break-before' : ''}`}
+                style={{
                   width: `${Math.round(794 * effectiveScale)}px`,
                   height: `${Math.round(1123 * effectiveScale)}px`,
                   position: 'relative',
                   flexShrink: 0,
-                } : {}}
+                }}
               >
                 <div
-                  className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                  className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none shadow-2xl rounded-sm border border-neutral-200 print:border-none"
                   style={{
-                    width: isGenerating ? '210mm' : '794px',
-                    minWidth: isGenerating ? '210mm' : '794px',
-                    height: isGenerating ? '297mm' : '1123px',
-                    minHeight: isGenerating ? '297mm' : '1123px',
-                    maxHeight: isGenerating ? '297mm' : '1123px',
+                    width: '794px',
+                    minWidth: '794px',
+                    height: '1123px',
+                    minHeight: '1123px',
+                    maxHeight: '1123px',
                     boxSizing: 'border-box',
-                    padding: '20mm 20mm 20mm 25mm',
+                    padding: '20mm 20mm 24mm 25mm',
                     position: 'relative',
                     backgroundColor: '#ffffff',
                     overflow: 'hidden',
                     flexShrink: 0,
-                    transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                    transform: `scale(${effectiveScale})`,
                     transformOrigin: 'top left',
                   }}
                 >
@@ -754,11 +761,21 @@ export default function MahnungPrintView({
                   {/* 3. ADDRESS WINDOW & META (Page 1 only) */}
                   {isFirst && (
                     <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4mm', minHeight: '38mm' }}>
-                        <AddressWindow kunde={kunde} settings={settings} />
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: isRightWindow ? 'row-reverse' : 'row',
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start', 
+                        marginTop: '2mm', 
+                        marginBottom: '4mm',
+                        minHeight: '38mm' 
+                      }}>
+                        <div style={{ width: '92mm' }}>
+                          <AddressWindow kunde={kunde} settings={settings} />
+                        </div>
                         
                         {/* Mahnungs-Meta */}
-                        <div style={{ width: '68mm', fontSize: '9pt', lineHeight: '1.6', color: '#444' }}>
+                        <div style={{ width: '70mm', fontSize: '9pt', lineHeight: '1.6', color: '#444' }}>
                           <div style={{ 
                             display: 'inline-block',
                             padding: '2px 8px', 
@@ -797,7 +814,7 @@ export default function MahnungPrintView({
                       </div>
 
                       {/* Betreffzeile */}
-                      <div style={{ marginTop: '6mm', marginBottom: '4mm' }}>
+                      <div style={{ marginTop: '4mm', marginBottom: '4mm' }}>
                         <h1 style={{ 
                           fontSize: '13pt', 
                           fontWeight: 800, 
@@ -852,21 +869,21 @@ export default function MahnungPrintView({
           {qrSvg && (
             <div
               className="mx-auto mb-6 sm:mb-8 flex justify-center print:m-0 print:block"
-              style={!isGenerating ? {
+              style={{
                 width: `${Math.round(794 * effectiveScale)}px`,
                 height: `${Math.round(1123 * effectiveScale)}px`,
                 position: 'relative',
                 flexShrink: 0,
-              } : {}}
+              }}
             >
               <div 
-                className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}
-                style={!isGenerating ? {
+                className="a4-page-break-before print:border-none print:shadow-none print:m-0 mb-8 last:mb-0 shadow-2xl rounded-sm border border-neutral-200"
+                style={{
                   width: '794px',
                   height: '1123px',
                   transform: `scale(${effectiveScale})`,
                   transformOrigin: 'top left',
-                } : {}}
+                }}
               >
                 <QrBillPage
                   qrSvg={qrSvg}

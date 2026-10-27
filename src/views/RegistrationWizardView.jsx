@@ -427,7 +427,7 @@ export default function RegistrationWizardView({
   return (
     <div className="min-h-screen bg-surface flex">
       {/* LEFT COLUMN: Swiss Quality & Branding Showcase (Desktop Only) */}
-      <div className="hidden lg:flex lg:w-5/12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-5/12 apple-pro-canvas border-r border-white/10 text-white p-12 flex-col justify-between relative overflow-hidden">
         {/* Subtle Decorative Background Glows */}
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/20 rounded-full filter blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-yellow-500/15 rounded-full filter blur-3xl pointer-events-none" />
@@ -439,7 +439,7 @@ export default function RegistrationWizardView({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold tracking-tight text-xl text-white">Kinetic</span>
-                <span className="font-bold tracking-tight text-xl text-amber-400">Craft</span>
+                <span className="font-semibold tracking-tight text-xl text-[#D6BA94]">Craft</span>
               </div>
               <span className="text-xs block text-amber-300/80 font-semibold tracking-wider uppercase">by Kinetic Schweiz</span>
             </div>
@@ -450,7 +450,7 @@ export default function RegistrationWizardView({
             <span>Entwickelt für das Schweizer Handwerk</span>
           </div>
 
-          <h1 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl xl:text-4xl font-semibold tracking-[-0.035em] apple-titanium-text leading-tight">
             Von der Offerte bis zur QR-Rechnung in Rekordzeit.
           </h1>
           <p className="mt-4 text-slate-300 text-sm leading-relaxed max-w-md">

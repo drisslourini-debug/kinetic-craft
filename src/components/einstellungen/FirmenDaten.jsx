@@ -57,6 +57,25 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
 
   return (
     <div className="space-y-6">
+      {/* Aktiver Betrieb Indikator */}
+      <div className="flex items-center justify-between p-4 bg-surface-card border border-border rounded-2xl shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div 
+            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs ring-2 ring-white/60" 
+            style={{ backgroundColor: settings.primary_color || '#b88a38' }}
+          />
+          <div>
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Aktiver Betrieb / Standort</span>
+            <span className="text-sm font-bold text-text-primary">
+              {settings.firmenname || 'Betrieb'} {displayPlzOrt ? `• ${displayPlzOrt}` : ''}
+            </span>
+          </div>
+        </div>
+        <span className="text-xs text-text-muted hidden sm:inline-block">
+          Umschalten über Firmen-Dropdown im Menü
+        </span>
+      </div>
+
       <SettingsBlock
         title="Stammdaten & Adresse"
         description="Diese Angaben werden oben links auf deinen Offerten und Rechnungen angedruckt."
@@ -257,7 +276,7 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
         title="Kontaktdaten"
         description="Diese Daten erscheinen auf dem PDF als Kontaktmöglichkeiten für deine Kunden."
         isEditing={editState === 'kontakt'}
-        onEdit={() => startEdit('kontakt')}
+        onEdit={userRole !== 'treuhand' ? () => startEdit('kontakt') : undefined}
         onCancel={cancelEdit}
         onSave={() => handleSave('kontakt')}
         isSaving={isSaving}
@@ -278,16 +297,75 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
         title="PDF & Briefpapier Gestaltung"
         description="Passe die Absender-Adresse oben rechts auf deinen PDFs an. Wenn du dieses Feld leer lässt, generiert das System die Adresse automatisch aus deinen Firmendaten."
         isEditing={editState === 'pdf_layout'}
-        onEdit={() => startEdit('pdf_layout')}
+        onEdit={userRole !== 'treuhand' ? () => startEdit('pdf_layout') : undefined}
         onCancel={cancelEdit}
         onSave={() => handleSave('pdf_layout')}
         isSaving={isSaving}
         readOnlyView={
           <>
+            <SettingsRow 
+              label="Fensterbrief-Position" 
+              value={
+                (settings.fenster_position || 'rechts') === 'rechts' 
+                  ? 'Fenster rechts (Schweizer Standard · DIN 5008 B)' 
+                  : 'Fenster links (DIN 5008 A)'
+              } 
+            />
             <SettingsRow label="Individuelle Kopfzeile" value={settings.pdf_kopfzeile ? <div className="whitespace-pre-wrap">{settings.pdf_kopfzeile}</div> : <span className="text-gray-400 italic">Automatisch generiert aus Firmendaten</span>} />
           </>
         }
       >
+        <div className="md:col-span-2 space-y-2 mb-4">
+          <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">
+            Schweizer Fensterbrief-Position (Kuvert)
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => handleDraftChange('fenster_position', 'rechts')}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                (draft.fenster_position || 'rechts') === 'rechts'
+                  ? 'border-primary-500 bg-primary-50/60 ring-2 ring-primary-500/20'
+                  : 'border-border bg-surface hover:bg-neutral-50'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                (draft.fenster_position || 'rechts') === 'rechts' ? 'border-primary-600 bg-primary-600 text-white' : 'border-neutral-300'
+              }`}>
+                {(draft.fenster_position || 'rechts') === 'rechts' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              <div>
+                <div className="font-bold text-sm text-text-primary">Fenster rechts (Schweizer Standard)</div>
+                <div className="text-xs text-text-secondary mt-0.5">
+                  Für 90%+ aller Schweizer C5/C4 Geschäftskuverts. Adresse wird rechtsbündig platziert.
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDraftChange('fenster_position', 'links')}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                draft.fenster_position === 'links'
+                  ? 'border-primary-500 bg-primary-50/60 ring-2 ring-primary-500/20'
+                  : 'border-border bg-surface hover:bg-neutral-50'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                draft.fenster_position === 'links' ? 'border-primary-600 bg-primary-600 text-white' : 'border-neutral-300'
+              }`}>
+                {draft.fenster_position === 'links' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              <div>
+                <div className="font-bold text-sm text-text-primary">Fenster links (International)</div>
+                <div className="text-xs text-text-secondary mt-0.5">
+                  Für Briefumschläge mit Adressfenster auf der linken Seite.
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div className="md:col-span-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
           <strong>Tipp:</strong> Zeilenumbrüche (Enter) werden im PDF genau so übernommen. So kannst du z.B. mehrere Standorte perfekt untereinander auflisten!
         </div>

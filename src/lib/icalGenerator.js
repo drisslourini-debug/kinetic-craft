@@ -67,13 +67,13 @@ function addHoursToTime(timeStr, hours) {
  * Generates an iCalendar (.ics) string for an array of appointments.
  */
 export function generateIcsCalendar(termine = [], options = {}) {
-  const calendarName = options.calendarTitle || 'Muster Malerei Termine';
-  const firmenname = options.firmenname || 'Muster Malerei Bern AG';
+  const calendarName = options.calendarTitle || 'Terminkalender';
+  const firmenname = options.firmenname || 'Handwerksbetrieb';
   
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Muster Malerei Bern AG//Terminkalender//DE',
+    `PRODID:-//${escapeIcalText(firmenname)}//Terminkalender//DE`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcalText(calendarName)}`,

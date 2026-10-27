@@ -11,14 +11,15 @@ import StatCard from '../components/StatCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { IconChart, IconDocument, IconFolder, IconBauunternehmung, IconSearch, IconClose } from '../components/icons/BrandIcons'
 
-// Modulweiter In-Memory-Cache für verzögerungsfreie Stale-While-Revalidate Tab-Wechsel
-let cachedOfferten = null
+// Modulweiter In-Memory-Cache pro Mandant fr verzgerungsfreie Stale-While-Revalidate Tab-Wechsel
+const cachedOffertenByTenant = {}
 
-export default function OffertenView({ onNavigate, viewParams, userRole }) {
+export default function OffertenView({ onNavigate, viewParams, userRole, globalSettings }) {
   const [parent] = useAutoAnimate()
+  const currentTenantId = globalSettings?.tenant_id || 'default'
   const [showCreateDrawer, setShowCreateDrawer] = useState(false)
-  const [offerten, setOfferten] = useState(() => cachedOfferten || [])
-  const [isLoading, setIsLoading] = useState(() => !cachedOfferten)
+  const [offerten, setOfferten] = useState(() => cachedOffertenByTenant[currentTenantId] || [])
+  const [isLoading, setIsLoading] = useState(() => !cachedOffertenByTenant[currentTenantId])
   const [selectedOfferte, setSelectedOfferte] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -106,7 +107,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
     if (!supabase) return
     
     try {
-      if (!cachedOfferten) {
+      if (!cachedOffertenByTenant[currentTenantId]) {
         setIsLoading(true)
       }
       const { data, error } = await supabase
@@ -116,7 +117,7 @@ export default function OffertenView({ onNavigate, viewParams, userRole }) {
         
       if (error) throw error
       if (data) {
-        cachedOfferten = data
+        cachedOffertenByTenant[currentTenantId] = data
         setOfferten(data)
         if (viewParams?.offerteId) {
           const off = data.find(x => String(x.id) === String(viewParams.offerteId))

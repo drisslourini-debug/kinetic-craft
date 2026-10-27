@@ -1,5 +1,6 @@
-export default function TemplateCategory({ categoryKey, title, templates, onAdd, onEdit, onDelete, userRole }) {
-  const categoryTemplates = templates.filter(t => t.category === categoryKey);
+export default function TemplateCategory({ categoryKey, category, title, templates, onAdd, onEdit, onDelete, userRole }) {
+  const cat = categoryKey || category;
+  const categoryTemplates = (templates || []).filter(t => t.category === cat);
   
   return (
     <div className="mb-8 last:mb-0">
@@ -7,7 +8,7 @@ export default function TemplateCategory({ categoryKey, title, templates, onAdd,
         <h4 className="text-md font-bold text-text-primary">{title}</h4>
         {userRole !== 'treuhand' && (
           <button 
-            onClick={() => onAdd(categoryKey)}
+            onClick={() => onAdd(cat)}
             className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-4 py-3 sm:px-3 sm:py-1.5 flex items-center justify-center bg-primary-50 text-primary-600 text-base sm:text-xs font-bold rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
           >
             + Neue Vorlage

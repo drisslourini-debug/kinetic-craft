@@ -121,7 +121,7 @@ export default function RapportDetailModal({
                 />
               ) : (
                 <h1 className="text-xl font-black text-neutral-900 tracking-tight">
-                  {globalSettings?.firmenname || 'Muster Malerei Bern AG'}
+                  {globalSettings?.firmenname || ''}
                 </h1>
               )}
               <p className="text-xs text-neutral-500">
@@ -306,6 +306,26 @@ export default function RapportDetailModal({
           )}
         </div>
       </div>
+
+      {/* Print Styles for Clean A4 Output */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm 15mm;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background: white !important;
+          }
+          .fixed {
+            position: static !important;
+            padding: 0 !important;
+            background: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

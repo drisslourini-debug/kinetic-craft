@@ -14,6 +14,7 @@ import BetreibungsModal from '../components/mahnwesen/BetreibungsModal'
 import { getMahnVorschlag } from '../lib/mahnwesenHelper'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { useModalHistory } from '../hooks/useModalHistory'
+import { canEditRechnung, canDeleteRechnung, canStornierenRechnung } from '../lib/statusLogic'
 import {
   IconFolder,
   IconEye,
@@ -35,7 +36,8 @@ import {
   IconRefresh,
   IconWarning,
   IconQrBill,
-  IconDocument
+  IconDocument,
+  IconLock
 } from '../components/icons/BrandIcons'
 
 function IconPrinter({ className = 'w-4 h-4' }) {
@@ -63,6 +65,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   const [showDiscardModal, setShowDiscardModal] = useState(false)
   const [showGutschriftModal, setShowGutschriftModal] = useState(false)
+  const [showStornoModal, setShowStornoModal] = useState(false)
+  const [stornoGrund, setStornoGrund] = useState('')
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
@@ -120,6 +124,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   useModalHistory(showMahnungModal, () => setShowMahnungModal(false), 'modal_mahnung')
   useModalHistory(showBetreibungsModal, () => setShowBetreibungsModal(false), 'modal_betreibung')
   useModalHistory(showKatalogDrawer, () => setShowKatalogDrawer(false), 'katalog_drawer')
+  useModalHistory(showStornoModal, () => setShowStornoModal(false), 'modal_storno')
 
   useEffect(() => {
     if (viewParams?.openMahnung) {
@@ -179,8 +184,16 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       showToast('error', 'GeBüV: Eine bezahlte oder stornierte Rechnung darf nicht wieder in den Entwurf-Status versetzt werden.')
       return
     }
+    if (newStatus === 'Storniert') {
+      setShowStornoModal(true)
+      return
+    }
     const oldStatus = status
     setStatus(newStatus)
+    if (newStatus !== 'Entwurf') {
+      setIsEditing(false)
+      setIsDirty(false)
+    }
     setIsUpdating(true)
     
     try {
@@ -200,12 +213,52 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     }
   }
 
+  const handleStornieren = async () => {
+    if (!canStornierenRechnung({ ...rechnung, status })) {
+      showToast('error', 'Diese Rechnung kann gemäss GeBüV nicht storniert werden.')
+      setShowStornoModal(false)
+      return
+    }
+    setIsUpdating(true)
+    try {
+      const today = new Date().toISOString()
+      const updatedDaten = {
+        ...(rechnung.daten || {}),
+        storno_datum: today,
+        storno_grund: stornoGrund.trim() || 'Stornierung durch Benutzer'
+      }
+      const { error } = await supabase
+        .from('rechnungen')
+        .update({
+          status: 'Storniert'
+        })
+        .eq('id', rechnung.id)
+      if (error) throw error
+
+      rechnung.status = 'Storniert'
+      rechnung.daten = updatedDaten
+      setStatus('Storniert')
+      setShowStornoModal(false)
+      setStornoGrund('')
+      showToast('success', 'Rechnung erfolgreich storniert (GeBüV-gesperrt).')
+    } catch (err) {
+      console.error('Fehler beim Stornieren:', err)
+      showToast('error', 'Fehler beim Stornieren der Rechnung.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handleStammInputChange = (field, value) => {
     setEditStammdaten(prev => ({ ...prev, [field]: value }))
     setIsDirty(true)
   }
 
   const handleSaveStammdaten = async () => {
+    if (status === 'Bezahlt' || status === 'Storniert') {
+      showToast('error', 'GeBüV: Eine bezahlte oder stornierte Rechnung ist schreibgeschützt.')
+      return
+    }
     setIsUpdating(true)
     try {
       // Recalculate faellig_am if rechnungsdatum or zahlungsfrist changed
@@ -349,12 +402,21 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
 
       let newStatus = 'Bezahlt'
       let skontoBetrag = parseFloat(rechnung.daten?.skonto_betrag || 0)
+      const isOverpaid = amount > open + 0.05
+      const overpaidAmount = isOverpaid ? Math.round((amount - open) * 100) / 100 : 0
       const newPaid = currentPaid + amount
 
       const existingZahlungen = Array.isArray(rechnung.daten?.zahlungen) ? [...rechnung.daten.zahlungen] : []
 
       if (diff > 0.05 && paymentType === 'teil') {
-        newStatus = 'Teilbezahlt'
+        // Bei Teilzahlung: Gemahnt oder Überfällig Status für die Restforderung beibehalten
+        if (status === 'Gemahnt' || rechnung?.daten?.mahnstufe > 0) {
+          newStatus = 'Gemahnt'
+        } else if (status === 'Überfällig') {
+          newStatus = 'Überfällig'
+        } else {
+          newStatus = 'Teilbezahlt'
+        }
         existingZahlungen.push({
           datum: paymentDate,
           betrag: amount,
@@ -385,7 +447,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       const updatedDaten = {
         ...(rechnung.daten || {}),
         zahlungen: existingZahlungen,
-        skonto_betrag: skontoBetrag > 0 ? skontoBetrag : undefined
+        skonto_betrag: skontoBetrag > 0 ? skontoBetrag : undefined,
+        kundenguthaben: overpaidAmount > 0 ? ((rechnung.daten?.kundenguthaben || 0) + overpaidAmount) : rechnung.daten?.kundenguthaben
       }
 
       await supabase
@@ -404,7 +467,22 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
       rechnung.bezahlt_am = paymentDate
       rechnung.status = newStatus
       rechnung.daten = updatedDaten
-      showToast('success', newStatus === 'Bezahlt' ? (skontoBetrag > 0 ? `Zahlung verbucht & Restbetrag (${diff.toFixed(2)} CHF) als Skonto ausgebucht!` : 'Zahlung erfolgreich erfasst!') : `Teilzahlung erfasst. Restforderung: ${(open - amount).toFixed(2)} CHF`)
+      
+      if (newStatus === 'Bezahlt') {
+        if (skontoBetrag > 0) {
+          showToast('success', `Zahlung verbucht & Restbetrag (${diff.toFixed(2)} CHF) als Skonto ausgebucht!`)
+        } else if (overpaidAmount > 0) {
+          showToast('success', `Zahlung verbucht! Überzahlung von CHF ${overpaidAmount.toFixed(2)} als Kundenguthaben erfasst.`)
+        } else {
+          showToast('success', 'Zahlung erfolgreich erfasst! Rechnung vollständig bezahlt.')
+        }
+      } else if (newStatus === 'Gemahnt') {
+        showToast('success', `Teilzahlung erfasst. Mahnwesen bleibt aktiv für Restforderung: CHF ${diff.toFixed(2)}`)
+      } else if (newStatus === 'Überfällig') {
+        showToast('success', `Teilzahlung erfasst. Restforderung überfällig: CHF ${diff.toFixed(2)}`)
+      } else {
+        showToast('success', `Teilzahlung erfasst. Restforderung: CHF ${diff.toFixed(2)}`)
+      }
     } catch (err) {
       console.error('Fehler beim Erfassen der Zahlung:', err)
       showToast('error', 'Fehler beim Speichern der Zahlung.')
@@ -947,21 +1025,31 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
         <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap">
           <select
             value={status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isUpdating || userRole === 'treuhand'}
+            onChange={(e) => {
+              if (e.target.value === 'Storniert') {
+                setShowStornoModal(true)
+              } else {
+                handleStatusChange(e.target.value)
+              }
+            }}
+            disabled={isUpdating || userRole === 'treuhand' || status === 'Bezahlt' || status === 'Storniert'}
             className={`min-w-0 max-w-[125px] sm:max-w-none flex-1 sm:flex-none px-2.5 sm:px-4 py-2 sm:py-2.5 min-h-[44px] sm:min-h-0 text-xs sm:text-sm font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all cursor-pointer focus:ring-primary-500/30 truncate ${
               status === 'Entwurf' ? 'bg-neutral-100 text-text-primary border-transparent hover:bg-neutral-200' :
               status === 'Versendet' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' :
+              status === 'Teilbezahlt' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' :
               status === 'Bezahlt' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' :
               status === 'Überfällig' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' :
+              status === 'Gemahnt' ? 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100' :
+              status === 'Storniert' ? 'bg-neutral-100 text-neutral-500 line-through border-neutral-300' :
               'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
             }`}
           >
-            <option value="Entwurf" disabled={status === 'Bezahlt' || status === 'Storniert'}>Entwurf {status === 'Bezahlt' || status === 'Storniert' ? '(gesperrt)' : ''}</option>
+            <option value="Entwurf" disabled={status !== 'Entwurf'}>Entwurf {status !== 'Entwurf' ? '(gesperrt)' : ''}</option>
             <option value="Versendet" disabled={status === 'Bezahlt' || status === 'Storniert'}>Versendet</option>
             <option value="Teilbezahlt" disabled={status === 'Bezahlt' || status === 'Storniert'}>Teilbezahlt</option>
             <option value="Bezahlt">Bezahlt</option>
             <option value="Überfällig" disabled={status === 'Bezahlt' || status === 'Storniert'}>Überfällig</option>
+            <option value="Gemahnt" disabled={status === 'Bezahlt' || status === 'Storniert'}>Gemahnt</option>
             <option value="Storniert">Storniert</option>
           </select>
           
@@ -1100,21 +1188,37 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                       <IconPackage className="w-4 h-4 text-amber-700 shrink-0" />
                       <span>{rechnung.is_archived ? 'Wiederherstellen' : 'Archivieren'}</span>
                     </button>
-                    <button 
-                      onClick={() => {
-                        setShowActionMenu(false);
-                        if (status !== 'Entwurf') {
-                          showToast('error', 'Nur Entwürfe können gelöscht werden. Bitte storniere oder archiviere diese Rechnung stattdessen.')
-                        } else {
+                    {/* Delete or Stornieren according to GeBüV */}
+                    {canDeleteRechnung(rechnung) ? (
+                      <button 
+                        onClick={() => {
+                          setShowActionMenu(false);
                           setShowDeleteWarning(true);
-                        }
-                      }}
-                      disabled={isEditing}
-                      className="w-full text-left px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer mt-1 border-t border-border pt-2"
-                    >
-                      <IconTrash className="w-4 h-4 text-red-600 shrink-0" />
-                      <span>Rechnung löschen</span>
-                    </button>
+                        }}
+                        disabled={isEditing}
+                        className="w-full text-left px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer mt-1 border-t border-border pt-2"
+                      >
+                        <IconTrash className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>Rechnung löschen</span>
+                      </button>
+                    ) : canStornierenRechnung(rechnung) ? (
+                      <button 
+                        onClick={() => {
+                          setShowActionMenu(false);
+                          setShowStornoModal(true);
+                        }}
+                        disabled={isEditing}
+                        className="w-full text-left px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer mt-1 border-t border-border pt-2"
+                      >
+                        <IconLock className="w-4 h-4 text-rose-700 shrink-0" />
+                        <span>Rechnung stornieren (GeBüV)</span>
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2 text-xs text-text-tertiary border-t border-border mt-1 pt-2 flex items-center gap-2">
+                        <IconLock className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                        <span>{status === 'Bezahlt' ? 'Rechnung bezahlt (gesperrt)' : 'Rechnung storniert (gesperrt)'}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
@@ -1212,6 +1316,49 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
             </div>
           )}
         </>
+      )}
+
+      {/* Storniert Banner (GeBüV) */}
+      {status === 'Storniert' && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs animate-fade-in mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+              <IconLock className="w-5 h-5 text-rose-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-rose-950">Rechnung storniert (GeBüV-gesperrt)</p>
+              <p className="text-xs text-rose-800 mt-0.5">
+                Stornogrund: <strong>{rechnung.daten?.storno_grund || 'Stornierung durch Benutzer'}</strong>. Dieser Beleg bleibt zur lückenlosen Rechnungsnummern-Dokumentation im Journal, zählt jedoch nicht mehr zum offenen Debitorensaldo.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleCreateGutschrift}
+            className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 self-start sm:self-auto"
+          >
+            <IconDocument className="w-4 h-4" />
+            <span>Korrektur-Gutschrift erstellen</span>
+          </button>
+        </div>
+      )}
+
+      {/* Bezahlt Banner */}
+      {status === 'Bezahlt' && (
+        <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs animate-fade-in mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+              <IconCheck className="w-5 h-5 text-emerald-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-emerald-950">Rechnung vollständig ausgeglichen</p>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                {rechnung.bezahlt_am ? `Zahlungseingang verbucht am ${formatDate(rechnung.bezahlt_am)}.` : 'Rechnungsbetrag vollständig bezahlt.'} Revisionssicher nach GeBüV schreibgeschützt.
+                {rechnung.daten?.kundenguthaben > 0 && ` (Überzahlung von CHF ${rechnung.daten.kundenguthaben.toFixed(2)} als Guthaben vorgemerkt)`}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Warnung bei ungespeicherten Änderungen, falls man Quick Actions nutzen will */}
@@ -2619,6 +2766,51 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                 className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 {isUpdating ? 'Lösche...' : 'Ja, endgültig löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storno Modal (GeBüV) */}
+      {showStornoModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl p-6 max-w-md w-full shadow-2xl border border-rose-200">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+              <IconLock className="w-6 h-6 text-rose-600" />
+            </div>
+            <h3 className="text-xl font-bold text-text-primary mb-2">Rechnung stornieren?</h3>
+            <p className="text-text-secondary mb-4 text-sm leading-relaxed">
+              Gemäss Schweizer GeBüV bleibt der Beleg im Rechnungsjournal erhalten (keine Lücke im Nummernkreis), wird aber auf <strong>Storniert</strong> gesetzt und fliesst nicht mehr in den Umsatz oder die Debitorenbuchhaltung ein.
+            </p>
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
+                Stornogrund (für Buchhaltung / Treuhand)
+              </label>
+              <input
+                type="text"
+                value={stornoGrund}
+                onChange={(e) => setStornoGrund(e.target.value)}
+                placeholder="z. B. Auftrag widerrufen, fehlerhafte Rechnungsadresse..."
+                className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={() => {
+                  setShowStornoModal(false)
+                  setStornoGrund('')
+                }}
+                className="flex-1 px-4 py-2.5 bg-surface text-text-primary border border-border rounded-xl hover:bg-neutral-100 font-medium transition-colors cursor-pointer"
+              >
+                Abbrechen
+              </button>
+              <button 
+                onClick={handleStornieren}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center cursor-pointer"
+              >
+                {isUpdating ? 'Storniere...' : 'Ja, jetzt stornieren'}
               </button>
             </div>
           </div>

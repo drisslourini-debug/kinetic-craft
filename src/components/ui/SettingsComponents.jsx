@@ -15,7 +15,7 @@ export const SettingsBlock = ({ title, description, isEditing, onEdit, onCancel,
         </div>
         {description && <p className="hidden sm:block text-xs sm:text-sm text-text-secondary mt-1">{description}</p>}
       </div>
-      {!isEditing && !disabled && (
+      {!isEditing && !disabled && Boolean(onEdit) && (
         <button 
           type="button"
           onClick={onEdit} 
@@ -101,23 +101,27 @@ export const SettingsRow = ({ label, value, href, icon, hideIfEmpty = false }) =
   )
 }
 
-export const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "", error = null, min, max, step }) => (
-  <div className={fullWidth ? "md:col-span-2" : ""}>
-    <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">
-      {label} {error && <span className="text-red-500 font-normal ml-1 lowercase">({error})</span>}
-    </label>
-    <input
-      type={type}
-      value={value ?? ''}
-      placeholder={placeholder}
-      min={min}
-      max={max}
-      step={step}
-      onChange={e => onChange(e.target.value)}
-      className={`w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors ${error ? 'border-red-400 bg-red-50/50' : 'border-border'}`}
-    />
-  </div>
-)
+export const InputField = ({ label, value, onChange, type = "text", fullWidth = false, placeholder = "", error = null, min, max, step, id }) => {
+  const inputId = id || (label ? 'field-' + label.toLowerCase().replace(/[^a-z0-9]/g, '-') : undefined)
+  return (
+    <div className={fullWidth ? "md:col-span-2" : ""}>
+      <label htmlFor={inputId} className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">
+        {label} {error && <span className="text-red-500 font-normal ml-1 lowercase">({error})</span>}
+      </label>
+      <input
+        id={inputId}
+        type={type}
+        value={value ?? ''}
+        placeholder={placeholder}
+        min={min}
+        max={max}
+        step={step}
+        onChange={e => onChange(e.target.value)}
+        className={`w-full px-3 py-3 sm:py-2 min-h-[48px] sm:min-h-0 bg-surface border rounded-lg text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-primary-400 transition-colors ${error ? 'border-red-400 bg-red-50/50' : 'border-border'}`}
+      />
+    </div>
+  )
+}
 
 export const SelectField = ({ label, value, onChange, options, fullWidth = false }) => (
   <div className={fullWidth ? "md:col-span-2" : ""}>

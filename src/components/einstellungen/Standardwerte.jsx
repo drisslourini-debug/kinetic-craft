@@ -215,7 +215,7 @@ export default function Standardwerte({ settings, draft, editState, isSaving, st
         title="Fristen & Konditionen"
         description="Standard-Tage für die Gültigkeit von Offerten und Zahlungsziele von Rechnungen."
         isEditing={editState === 'fristen'}
-        onEdit={() => startEdit('fristen')}
+        onEdit={userRole !== 'treuhand' ? () => startEdit('fristen') : undefined}
         onCancel={cancelEdit}
         onSave={() => handleSave('fristen')}
         isSaving={isSaving}

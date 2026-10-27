@@ -810,6 +810,8 @@ export default function ProjektDetailView({
           <button 
             type="button"
             onClick={onBack}
+            aria-label="Zurück zur Übersicht"
+            title="Zurück zur Übersicht"
             className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer flex items-center justify-center"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

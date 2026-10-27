@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatDate } from '../lib/formatters'
@@ -67,6 +67,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
     fetchProjekte()
   }, [])
 
+  const prevViewParamProjektId = useRef(viewParams?.projektId)
+
   // Sync selectedProjekt with viewParams
   useEffect(() => {
     if (viewParams?.action === 'create' && selectedProjekt) {
@@ -75,7 +77,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
     }
     if (viewParams?.projektId) {
       let p = projekte.find(x => String(x.id) === String(viewParams.projektId))
-      if (!p && import.meta.env.DEV) {
+      if (!p && !isLoading && import.meta.env.DEV) {
         p = {
           id: viewParams.projektId,
           name: 'Umbau Villa Zürichberg',
@@ -86,13 +88,14 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
           kunden: { name: 'Meier Architektur AG' }
         }
       }
-      if (p && (!selectedProjekt || selectedProjekt.id !== p.id)) {
+      if (p && (!selectedProjekt || selectedProjekt.id !== p.id || selectedProjekt.name !== p.name)) {
         setSelectedProjekt(p)
       }
-    } else if (!viewParams?.projektId && selectedProjekt) {
+    } else if (prevViewParamProjektId.current && !viewParams?.projektId && selectedProjekt) {
       setSelectedProjekt(null)
     }
-  }, [viewParams?.projektId, projekte, selectedProjekt])
+    prevViewParamProjektId.current = viewParams?.projektId
+  }, [viewParams?.projektId, projekte, selectedProjekt, isLoading])
 
   useEffect(() => {
     if (viewParams?.action === 'create' && !selectedProjekt) {
@@ -125,6 +128,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
         initialTab={viewParams?.action === 'create_rapport' ? 'rapporte' : (viewParams?.activeTab || 'projektdaten')}
         initialAction={viewParams?.action}
         onBack={() => {
+          setSelectedProjekt(null)
           navigateBack('projekte')
           // Refresh to capture potential name/status changes
           supabase.from('projekte').select('*, kunden(name)').order('created_at', { ascending: false })

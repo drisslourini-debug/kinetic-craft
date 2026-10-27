@@ -13,8 +13,12 @@ import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import Sidebar from './components/Sidebar'
 import MobileTabBar from './components/MobileTabBar'
 import CommandBar from './components/CommandBar'
+import CompanySwitcher from './components/CompanySwitcher'
 import GlobalTimerWidget from './components/zeiterfassung/GlobalTimerWidget'
 import { IconNav, IconWarning } from './components/icons/BrandIcons'
+import AdminImpersonationBanner from './components/admin/AdminImpersonationBanner'
+import SupportRequestModal from './components/support/SupportRequestModal'
+import { checkIsSuperAdmin } from './services/adminService'
 
 const DashboardView = lazy(() => import('./views/DashboardView'))
 const KundenView = lazy(() => import('./views/KundenView'))
@@ -29,6 +33,7 @@ const EinstellungenView = lazy(() => import('./views/EinstellungenView'))
 const LandingPageView = lazy(() => import('./views/LandingPageView'))
 const LoginView = lazy(() => import('./views/LoginView'))
 const RegistrationWizardView = lazy(() => import('./views/RegistrationWizardView'))
+const AdminLayout = lazy(() => import('./views/admin/AdminLayout'))
 const PaywallScreen = lazy(() => import('./components/PaywallScreen'))
 const ImpressumModal = lazy(() => import('./components/legal/ImpressumModal'))
 const DatenschutzModal = lazy(() => import('./components/legal/DatenschutzModal'))
@@ -65,6 +70,7 @@ const views = {
   dateien: DateienView,
   katalog: KatalogView,
   einstellungen: EinstellungenView,
+  admin: AdminLayout,
 }
 
 const viewTitles = {
@@ -78,15 +84,45 @@ const viewTitles = {
   dateien: 'Dateien',
   katalog: 'Leistungskatalog',
   einstellungen: 'Einstellungen',
+  admin: 'Super-Admin Cockpit',
 }
 
 export default function App() {
   const [session, setSession] = useState(() => {
-    return (import.meta.env.DEV && window.location.search.includes('testBypass=true')) ? { user: { id: 'test' } } : null
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const search = window.location.search || ''
+      const hash = window.location.hash || ''
+      if (
+        search.includes('adminBypass=true') || 
+        hash.includes('adminBypass=true') || 
+        search.includes('admin=true') || 
+        hash.includes('admin=true')
+      ) {
+        return { user: { id: 'admin-dev', email: 'support@ki-netic.ch' } }
+      }
+      if (search.includes('testBypass=true') || hash.includes('testBypass=true')) {
+        return { user: { id: 'test', email: 'support@ki-netic.ch' } }
+      }
+    }
+    return null
   })
   const [userRole, setUserRole] = useState(null)
   const [isInitializing, setIsInitializing] = useState(() => {
-    return !(import.meta.env.DEV && window.location.search.includes('testBypass=true'))
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const search = window.location.search || ''
+      const hash = window.location.hash || ''
+      if (
+        search.includes('adminBypass=true') || 
+        hash.includes('adminBypass=true') || 
+        search.includes('admin=true') || 
+        hash.includes('admin=true') || 
+        search.includes('testBypass=true') || 
+        hash.includes('testBypass=true')
+      ) {
+        return false
+      }
+    }
+    return true
   })
 
   const initialRoute = parseLocation()
@@ -107,8 +143,25 @@ export default function App() {
   })
   const [tenantInfo, setTenantInfo] = useState(null)
   const [userName, setUserName] = useState('')
+  const [isSuperAdmin, setIsSuperAdmin] = useState(() => {
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const search = window.location.search || ''
+      const hash = window.location.hash || ''
+      if (
+        search.includes('adminBypass=true') || 
+        hash.includes('adminBypass=true') || 
+        search.includes('admin=true') || 
+        hash.includes('admin=true')
+      ) {
+        return true
+      }
+    }
+    return false
+  })
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false)
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false)
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  const [appRefreshKey, setAppRefreshKey] = useState(0)
 
   // Listen to network status (Baustellen-Offline-Erkennung)
   useEffect(() => {
@@ -152,6 +205,14 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash
+      if (hash.startsWith('#admin')) {
+        const loc = parseLocation()
+        setActiveView('admin')
+        setViewParams(loc.params)
+        setLegalModal(null)
+        return
+      }
+
       if (hash === '#impressum') {
         setLegalModal('impressum')
       } else if (hash === '#datenschutz') {
@@ -303,10 +364,71 @@ export default function App() {
     }
   }
 
+  const handleSwitchTenant = async (targetTenantId) => {
+    if (!session?.user?.id || !targetTenantId) return
+    try {
+      // 1. Call RPC switch_active_tenant
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('switch_active_tenant', {
+        p_target_tenant_id: targetTenantId
+      })
+
+      if (rpcErr) {
+        console.warn('switch_active_tenant RPC fallback to direct update:', rpcErr)
+        await supabase
+          .from('user_roles')
+          .update({ tenant_id: targetTenantId })
+          .eq('id', session.user.id)
+      }
+
+      // 2. Fetch updated tenant info
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('id, name, trial_ends_at, status')
+        .eq('id', targetTenantId)
+        .maybeSingle()
+
+      if (tenantData) {
+        setTenantInfo(tenantData)
+      }
+
+      // 3. Fetch updated settings for theme and logo
+      const { data: settingsData } = await supabase
+        .from('einstellungen')
+        .select('*')
+        .eq('tenant_id', targetTenantId)
+        .limit(1)
+        .maybeSingle()
+
+      if (settingsData) {
+        setGlobalSettings(settingsData)
+        if (settingsData.primary_color) {
+          injectThemeVariables(settingsData.primary_color)
+        }
+      }
+
+      // 4. Trigger re-render of views for the new tenant
+      setAppRefreshKey(prev => prev + 1)
+    } catch (err) {
+      console.error('Failed to switch active tenant:', err)
+      throw err
+    }
+  }
+
   useEffect(() => {
-    if (import.meta.env.DEV && window.location.search.includes('testBypass=true')) {
-      setIsInitializing(false)
-      return
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
+      const search = window.location.search || ''
+      const hash = window.location.hash || ''
+      if (
+        search.includes('adminBypass=true') || 
+        hash.includes('adminBypass=true') || 
+        search.includes('admin=true') || 
+        hash.includes('admin=true') || 
+        search.includes('testBypass=true') || 
+        hash.includes('testBypass=true')
+      ) {
+        setIsInitializing(false)
+        return
+      }
     }
 
     // Check active sessions and sets the user
@@ -327,8 +449,9 @@ export default function App() {
   useEffect(() => {
     async function fetchRole() {
       if (!session || !session.user) return
-      if (import.meta.env.DEV && session.user.id === 'test') {
+      if (import.meta.env.DEV && (session.user.id === 'test' || session.user.id === 'admin-dev')) {
         setUserRole('admin')
+        setIsSuperAdmin(true)
         setIsInitializing(false)
         return
       }
@@ -380,6 +503,14 @@ export default function App() {
         
         if (data && data.tenants) {
           setTenantInfo(data.tenants)
+        }
+
+        // Check if user is platform Super-Admin (support@ki-netic.ch)
+        try {
+          const isSuper = await checkIsSuperAdmin(session.user)
+          setIsSuperAdmin(isSuper)
+        } catch (superErr) {
+          console.warn('Superadmin check error:', superErr)
         }
         
         // If treuhand, override default view to buchhaltung if it's still dashboard
@@ -471,6 +602,42 @@ export default function App() {
   }
 
   if (!session) {
+    if (activeView === 'admin' || (typeof window !== 'undefined' && window.location.hash.startsWith('#admin'))) {
+      if (import.meta.env.DEV) {
+        const search = typeof window !== 'undefined' ? window.location.search : ''
+        const hash = typeof window !== 'undefined' ? window.location.hash : ''
+        if (
+          search.includes('adminBypass=true') || 
+          hash.includes('adminBypass=true') || 
+          search.includes('admin=true') || 
+          hash.includes('admin=true')
+        ) {
+          return (
+            <Suspense fallback={<ViewLoader />}>
+              <AdminLayout initialTab={viewParams?.tab || 'cockpit'} />
+            </Suspense>
+          )
+        }
+      }
+      return (
+        <Suspense fallback={<ViewLoader />}>
+          <LoginView 
+            onLoginSuccess={handleLoginSuccess} 
+            onGoToRegistration={() => {
+              window.location.hash = '#register'
+              setAuthScreen('register')
+            }} 
+            onBackToLanding={() => {
+              window.location.hash = ''
+              setAuthScreen('landing')
+            }}
+            onOpenImpressum={handleOpenImpressum}
+            onOpenDatenschutz={handleOpenDatenschutz}
+          />
+        </Suspense>
+      )
+    }
+
     let authContent = null
     if (authScreen === 'register') {
       authContent = (
@@ -538,6 +705,46 @@ export default function App() {
     )
   }
 
+  // Dedicated Super-Admin Platform Route
+  if (activeView === 'admin') {
+    const isAuthorized = isSuperAdmin || 
+      session?.user?.email?.toLowerCase() === 'support@ki-netic.ch' || 
+      (import.meta.env.DEV && (
+        window.location.search.includes('adminBypass=true') || 
+        window.location.hash.includes('adminBypass=true') || 
+        window.location.search.includes('admin=true') || 
+        window.location.hash.includes('admin=true') ||
+        session?.user?.id === 'admin-dev'
+      ))
+
+    if (!isAuthorized) {
+      return (
+        <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-rose-950/60 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-xl">
+            <IconWarning className="w-8 h-8" />
+          </div>
+          <h1 className="text-xl font-bold mb-2">Zugriff verweigert</h1>
+          <p className="text-sm text-zinc-400 max-w-sm mb-6 leading-relaxed">
+            Das Plattform-Cockpit ist ausschliesslich für autorisierte Plattform-Administratoren (support@ki-netic.ch) zugänglich.
+          </p>
+          <button
+            type="button"
+            onClick={() => handleNavigate('dashboard')}
+            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-md"
+          >
+            Zurück zum Kunden-Dashboard
+          </button>
+        </div>
+      )
+    }
+
+    return (
+      <Suspense fallback={<ViewLoader />}>
+        <AdminLayout initialTab={viewParams?.tab || 'cockpit'} />
+      </Suspense>
+    )
+  }
+
   // Check Trial Expiry
   if (tenantInfo && tenantInfo.trial_ends_at && tenantInfo.status === 'trial') {
     const trialEnd = new Date(tenantInfo.trial_ends_at)
@@ -584,12 +791,25 @@ export default function App() {
     <div className="flex h-[100dvh] w-full bg-surface overflow-hidden print:h-auto print:overflow-visible">
       {/* Sidebar - hidden during print */}
       <div className="print:hidden shrink-0 h-full">
-        <Sidebar activeView={activeView} onNavigate={(view) => handleNavigate(view, null)} userRole={userRole} globalSettings={globalSettings} userName={userName} />
+        <Sidebar
+          activeView={activeView}
+          onNavigate={(view) => handleNavigate(view, null)}
+          userRole={userRole}
+          globalSettings={globalSettings}
+          userName={userName}
+          tenantInfo={tenantInfo}
+          onSwitchTenant={handleSwitchTenant}
+          isSuperAdmin={isSuperAdmin}
+          onOpenSupport={() => setIsSupportModalOpen(true)}
+        />
       </div>
 
       {/* Main content scrollable column */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto overflow-x-hidden print:h-auto print:overflow-visible">
         
+        {/* Super-Admin Support-Impersonation Banner (when viewing as tenant) */}
+        <AdminImpersonationBanner onExit={() => handleNavigate('admin')} />
+
         {/* Baustellen-Offline-Banner (Keller/Rohbau ohne Mobilfunkempfang) */}
         {isOffline && (
           <div className="bg-amber-900 text-amber-100 text-xs px-4 py-2 flex items-center justify-center gap-2 border-b border-amber-800 backdrop-blur-xs sticky top-0 z-30 animate-fade-in print:hidden shadow-md">
@@ -640,10 +860,12 @@ export default function App() {
                   Treuhand
                 </span>
               ) : (
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-text-secondary text-xs font-semibold rounded-full border border-neutral-200/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  {globalSettings?.firmenname || 'Kinetic Craft'}
-                </span>
+                <CompanySwitcher
+                  currentTenant={tenantInfo}
+                  currentSettings={globalSettings}
+                  onSwitchTenant={handleSwitchTenant}
+                  variant="header"
+                />
               )}
               <button 
                 onClick={handleLogout}
@@ -671,12 +893,15 @@ export default function App() {
             )}
             <Suspense fallback={<ViewLoader />}>
               <ActiveComponent 
+                key={appRefreshKey}
                 onNavigate={handleNavigate} 
                 viewParams={viewParams} 
                 userRole={userRole} 
                 globalSettings={globalSettings} 
                 refreshGlobalSettings={refreshGlobalSettings} 
                 userName={userName}
+                tenantInfo={tenantInfo}
+                onSwitchTenant={handleSwitchTenant}
                 onUserNameChange={(newName) => setUserName(newName)}
               />
             </Suspense>
@@ -711,6 +936,14 @@ export default function App() {
         isOpen={legalModal === 'datenschutz'} 
         onClose={handleCloseLegalModal} 
         onOpenImpressum={handleOpenImpressum} 
+      />
+      {/* Customer Support Request Modal */}
+      <SupportRequestModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        tenantId={tenantInfo?.id}
+        userName={userName}
+        userEmail={session?.user?.email}
       />
       {/* 2026 Spotlight Command Bar */}
       <CommandBar 

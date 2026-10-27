@@ -206,7 +206,7 @@ export default function RechnungPrintView({
           currency: 'CHF',
           amount: finalTotal,
           creditor: {
-            name: settings.firmenname || 'Muster Malerei Bern AG',
+            name: settings.firmenname || 'Handwerksbetrieb',
             address: settings.strasse || 'Strasse',
             zip: creditorZip,
             city: creditorCity,
@@ -241,9 +241,15 @@ export default function RechnungPrintView({
   const docNr = rechnung.rechnung_nr || `RE-${new Date(rechnung.created_at || Date.now()).getFullYear()}-${String(rechnung.id).padStart(3, '0')}`
   const docDate = formatDateLong(rechnung.rechnungsdatum || rechnung.created_at || new Date().toISOString())
 
+  // Ensure Swiss invoice intro text (never "folgende Offerte")
+  let einleitungstext = daten.einleitungstext
+  if (!einleitungstext || einleitungstext.toLowerCase().includes('folgende offerte') || einleitungstext.toLowerCase().includes('dieser offerte')) {
+    einleitungstext = 'Wir danken für Ihren geschätzten Auftrag und stellen Ihnen folgende Leistungen in Rechnung:'
+  }
+
   // Intelligent A4 Page Pagination
   const paginatedPages = paginateDocument(leistungen, {
-    introText: daten.einleitungstext || '',
+    introText: einleitungstext,
     hasAusfuehrung: Boolean(daten.ausfuehrung?.start || daten.ausfuehrung?.dauer),
     hasSchlusstext: Boolean(daten.schlusstext),
     hasSignature: true
@@ -251,8 +257,17 @@ export default function RechnungPrintView({
 
   const hasAusmass = leistungen.some(p => p.ausmass_details && Array.isArray(p.ausmass_details) && p.ausmass_details.length > 0)
   const contentPagesCount = paginatedPages.length
-  // QR Bill counts as its own clean final page, Ausmass page is inserted before QR Bill
-  const totalPages = contentPagesCount + (hasAusmass ? 1 : 0) + (qrSvg ? 1 : 0)
+
+  // Dynamic QR Placement:
+  // If invoice has only 1 page of content, no Ausmass, 1 single compact item and fits safely above bottom: 105mm,
+  // we can place the QR bill at the bottom of Page 1.
+  const introLines = Math.ceil((einleitungstext.length) / 70)
+  const itemsHeight = leistungen.reduce((sum, p) => sum + (p.type === 'title' ? 14 : (8.5 + (Math.ceil((p.beschreibung || '').length / 45) * 4))), 0)
+  const estimatedPage1Height = 65 + (introLines * 5) + itemsHeight + 35 + 20
+  const isSinglePageWithQr = Boolean(qrSvg) && !hasAusmass && contentPagesCount === 1 && estimatedPage1Height <= 138 && leistungen.length <= 1
+
+  // If not single page with QR, QR bill gets its own dedicated final page (Page 2)
+  const totalPages = isSinglePageWithQr ? 1 : (contentPagesCount + (hasAusmass ? 1 : 0) + (qrSvg ? 1 : 0))
   const ausmassPageNum = contentPagesCount + 1
   const qrPageNum = hasAusmass ? contentPagesCount + 2 : contentPagesCount + 1
 
@@ -277,12 +292,15 @@ export default function RechnungPrintView({
     html2canvas: { 
       scale: 2, 
       useCORS: true, 
-      letterRendering: true, 
+      letterRendering: false, 
       windowWidth: 1024,
       logging: false 
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'], after: '.a4-page' }
+    pagebreak: { 
+      mode: ['css', 'legacy'], 
+      before: '.a4-page-break-before' 
+    }
   })
 
   const handleDownloadPDF = async () => {
@@ -465,9 +483,10 @@ export default function RechnungPrintView({
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 
       // 4. Open mailto link
-      const subject = encodeURIComponent(`${docTypeLabel} ${docNr} - ${settings?.firmenname || 'Muster Malerei Bern AG'}`)
+      const companyName = settings?.firmenname || ''
+      const subject = encodeURIComponent(`${docTypeLabel} ${docNr}${companyName ? ` - ${companyName}` : ''}`)
       const recipientName = kunde?.nachname ? ` ${kunde.nachname}` : (kunde?.firmenname ? ` ${kunde.firmenname}` : '')
-      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die ${docTypeLabel} ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${settings?.firmenname || 'Muster Malerei Bern AG'}\n${settings?.website || ''}`)
+      const body = encodeURIComponent(`Guten Tag${recipientName},\n\nAnbei erhalten Sie die ${docTypeLabel} ${docNr} für das Projekt "${projekt?.name || ''}".\n\nDas Dokument wurde soeben als PDF heruntergeladen und kann direkt angehängt werden.\n\nFreundliche Grüsse\n\n${companyName}\n${settings?.website || ''}`)
       window.location.href = `mailto:${kunde?.email || ''}?subject=${subject}&body=${body}`
 
       showToast('success', 'PDF archiviert, heruntergeladen & E-Mail vorbereitet!')
@@ -649,7 +668,10 @@ export default function RechnungPrintView({
 
       {/* ===== A4 PAGES CONTAINER ===== */}
       <div className={previewMode ? "p-2 sm:p-4" : "p-2 sm:p-6"}>
-        <div id="pdf-pages-container" className="flex flex-col items-center pb-8">
+        <div 
+          id="pdf-pages-container" 
+          className="flex flex-col items-center pb-8"
+        >
           {paginatedPages.map((pageItems, pageIdx) => {
             const isFirst = pageIdx === 0
             const isLast = pageIdx === contentPagesCount - 1
@@ -657,29 +679,29 @@ export default function RechnungPrintView({
             return (
               <div
                 key={pageIdx}
-                className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
-                style={!isGenerating ? {
+                className={`mx-auto mb-6 sm:mb-8 block print:m-0 print:block ${pageIdx > 0 ? 'a4-page-break-before' : ''}`}
+                style={{
                   width: `${Math.round(794 * effectiveScale)}px`,
                   height: `${Math.round(1123 * effectiveScale)}px`,
                   position: 'relative',
                   flexShrink: 0,
-                } : {}}
+                }}
               >
                 <div
-                  className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+                  className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none shadow-2xl rounded-sm border border-neutral-200 print:border-none"
                   style={{
-                    width: isGenerating ? '210mm' : '794px',
-                    minWidth: isGenerating ? '210mm' : '794px',
-                    height: isGenerating ? '297mm' : '1123px',
-                    minHeight: isGenerating ? '297mm' : '1123px',
-                    maxHeight: isGenerating ? '297mm' : '1123px',
+                    width: '794px',
+                    minWidth: '794px',
+                    height: '1123px',
+                    minHeight: '1123px',
+                    maxHeight: '1123px',
                     boxSizing: 'border-box',
-                    padding: '20mm 20mm 20mm 25mm',
+                    padding: (isFirst && isSinglePageWithQr) ? '15mm 20mm 0mm 25mm' : '20mm 20mm 24mm 25mm',
                     position: 'relative',
                     backgroundColor: '#ffffff',
                     overflow: 'hidden',
                     flexShrink: 0,
-                    transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                    transform: `scale(${effectiveScale})`,
                     transformOrigin: 'top left',
                   }}
                 >
@@ -714,15 +736,15 @@ export default function RechnungPrintView({
                       }} 
                       projekt={projekt} 
                     />
-                    <div style={{ fontSize: '9.5pt', marginBottom: '6mm', lineHeight: '1.5', color: '#333' }}>
-                      {daten.einleitungstext || 'Wir danken für Ihren geschätzten Auftrag und stellen Ihnen folgende Leistungen in Rechnung:'}
+                    <div style={{ fontSize: '9.5pt', marginBottom: '5mm', lineHeight: '1.5', color: '#333' }}>
+                      {einleitungstext}
                     </div>
                   </>
                 )}
 
                 {/* 4. POSITIONS TABLE */}
                 {pageItems.length > 0 && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '4mm' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '3.5mm' }}>
                     <TableHeader brandColor={gold} />
                     <PositionsTableBody items={pageItems} brandColor={gold} />
                   </table>
@@ -748,13 +770,56 @@ export default function RechnungPrintView({
                   />
                 )}
 
-                {/* 6. PINNED FOOTER (Every page) */}
-                <DocumentFooter
-                  pageNum={pageIdx + 1}
-                  totalPages={totalPages}
-                  settings={settings}
-                  brandColor={gold}
-                />
+                {/* 6. DYNAMIC QR BILL AT BOTTOM OF PAGE 1 (if single-page mode) */}
+                {isFirst && isSinglePageWithQr && qrSvg ? (
+                  <>
+                    {/* Perforation line */}
+                    <div 
+                      style={{ 
+                        position: 'absolute', 
+                        bottom: '105mm', 
+                        left: 0, 
+                        width: '210mm', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '2mm',
+                        padding: '0 5mm',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <circle cx="6" cy="6" r="3" />
+                        <circle cx="6" cy="18" r="3" />
+                        <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                        <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                        <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                      </svg>
+                      <div style={{ flex: 1, borderBottom: '1px dashed #bbb', height: '1px' }}></div>
+                    </div>
+                    {/* Official Swiss QR-Bill */}
+                    <div 
+                      style={{ 
+                        position: 'absolute', 
+                        bottom: 0, 
+                        left: 0, 
+                        width: '210mm', 
+                        height: '105mm', 
+                        backgroundColor: '#fff',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: qrSvg }}
+                    />
+                  </>
+                ) : (
+                  /* 6. PINNED FOOTER (Every page when multi-page) */
+                  <DocumentFooter
+                    pageNum={pageIdx + 1}
+                    totalPages={totalPages}
+                    settings={settings}
+                    brandColor={gold}
+                  />
+                )}
               </div>
             </div>
           )
@@ -762,28 +827,28 @@ export default function RechnungPrintView({
 
         {hasAusmass && (
           <div
-            className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block"
-            style={!isGenerating ? {
+            className="mx-auto mb-6 sm:mb-8 block print:m-0 print:block a4-page-break-before"
+            style={{
               width: `${Math.round(794 * effectiveScale)}px`,
               height: `${Math.round(1123 * effectiveScale)}px`,
               position: 'relative',
               flexShrink: 0,
-            } : {}}
+            }}
           >
             <div
-              className={`a4-page bg-white mx-auto relative print:m-0 print:shadow-none ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'} print:border-none`}
+              className="a4-page bg-white mx-auto relative print:m-0 print:shadow-none shadow-2xl rounded-sm border border-neutral-200 print:border-none"
               style={{
-                width: isGenerating ? '210mm' : '794px',
-                minWidth: isGenerating ? '210mm' : '794px',
-                height: isGenerating ? '297mm' : '1123px',
-                minHeight: isGenerating ? '297mm' : '1123px',
-                maxHeight: isGenerating ? '297mm' : '1123px',
+                width: '794px',
+                minWidth: '794px',
+                height: '1123px',
+                minHeight: '1123px',
+                maxHeight: '1123px',
                 boxSizing: 'border-box',
                 position: 'relative',
                 backgroundColor: '#ffffff',
                 overflow: 'hidden',
                 flexShrink: 0,
-                transform: !isGenerating ? `scale(${effectiveScale})` : 'none',
+                transform: `scale(${effectiveScale})`,
                 transformOrigin: 'top left',
               }}
             >
@@ -802,24 +867,24 @@ export default function RechnungPrintView({
           </div>
         )}
 
-        {qrSvg && (
+        {!isSinglePageWithQr && qrSvg && (
           <div
-            className="mx-auto mb-6 sm:mb-8 flex justify-center print:m-0 print:block"
-            style={!isGenerating ? {
+            className="mx-auto mb-6 sm:mb-8 flex justify-center print:m-0 print:block a4-page-break-before"
+            style={{
               width: `${Math.round(794 * effectiveScale)}px`,
               height: `${Math.round(1123 * effectiveScale)}px`,
               position: 'relative',
               flexShrink: 0,
-            } : {}}
+            }}
           >
             <div 
-              className={`mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 ${isGenerating ? 'border-0 shadow-none' : 'shadow-2xl rounded-sm border border-neutral-200'}`}
-              style={!isGenerating ? {
+              className="mb-8 last:mb-0 print:border-none print:shadow-none print:m-0 shadow-2xl rounded-sm border border-neutral-200"
+              style={{
                 width: '794px',
                 height: '1123px',
                 transform: `scale(${effectiveScale})`,
                 transformOrigin: 'top left',
-              } : {}}
+              }}
             >
               <QrBillPage
                 qrSvg={qrSvg}
@@ -852,22 +917,23 @@ export default function RechnungPrintView({
         }
         .a4-page {
           width: 210mm !important;
-          height: 297mm !important;
-          max-height: 297mm !important;
+          height: 296.5mm !important;
+          max-height: 296.5mm !important;
           transform: none !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            margin: 0 !important;
-            padding: 20mm 20mm 20mm 25mm !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            overflow: hidden !important;
-          }
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border: none !important;
+          border-radius: 0 !important;
+          overflow: hidden !important;
         }
-      `}</style>
+        .a4-page-break-before {
+          page-break-before: always !important;
+          break-before: page !important;
+        }
+      }
+    `}</style>
 
       {/* Toast Feedback */}
       {feedbackToast && (

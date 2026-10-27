@@ -3,12 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import LandingPageView from '../LandingPageView'
 
-describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
+describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Architecture', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/')
   })
 
-  it('renders brand Kinetic Craft, hero headlines and trust indicators on Home (/)', () => {
+  it('renders brand Kinetic Craft, hero headlines, trust indicators and teaser sections on Startseite (/)', () => {
     const onGoToLogin = vi.fn()
     const onGoToRegistration = vi.fn()
 
@@ -28,10 +28,26 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
 
     expect(screen.getByText(/60 Sek\./i)).toBeInTheDocument()
     expect(screen.getByText(/Swiss QR-Rechnung & MWST-konform/i)).toBeInTheDocument()
+
+    // Check Startseite USP Highlights & Persona Cards
+    expect(screen.getByText(/In 3 Schritten zur fertigen PDF-Offerte\./i)).toBeInTheDocument()
+    expect(screen.getByText(/Automatische Ordner-Erstellung\./i)).toBeInTheDocument()
+    expect(screen.getByText(/Pascal, selbstständiger Maler/i)).toBeInTheDocument()
+    expect(screen.getByText(/Martin \(52\), Maler- & Gipsergeschäft mit 4 Angestellten/i)).toBeInTheDocument()
+    expect(screen.getByText(/Starten Sie ab CHF 49\.– \/ Monat/i)).toBeInTheDocument()
+
+    // Switch interactive Quoting & Auto-Folder Showcase modes on Startseite
+    const mundartModeBtn = screen.getByRole('button', { name: /2\. Schweizerdeutsch sprechen \(KI\)/i })
+    fireEvent.click(mundartModeBtn)
+    expect(screen.getByText(/Auf Schweizerdeutsch ins Handy sprechen → fertige A4-Offerte in Sekunden/i)).toBeInTheDocument()
+
+    const autoOrdnerBtn = screen.getByRole('button', { name: /3\. Auto-Ordner & PC ⇄ Handy Sync/i })
+    fireEvent.click(autoOrdnerBtn)
+    expect(screen.getByText(/Nie wieder Dateien suchen: Automatische Ordner auf PC & Smartphone synchron/i)).toBeInTheDocument()
   })
 
-  it('renders real app screenshots for hero (with fetchpriority="high"), feature cards and mobile mockup on Home', () => {
-    render(
+  it('renders real app screenshots for hero (with fetchpriority="high") on Startseite and module screenshots on /funktionen', () => {
+    const { unmount } = render(
       <LandingPageView
         onGoToLogin={vi.fn()}
         onGoToRegistration={vi.fn()}
@@ -42,12 +58,21 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(heroImg).toBeInTheDocument()
     expect(heroImg.getAttribute('src')).toBe('/screenshots/01_hero_dashboard.png')
     expect(heroImg.getAttribute('fetchpriority')).toBe('high')
+    unmount()
 
-    const offertenImg = screen.getByAltText(/Kinetic Craft Offerten und Schweizer QR-Rechnung/i)
+    render(
+      <LandingPageView
+        initialPage="funktionen"
+        onGoToLogin={vi.fn()}
+        onGoToRegistration={vi.fn()}
+      />
+    )
+
+    const offertenImg = screen.getByAltText(/Kinetic Craft Modul 07 Offerten-Editor und A4-Vorschau/i)
     expect(offertenImg).toBeInTheDocument()
     expect(offertenImg.getAttribute('src')).toBe('/screenshots/02_offerten_rechnungen.png')
 
-    const mobileImg = screen.getByAltText(/Kinetic Craft Mobile Ansicht/i)
+    const mobileImg = screen.getByAltText(/Kinetic Craft Modul 06 Mobile Baustellen-Ansicht/i)
     expect(mobileImg).toBeInTheDocument()
     expect(mobileImg.getAttribute('src')).toBe('/screenshots/06_mobile_baustelle.png')
   })
@@ -80,26 +105,26 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
       />
     )
 
-    // Navigate to /funktionen
-    const funktionenNav = screen.getAllByRole('button', { name: /Funktionen & Finanzen/i })[0]
+    // Navigate to /funktionen (Alle Funktionen)
+    const funktionenNav = screen.getAllByRole('button', { name: /^Alle Funktionen$/i })[0]
     fireEvent.click(funktionenNav)
     expect(window.location.pathname).toBe('/funktionen')
-    expect(screen.getByText(/Vom Erstversand bis zur 2\. Mahnung: 100% automatisiert\./i)).toBeInTheDocument()
+    expect(screen.getByText(/Alle 10 CRM-Module\./i)).toBeInTheDocument()
 
-    // Navigate to /ki-cloud
+    // Navigate to /ki-cloud (Firmeneigene KI)
     const kiNav = screen.getAllByRole('button', { name: /Firmeneigene KI/i })[0]
     fireEvent.click(kiNav)
     expect(window.location.pathname).toBe('/ki-cloud')
     expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
 
-    // Navigate to /gewerke
-    const gewerkeNav = screen.getAllByRole('button', { name: /Branchen & NPK/i })[0]
+    // Navigate to /gewerke (Branchen)
+    const gewerkeNav = screen.getAllByRole('button', { name: /^Branchen$/i })[0]
     fireEvent.click(gewerkeNav)
     expect(window.location.pathname).toBe('/gewerke')
     expect(screen.getByText(/Ein Tool\. Für alle Schweizer Gewerke\./i)).toBeInTheDocument()
 
-    // Navigate to /preise
-    const preiseNav = screen.getAllByRole('button', { name: /Preise & Rechner/i })[0]
+    // Navigate to /preise (Preise & Rechner)
+    const preiseNav = screen.getAllByRole('button', { name: /^Preise & Rechner$/i })[0]
     fireEvent.click(preiseNav)
     expect(window.location.pathname).toBe('/preise')
     expect(screen.getByRole('heading', { name: /Tarife & Upgrades/i })).toBeInTheDocument()
@@ -125,7 +150,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(screen.getByText(/CHF 44\.00/i)).toBeInTheDocument()
   })
 
-  it('filters Gewerke and runs interactive NPK/SIA-118 calculator on /gewerke', () => {
+  it('displays all 6 detailed trade portraits with weekly time savings on /gewerke (without NPK calculator)', () => {
     render(
       <LandingPageView
         initialPage="gewerke"
@@ -136,16 +161,17 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
 
     expect(screen.getByRole('heading', { name: 'Schreinerei & Innenausbau' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Maler & Gipser' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Elektro & Gebäudeautomation' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sanitär & Heizung' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Garten- & Landschaftsbau' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Bauunternehmung & Renovation' })).toBeInTheDocument()
 
-    // Filter to Maler
-    const malerButtons = screen.getAllByRole('button', { name: /Maler/i })
-    fireEvent.click(malerButtons[0])
+    // Check concrete time savings badges
+    expect(screen.getAllByText(/~5\.5 Std\. \/ Woche gespart/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/~6\.5 Std\. \/ Woche gespart/i).length).toBeGreaterThan(0)
 
-    expect(screen.getByRole('heading', { name: 'Maler & Gipser' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Schreinerei & Innenausbau' })).not.toBeInTheDocument()
-
-    // Check NPK Calculator presence
-    expect(screen.getByText(/Interaktive Branchen-Kalkulation nach Schweizer Norm/i)).toBeInTheDocument()
+    // Ensure old NPK calculator is removed as requested
+    expect(screen.queryByText(/Interaktive Branchen-Kalkulation nach Schweizer Norm/i)).not.toBeInTheDocument()
   })
 
   it('handles quote inquiry form submission and context handoff from /ki-cloud to /preise', () => {
@@ -157,7 +183,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
       />
     )
 
-    // Click CTA in Private AI Node Architecture Explorer to jump to /preise#anfrage
+    // Click CTA in Firmeneigene KI to jump to /preise#anfrage
     const requestNodeBtn = screen.getByRole('button', { name: /Private AI Node für meinen Betrieb anfragen/i })
     fireEvent.click(requestNodeBtn)
 
@@ -192,7 +218,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     const secondFaqQuestion = screen.getByRole('button', { name: /Was beinhaltet die 14-tägige kostenlose Testphase\?/i })
     fireEvent.click(secondFaqQuestion)
 
-    expect(screen.getByText(/Sie erhalten sofort vollen Zugriff auf alle Funktionen von Kinetic Craft Professional/i)).toBeInTheDocument()
+    expect(screen.getByText(/Sie erhalten sofort vollen Zugriff auf alle 10 Module von Kinetic Craft Professional/i)).toBeInTheDocument()
   })
 
   it('opens and closes screenshot zoom modal when clicking a screenshot', () => {
@@ -214,7 +240,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(screen.queryByText(/Live Screenshot-Vorschau/i)).not.toBeInTheDocument()
   })
 
-  it('renders interactive QR-Bill & Dunning sandbox, Banana Buchhaltung and Baustellen-Cockpit on /funktionen', () => {
+  it('renders all 10 CRM modules across 4 categories, Banana Buchhaltung and Baustellen-Cockpit on /funktionen', () => {
     render(
       <LandingPageView
         initialPage="funktionen"
@@ -223,11 +249,14 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
       />
     )
 
-    // Check Interactive Dunning Sandbox
-    expect(screen.getByText(/Vom Erstversand bis zur 2\. Mahnung: 100% automatisiert\./i)).toBeInTheDocument()
-    const stage3Btn = screen.getByRole('button', { name: /2\. Mahnung \(Letzte Frist\)/i })
-    fireEvent.click(stage3Btn)
-    expect(screen.getByText(/2\. & LETZTE MAHNUNG ZU RE-2026-0842/i)).toBeInTheDocument()
+    // Check 4 categories (in Quick-Jump Bar & Category Headers) and 10 modules
+    expect(screen.getByText(/Alle 10 CRM-Module\./i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Kategorie 01 · Tagesgeschäft & Planung/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Kategorie 02 · Kunden, Handelsregister & Baustellen/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Kategorie 03 · Offerten, Ausmass & Katalog/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Kategorie 04 · QR-Rechnungen, Mahnwesen & Buchhaltung/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Modul 01/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Modul 10/i).length).toBeGreaterThan(0)
 
     // Check Schweizer Treuhand & Banana Buchhaltung
     expect(screen.getByText(/Export für Banana Buchhaltung & Treuhänder nach OR 957ff\./i)).toBeInTheDocument()
@@ -236,34 +265,30 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
 
     // Check Baustellen-Cockpit
     expect(screen.getByText(/Das smarte Cockpit für Schweizer Baustellen/i)).toBeInTheDocument()
-    expect(screen.getByText(/Live Baustellen-Wetter/i)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Zefix-Handelsregister/i })).toBeInTheDocument()
+    expect(screen.getAllByText(/Live Baustellen-Wetter/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('heading', { name: /Zefix-Handelsregister/i }).length).toBeGreaterThan(0)
     expect(screen.getByText(/Live-Stoppuhr & Rapport/i)).toBeInTheDocument()
     expect(screen.getByText(/Feiertage nach Kanton/i)).toBeInTheDocument()
   })
 
-  it('switches workflow showcase tabs and updates displayed module on Home', () => {
+  it('toggles interactive KI module unlock preview on /ki-cloud', () => {
     render(
       <LandingPageView
+        initialPage="ki-cloud"
         onGoToLogin={vi.fn()}
         onGoToRegistration={vi.fn()}
       />
     )
 
-    expect(screen.getByText(/Das neue Bento-Dashboard mit Live-Wetter/i)).toBeInTheDocument()
+    expect(screen.getByText(/Sehen Sie live, was das KI-Paket in Ihrem CRM freischaltet/i)).toBeInTheDocument()
 
-    const tab2Btn = screen.getByRole('button', { name: /2\. Baustelle & Foto-Belege/i })
-    fireEvent.click(tab2Btn)
-    expect(screen.getByText(/Mobile Foto-Belege & Baustellen-Dossiers/i)).toBeInTheDocument()
-    expect(screen.getByAltText(/Kinetic Craft Beleg- und Baustellenverwaltung/i)).toBeInTheDocument()
+    const standardCrmBtn = screen.getByRole('button', { name: /Standard-CRM \(100% ohne KI\)/i })
+    fireEvent.click(standardCrmBtn)
+    expect(screen.getByText(/Positionen aus Katalog wählen & nur Zahlen\/Masse eingeben → fertiges A4-PDF\./i)).toBeInTheDocument()
 
-    const tab3Btn = screen.getByRole('button', { name: /3\. CRM & Zefix-Handelsregister/i })
-    fireEvent.click(tab3Btn)
-    expect(screen.getByText(/Kundenkartei mit Zefix-Echtzeitprüfung/i)).toBeInTheDocument()
-
-    const tab4Btn = screen.getByRole('button', { name: /4\. QR-Bill & Banana-Treuhand/i })
-    fireEvent.click(tab4Btn)
-    expect(screen.getByText(/Schweizer QR-Rechnung & Banana-Export/i)).toBeInTheDocument()
+    const kiUnlockBtn = screen.getByRole('button', { name: /Mit Firmeneigener KI freigeschaltet/i })
+    fireEvent.click(kiUnlockBtn)
+    expect(screen.getByText(/Katalog-Eingabe PLUS Schweizerdeutsch sprechen → fertige A4-Offerte & KI-Nachkalkulation\./i)).toBeInTheDocument()
   })
 
   it('interactively calculates time and cost savings with ROI slider on /preise', () => {
@@ -291,7 +316,7 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     expect(onGoToRegistration).toHaveBeenCalled()
   })
 
-  it('renders Kinetic Private AI Node section, Vorher/Nachher Simulator, Private AI Node Explorer and revDSG comparison on /ki-cloud', () => {
+  it('renders modular AI unlock explanation, unlocked CRM features and revDSG infrastructure comparison on /ki-cloud', () => {
     render(
       <LandingPageView
         initialPage="ki-cloud"
@@ -301,15 +326,13 @@ describe('LandingPageView Component - 5-Subpage 10/10 Tech Website', () => {
     )
 
     expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
-    expect(screen.getByText(/Ihr digitaler Polier:/i)).toBeInTheDocument()
-    expect(screen.getByText(/Belege & Quittungen scannen/i)).toBeInTheDocument()
-    expect(screen.getByText(/Baustellen-Sprachdiktat/i)).toBeInTheDocument()
+    expect(screen.getByText(/1\. Normale Version: 100% ohne KI/i)).toBeInTheDocument()
+    expect(screen.getByText(/2\. Mit KI-Paket: KI-Features im CRM freigeschaltet/i)).toBeInTheDocument()
 
-    // Interactive Receipt/Voice Simulator
-    expect(screen.getByText(/Beleg-Scan & Mundart-Diktat live testen/i)).toBeInTheDocument()
-    const mundartBtn = screen.getByRole('button', { name: /3\. Schweizerdeutsches Baustellen-Diktat/i })
-    fireEvent.click(mundartBtn)
-    expect(screen.getByText(/Interner Regierapport \(Mundart → Hochdeutsch\)/i)).toBeInTheDocument()
+    // Unlocked CRM AI features
+    expect(screen.getByRole('heading', { name: /Belege & Quittungen scannen/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Baustellen-Sprachdiktat/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /KI-Offerten-Assistent & Nachkalkulation/i })).toBeInTheDocument()
 
     // Check 3-column revDSG section
     expect(screen.getByText(/100% Schweizer Datensouveränität \(revDSG\)/i)).toBeInTheDocument()

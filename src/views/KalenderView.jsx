@@ -45,10 +45,11 @@ function formatLocalYMD(d) {
   return `${y}-${m}-${day}`;
 }
 
-// Modulweiter In-Memory-Cache für Kalender-Termine und Fristen
-let cachedKalender = null
+// Modulweiter In-Memory-Cache pro Mandant für Kalender-Termine und Fristen
+const cachedKalenderByTenant = {};
 
 export default function KalenderView({ onNavigate, viewParams, userRole, globalSettings }) {
+  const currentTenantId = globalSettings?.tenant_id || 'default';
   // Navigation & Date State
   const [currentDate, setCurrentDate] = useState(() => {
     if (viewParams?.date) return new Date(viewParams.date);
@@ -64,14 +65,15 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   const [activeViewMode, setActiveViewMode] = useState('monat'); // 'monat', 'woche', 'agenda'
 
   // Data State mit Stale-While-Revalidate In-Memory Cache
-  const [termine, setTermine] = useState(() => cachedKalender?.termine || []);
-  const [projekte, setProjekte] = useState(() => cachedKalender?.projekte || []);
-  const [kunden, setKunden] = useState(() => cachedKalender?.kunden || []);
-  const [rechnungen, setRechnungen] = useState(() => cachedKalender?.rechnungen || []);
-  const [offerten, setOfferten] = useState(() => cachedKalender?.offerten || []);
-  const [holidays, setHolidays] = useState(() => cachedKalender?.holidays || []);
-  const [firmenname, setFirmenname] = useState('Muster Malerei Bern AG');
-  const [isLoading, setIsLoading] = useState(() => !cachedKalender);
+  const cachedForTenant = cachedKalenderByTenant[currentTenantId];
+  const [termine, setTermine] = useState(() => cachedForTenant?.termine || []);
+  const [projekte, setProjekte] = useState(() => cachedForTenant?.projekte || []);
+  const [kunden, setKunden] = useState(() => cachedForTenant?.kunden || []);
+  const [rechnungen, setRechnungen] = useState(() => cachedForTenant?.rechnungen || []);
+  const [offerten, setOfferten] = useState(() => cachedForTenant?.offerten || []);
+  const [holidays, setHolidays] = useState(() => cachedForTenant?.holidays || []);
+  const [firmenname, setFirmenname] = useState(() => globalSettings?.firmenname || 'Handwerksbetrieb');
+  const [isLoading, setIsLoading] = useState(() => !cachedForTenant);
   const [schemaWarning, setSchemaWarning] = useState(false);
   const [isWarningDismissed, setIsWarningDismissed] = useState(false);
 
@@ -102,7 +104,7 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
   const loadKalenderData = useCallback(async () => {
     if (!supabase) return;
     try {
-      if (!cachedKalender) {
+      if (!cachedKalenderByTenant[currentTenantId]) {
         setIsLoading(true);
       }
 
@@ -189,8 +191,8 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
         .in('status', ['Entwurf', 'Versendet']);
       if (oData) setOfferten(oData);
 
-      // Update cache
-      cachedKalender = {
+      // Update cache for tenant
+      cachedKalenderByTenant[currentTenantId] = {
         termine: tData,
         projekte: projekteData || [],
         kunden: kundenData || [],

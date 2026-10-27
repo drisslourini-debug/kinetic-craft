@@ -15,33 +15,33 @@ export default function ImpressumModal({ isOpen, onClose, onOpenDatenschutz }) {
   if (!isOpen) return null
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in"
+    <div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fade-in"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="impressum-title"
     >
-      <div 
-        className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 my-8"
+      <div
+        className="relative w-full max-w-2xl apple-glass-stage rounded-[28px] overflow-hidden border border-white/15 my-8 text-[#F5F5F7]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/70">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/40">
           <div className="flex items-center gap-2.5">
             <IconSwissFlag className="w-6 h-6 rounded shadow-xs shrink-0" />
             <div>
-              <h2 id="impressum-title" className="text-base font-bold text-slate-900">
+              <h2 id="impressum-title" className="text-base font-semibold text-white tracking-[-0.02em]">
                 Impressum
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#A1A1A6]">
                 Angaben gemäss Art. 3 Abs. 1 lit. s UWG (Schweizer Lauterkeitsrecht)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-[#A1A1A6] hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
             aria-label="Schliessen"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,15 +51,15 @@ export default function ImpressumModal({ isOpen, onClose, onOpenDatenschutz }) {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-6 max-h-[75vh] overflow-y-auto space-y-6 text-sm text-slate-700 leading-relaxed">
+        <div className="px-6 py-6 max-h-[75vh] overflow-y-auto space-y-6 text-sm text-[#F5F5F7]/90 leading-relaxed">
           {/* Angaben zur Betreiberin */}
-          <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+          <div className="space-y-2 bg-white/[0.04] p-4 rounded-2xl border border-white/10">
+            <h3 className="font-semibold text-[#E8D3B5] text-xs uppercase tracking-wider">
               Betreiberin der Webseite & Software
             </h3>
-            <div className="space-y-1 text-slate-800">
-              <p className="font-semibold text-base text-slate-900">{LEGAL_CONFIG.firmenname}</p>
-              <p className="text-xs text-slate-500">{LEGAL_CONFIG.rechtsform}</p>
+            <div className="space-y-1 text-[#F5F5F7]">
+              <p className="font-semibold text-base text-white">{LEGAL_CONFIG.firmenname}</p>
+              <p className="text-xs text-[#A1A1A6]">{LEGAL_CONFIG.rechtsform}</p>
               <p>{LEGAL_CONFIG.domizil.strasse}</p>
               <p>{LEGAL_CONFIG.domizil.plz} {LEGAL_CONFIG.domizil.ort}</p>
               <p>{LEGAL_CONFIG.domizil.land}</p>
@@ -68,74 +68,74 @@ export default function ImpressumModal({ isOpen, onClose, onOpenDatenschutz }) {
 
           {/* Kontakt */}
           <div className="space-y-2">
-            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+            <h3 className="font-semibold text-[#E8D3B5] text-xs uppercase tracking-wider">
               Kontakt & Support
             </h3>
             <ul className="space-y-1.5">
               <li>
-                <span className="font-medium text-slate-500 mr-2">E-Mail:</span>
-                <a href={`mailto:${LEGAL_CONFIG.kontakt.email}`} className="text-amber-700 hover:underline font-semibold">
+                <span className="font-medium text-[#A1A1A6] mr-2">E-Mail:</span>
+                <a href={`mailto:${LEGAL_CONFIG.kontakt.email}`} className="text-[#D6BA94] hover:underline font-semibold">
                   {LEGAL_CONFIG.kontakt.email}
                 </a>
               </li>
               <li>
-                <span className="font-medium text-slate-500 mr-2">Telefon:</span>
-                <span className="font-semibold">{LEGAL_CONFIG.kontakt.telefon}</span>
+                <span className="font-medium text-[#A1A1A6] mr-2">Telefon:</span>
+                <span className="font-semibold text-white">{LEGAL_CONFIG.kontakt.telefon}</span>
               </li>
               <li>
-                <span className="font-medium text-slate-500 mr-2">Webseite:</span>
-                <span className="font-semibold">{LEGAL_CONFIG.kontakt.web}</span>
+                <span className="font-medium text-[#A1A1A6] mr-2">Webseite:</span>
+                <span className="font-semibold text-white">{LEGAL_CONFIG.kontakt.web}</span>
               </li>
             </ul>
           </div>
 
           {/* Register & MWST */}
-          <div className="space-y-2 border-t border-slate-100 pt-4">
-            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+          <div className="space-y-2 border-t border-white/10 pt-4">
+            <h3 className="font-semibold text-[#E8D3B5] text-xs uppercase tracking-wider">
               Handelsregister & Unternehmens-Identifikation (UID)
             </h3>
             <p>
-              <span className="font-medium text-slate-500 mr-2">Unternehmens-Identifikationsnummer (UID):</span>
-              <span className="font-mono font-semibold">{LEGAL_CONFIG.unternehmensIdentifikation.uid}</span>
+              <span className="font-medium text-[#A1A1A6] mr-2">Unternehmens-Identifikationsnummer (UID):</span>
+              <span className="font-mono font-semibold text-white">{LEGAL_CONFIG.unternehmensIdentifikation.uid}</span>
             </p>
             <p>
-              <span className="font-medium text-slate-500 mr-2">Mehrwertsteuer-Nummer:</span>
-              <span className="font-mono font-semibold">{LEGAL_CONFIG.unternehmensIdentifikation.mwst}</span>
+              <span className="font-medium text-[#A1A1A6] mr-2">Mehrwertsteuer-Nummer:</span>
+              <span className="font-mono font-semibold text-white">{LEGAL_CONFIG.unternehmensIdentifikation.mwst}</span>
             </p>
             <p>
-              <span className="font-medium text-slate-500 mr-2">Zuständiges Registeramt:</span>
-              <span>{LEGAL_CONFIG.unternehmensIdentifikation.handelsregisteramt}</span>
+              <span className="font-medium text-[#A1A1A6] mr-2">Zuständiges Registeramt:</span>
+              <span className="text-white">{LEGAL_CONFIG.unternehmensIdentifikation.handelsregisteramt}</span>
             </p>
           </div>
 
           {/* Haftungsausschluss */}
-          <div className="space-y-3 border-t border-slate-100 pt-4">
-            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+          <div className="space-y-3 border-t border-white/10 pt-4">
+            <h3 className="font-semibold text-[#E8D3B5] text-xs uppercase tracking-wider">
               Haftungsausschluss
             </h3>
-            <div className="text-xs text-slate-600 space-y-2">
+            <div className="text-xs text-[#A1A1A6] space-y-2">
               <p>
-                <strong>Haftung für Inhalte:</strong> Die Inhalte dieser Webapplikation werden mit grösstmöglicher Sorgfalt erstellt. Die Betreiberin übernimmt jedoch keine Gewähr für die Richtigkeit, Vollständigkeit und Aktualität der bereitgestellten Inhalte und Vorlagen.
+                <strong className="text-white">Haftung für Inhalte:</strong> Die Inhalte dieser Webapplikation werden mit grösstmöglicher Sorgfalt erstellt. Die Betreiberin übernimmt jedoch keine Gewähr für die Richtigkeit, Vollständigkeit und Aktualität der bereitgestellten Inhalte und Vorlagen.
               </p>
               <p>
-                <strong>Haftung für Links:</strong> Verweise und Links auf Webseiten Dritter liegen ausserhalb unseres Verantwortungsbereichs. Es wird jegliche Verantwortung für solche Webseiten abgelehnt. Der Zugriff und die Nutzung solcher Webseiten erfolgen auf eigene Gefahr des Nutzers.
+                <strong className="text-white">Haftung für Links:</strong> Verweise und Links auf Webseiten Dritter liegen ausserhalb unseres Verantwortungsbereichs. Es wird jegliche Verantwortung für solche Webseiten abgelehnt. Der Zugriff und die Nutzung solcher Webseiten erfolgen auf eigene Gefahr des Nutzers.
               </p>
               <p>
-                <strong>Urheberrechte:</strong> Die Urheber- und alle anderen Rechte an Inhalten, Bildern, Fotos oder anderen Dateien auf der Webseite gehören ausschliesslich der Betreiberin oder den speziell genannten Rechtsinhabern. Für die Reproduktion jeglicher Elemente ist die schriftliche Zustimmung im Voraus einzuholen.
+                <strong className="text-white">Urheberrechte:</strong> Die Urheber- und alle anderen Rechte an Inhalten, Bildern, Fotos oder anderen Dateien auf der Webseite gehören ausschliesslich der Betreiberin oder den speziell genannten Rechtsinhabern. Für die Reproduktion jeglicher Elemente ist die schriftliche Zustimmung im Voraus einzuholen.
               </p>
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 bg-black/40 border-t border-white/10">
           {onOpenDatenschutz ? (
             <button
               onClick={() => {
                 onClose()
                 onOpenDatenschutz()
               }}
-              className="text-xs text-amber-700 hover:text-amber-800 font-semibold underline cursor-pointer"
+              className="text-xs text-[#D6BA94] hover:text-white font-semibold underline cursor-pointer"
             >
               Zur Datenschutzerklärung (DSG) →
             </button>
@@ -144,7 +144,7 @@ export default function ImpressumModal({ isOpen, onClose, onOpenDatenschutz }) {
           )}
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2 text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-6 py-2 text-xs sm:text-sm font-semibold apple-starlight-btn rounded-full transition-colors cursor-pointer"
           >
             Schliessen
           </button>

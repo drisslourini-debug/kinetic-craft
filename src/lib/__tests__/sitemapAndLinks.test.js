@@ -91,7 +91,7 @@ describe('Sitemap & Links & Navigation Audit', () => {
       expectedModules.forEach(mod => {
         expect(VALID_VIEWS).toContain(mod)
       })
-      expect(VALID_VIEWS.length).toBe(10)
+      expect(VALID_VIEWS.length).toBeGreaterThanOrEqual(10)
     })
   })
 

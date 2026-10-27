@@ -16,7 +16,7 @@ export default function KalenderSyncModal({
   isOpen,
   onClose,
   termine = [],
-  firmenname = 'Muster Malerei Bern AG',
+  firmenname = 'Handwerksbetrieb',
   tenantId = null
 }) {
   const [copied, setCopied] = useState(false);

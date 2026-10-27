@@ -28,27 +28,27 @@ export default function DsgBanner({ onOpenDatenschutz }) {
   if (!isVisible) return null
 
   return (
-    <aside 
+    <aside
       aria-label="Datenschutz-Hinweis"
-      className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 max-w-md w-[calc(100%-2rem)] p-4 sm:p-5 bg-slate-900/95 backdrop-blur-md text-white border border-slate-700/80 rounded-2xl shadow-2xl transition-all animate-fade-in"
+      className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 max-w-md w-[calc(100%-2rem)] p-5 apple-glass-stage text-[#F5F5F7] rounded-[24px] transition-all animate-fade-in-up"
     >
-      <div className="flex flex-col gap-3 text-xs">
-        <div className="flex items-start gap-2.5">
+      <div className="flex flex-col gap-3.5 text-xs">
+        <div className="flex items-start gap-3">
           <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0 mt-0.5" />
-          <p className="text-slate-300 leading-relaxed">
+          <p className="text-[#A1A1A6] leading-relaxed">
             <strong className="text-white font-semibold">Schweizer Datenschutz (DSG):</strong> Wir respektieren Ihre Privatsphäre. Kinetic Craft ist zu 100% werbefrei und setzt keine Drittanbieter-Marketing-Tracker ein. Wir nutzen ausschliesslich technisch notwendige Sitzungsspeicherungen.
           </p>
         </div>
-        <div className="flex items-center justify-end gap-3 pt-1 border-t border-slate-800/80">
+        <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/10">
           <button
             onClick={onOpenDatenschutz}
-            className="text-amber-300 hover:text-amber-200 underline font-medium px-2 py-1 cursor-pointer transition-colors"
+            className="text-[#E8D3B5] hover:text-white underline font-medium px-2 py-1 cursor-pointer transition-colors"
           >
             Details (DSE)
           </button>
           <button
             onClick={handleDismiss}
-            className="px-4 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-600 active:bg-amber-800 text-white font-semibold transition-all shadow-sm cursor-pointer"
+            className="px-4 py-1.5 rounded-full apple-starlight-btn font-semibold transition-all cursor-pointer"
           >
             Einverstanden
           </button>
