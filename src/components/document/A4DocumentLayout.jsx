@@ -275,13 +275,18 @@ export function FoldAndPunchMarks() {
  */
 export function DocumentHeader({ settings, brandColor }) {
   const cleanString = (str) => (str || '').replace(/\r?\n/g, ' ').trim()
+  const rawLogo = settings?.logo_url || ''
+  const isMusterCompany = (settings?.firmenname || '').toLowerCase().includes('muster')
+  const resolvedLogoUrl = (rawLogo.toLowerCase().includes('muster') || (!rawLogo && isMusterCompany))
+    ? '/kinetic_craft_logo_light.svg'
+    : rawLogo
 
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8mm' }}>
       <div>
-        {settings?.logo_url ? (
+        {resolvedLogoUrl ? (
           <img 
-            src={settings.logo_url} 
+            src={resolvedLogoUrl} 
             alt={settings?.firmenname} 
             style={{ maxHeight: '15mm', maxWidth: '65mm', objectFit: 'contain' }} 
             crossOrigin="anonymous" 
@@ -308,12 +313,17 @@ export function DocumentHeader({ settings, brandColor }) {
  * Compact continuation header on Page 2+: Small logo/title, document nr, project, date.
  */
 export function ContinuationHeader({ docType, docNr, projektName, date, brandColor, settings }) {
+  const rawLogo = settings?.logo_url || ''
+  const isMusterCompany = (settings?.firmenname || '').toLowerCase().includes('muster')
+  const resolvedLogoUrl = (rawLogo.toLowerCase().includes('muster') || (!rawLogo && isMusterCompany))
+    ? '/kinetic_craft_logo_light.svg'
+    : rawLogo
   return (
     <div style={{ marginBottom: '6mm', paddingBottom: '2.5mm', borderBottom: `1px solid ${brandColor}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8.5pt' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3mm' }}>
-          {settings?.logo_url ? (
-            <img src={settings.logo_url} alt="Logo" style={{ maxHeight: '6mm', objectFit: 'contain' }} crossOrigin="anonymous" />
+          {resolvedLogoUrl ? (
+            <img src={resolvedLogoUrl} alt="Logo" style={{ maxHeight: '6mm', objectFit: 'contain' }} crossOrigin="anonymous" />
           ) : (
             <span style={{ fontWeight: 700, color: brandColor }}>{settings?.firmenname || 'Kinetic Craft'}</span>
           )}

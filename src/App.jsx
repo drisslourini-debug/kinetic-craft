@@ -11,6 +11,7 @@ import {
 } from './lib/router'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import Sidebar from './components/Sidebar'
+import KineticLogoMark from './components/KineticLogoMark'
 import MobileTabBar from './components/MobileTabBar'
 import CommandBar from './components/CommandBar'
 import CompanySwitcher from './components/CompanySwitcher'
@@ -552,18 +553,10 @@ export default function App() {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
         <div className="relative flex items-center justify-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-sky-400 via-teal-400 to-indigo-500 flex items-center justify-center text-white shadow-xl shadow-sky-500/25 animate-pulse">
-            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 4v16" />
-              <path d="M4 12l9-8" />
-              <path d="M4 12l10 8" />
-              <circle cx="18" cy="6" r="2" fill="currentColor" />
-            </svg>
-          </div>
-          <div className="absolute -inset-2 rounded-3xl border-2 border-sky-500/20 animate-ping opacity-30 pointer-events-none" />
+          <KineticLogoMark className="w-16 h-16 shadow-xl animate-pulse" />
         </div>
         <div className="flex items-center gap-2.5 text-text-secondary text-sm font-medium">
-          <svg className="animate-spin h-4 w-4 text-sky-600" fill="none" viewBox="0 0 24 24">
+          <svg className="animate-spin h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
@@ -823,18 +816,24 @@ export default function App() {
         <header className="sticky top-0 z-20 bg-surface-card/85 backdrop-blur-md border-b border-border px-4 py-3 md:px-8 md:py-4 print:hidden pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between">
             {/* Logo replacement for header */}
-            <div className="flex items-center gap-3 min-w-0">
-              {globalSettings?.logo_url ? (
-                <img src={globalSettings.logo_url} alt={globalSettings.firmenname || "Logo"} className="h-9 w-auto object-contain drop-shadow-xs md:hidden" />
-              ) : (
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm shadow-xs md:hidden shrink-0">
-                  {globalSettings?.firmenname ? globalSettings.firmenname.substring(0,2).toUpperCase() : 'CRM'}
-                </div>
-              )}
-              <h1 className="text-lg md:text-2xl font-bold text-text-primary truncate flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/70 flex items-center justify-center shrink-0 md:hidden">
-                  <IconNav id={activeView} className="w-4 h-4 text-amber-800" />
-                </span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {(() => {
+                const rawLogo = globalSettings?.logo_url || ''
+                const useKineticBrand =
+                  !rawLogo ||
+                  rawLogo.includes('kinetic_craft') ||
+                  rawLogo.toLowerCase().includes('muster')
+                return !useKineticBrand ? (
+                  <img
+                    src={rawLogo}
+                    alt={globalSettings?.firmenname || 'Logo'}
+                    className="h-8 w-auto object-contain drop-shadow-xs md:hidden shrink-0"
+                  />
+                ) : (
+                  <KineticLogoMark className="w-8 h-8 shrink-0 md:hidden shadow-xs" />
+                )
+              })()}
+              <h1 className="text-base sm:text-lg md:text-2xl font-bold text-text-primary truncate flex items-center gap-2">
                 <span>{viewTitles[activeView]}</span>
               </h1>
             </div>

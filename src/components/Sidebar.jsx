@@ -59,36 +59,47 @@ export default function Sidebar({ activeView, onNavigate, userRole, globalSettin
             className="w-full flex items-center justify-center cursor-pointer group focus:outline-none transition-transform hover:scale-[1.02]"
             title="Zum Dashboard"
           >
-            {globalSettings?.logo_url ? (
-              <img 
-                src={globalSettings.logo_url} 
-                alt={globalSettings.firmenname || "Firmenlogo"} 
-                className="max-h-12 w-auto max-w-[200px] object-contain drop-shadow-sm transition-opacity group-hover:opacity-95" 
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-              />
-            ) : null}
-            <div 
-              className="flex items-center gap-3"
-              style={{ display: globalSettings?.logo_url ? 'none' : 'flex' }}
-            >
-              <KineticLogoMark className="w-9 h-9 text-white shrink-0 group-hover:rotate-3 transition-transform" />
-              <div className="flex flex-col text-left">
-                <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-base tracking-tight text-white">Kinetic</span>
-                  <span className="font-bold text-base tracking-tight text-amber-400">Craft</span>
-                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-amber-400/15 text-amber-300 border border-amber-400/30">
-                    CRM
-                  </span>
-                </div>
-                <span className="text-[10px] font-medium text-white/50 mt-1 tracking-wide">
-                  by Kinetic Schweiz
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const rawLogo = globalSettings?.logo_url || ''
+              const useKineticBrand =
+                !rawLogo ||
+                rawLogo.includes('kinetic_craft') ||
+                rawLogo.toLowerCase().includes('muster')
+              return (
+                <>
+                  {!useKineticBrand ? (
+                    <img
+                      src={rawLogo}
+                      alt={globalSettings?.firmenname || 'Firmenlogo'}
+                      className="max-h-12 w-auto max-w-[200px] object-contain drop-shadow-sm transition-opacity group-hover:opacity-95"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                        const fallback = e.currentTarget.nextElementSibling
+                        if (fallback) fallback.style.display = 'flex'
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="flex items-center gap-3"
+                    style={{ display: !useKineticBrand ? 'none' : 'flex' }}
+                  >
+                    <KineticLogoMark className="w-9 h-9 text-white shrink-0 group-hover:rotate-3 transition-transform" />
+                    <div className="flex flex-col text-left">
+                      <div className="flex items-center gap-1.5 leading-none">
+                        <span className="font-semibold text-base tracking-[-0.03em] text-white">Kinetic</span>
+                        <span className="font-semibold text-base tracking-[-0.03em] text-[#E8D3B5]">Craft</span>
+                        <span className="text-[9px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded-md bg-[#D6BA94]/15 text-[#E8D3B5] border border-[#D6BA94]/30">
+                          CRM
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-white/50 mt-1 tracking-wide">
+                        by Kinetic Schweiz
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
           </button>
         </div>
 

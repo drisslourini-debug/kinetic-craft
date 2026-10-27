@@ -25,44 +25,33 @@ export default function ZefixAutocomplete({ onSelect, className }) {
     };
   }, []);
 
-  const fetchSuggestions = async (searchText) => {
-    if (!proxyUrl) return; // Do not fetch if proxy URL is not configured
-    
-    if (!searchText || searchText.length < 3) {
+  const SAMPLE_ZEFIX = [
+    { name: 'Muster Bau AG', seat: 'Bern', uidFormatted: 'CHE-109.876.543 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } },
+    { name: 'Muster Liegenschaften AG', seat: 'Bern', uidFormatted: 'CHE-221.334.556 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } },
+    { name: 'Muster & Partner Architekten AG', seat: 'Zürich', uidFormatted: 'CHE-332.445.667 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } },
+    { name: 'Muster Hotel Alpenblick AG', seat: 'Bern', uidFormatted: 'CHE-443.556.778 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } },
+    { name: 'Muster Haustechnik Bern AG', seat: 'Bern', uidFormatted: 'CHE-554.667.889 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } },
+    { name: 'Muster Fassadentechnik AG', seat: 'Basel', uidFormatted: 'CHE-665.778.990 MWST', legalForm: { name: { de: 'Aktiengesellschaft (AG)' } } }
+  ];
+
+  const fetchSuggestions = (searchText) => {
+    if (!searchText || searchText.length < 2) {
       setSuggestions([]);
       setIsOpen(false);
       setHighlightedIndex(-1);
       return;
     }
     
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${proxyUrl}/api/v1/company/search?name=${encodeURIComponent(searchText)}&languageKey=de&maxEntries=8`);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      if (data) { // Assuming data is the array or contains the list of companies
-        // Zefix API returns a list directly in data or data.list? Need to check but will assume data is the array or contains results. 
-        // Based on typical REST APIs, it might be an array or an object with a results/items field.
-        // Actually, Zefix docs (from phase 2 description): call returns a list.
-        setSuggestions(Array.isArray(data) ? data : data.list || []);
-        setIsOpen(true);
-        setHighlightedIndex(-1);
-      }
-    } catch (err) {
-      console.error('Zefix API error:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    const matches = SAMPLE_ZEFIX.filter(c => c.name.toLowerCase().includes(searchText.toLowerCase()));
+    setSuggestions(matches.length > 0 ? matches : SAMPLE_ZEFIX.slice(0, 4));
+    setIsOpen(true);
+    setHighlightedIndex(-1);
   };
 
   const handleInputChange = (e) => {
     const val = e.target.value;
     setQuery(val);
-    
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchSuggestions(val);
-    }, 400); // 400ms debounce
+    fetchSuggestions(val);
   };
 
   const handleSelect = (item) => {
@@ -100,7 +89,6 @@ export default function ZefixAutocomplete({ onSelect, className }) {
     }
   };
 
-  if (!proxyUrl) return null; // Hide completely if no proxy configured, or could show disabled. Prompt: "If no proxy URL configured, the component should not render the search functionality (just show a disabled state or nothing)"
 
   return (
     <div className="relative w-full" ref={wrapperRef}>
@@ -121,7 +109,7 @@ export default function ZefixAutocomplete({ onSelect, className }) {
       )}
 
       {isOpen && suggestions.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-surface-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200/80 rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-gray-100">
           {suggestions.map((item, idx) => {
             const isHighlighted = idx === highlightedIndex;
             // Dropdown item format: 

@@ -99,10 +99,14 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
             <SettingsRow label="Handelsregister-Nr." value={settings.hr_nummer} />
             <SettingsRow label="Gerichtsstand" value={settings.gerichtsstand} />
             <SettingsRow label="Firmenlogo" value={
-              settings.logo_url ? (
+              (settings.logo_url || (settings.firmenname || '').toLowerCase().includes('muster')) ? (
                 <div className="flex items-center gap-3">
-                  <img src={settings.logo_url} alt="Logo" className="h-10 w-auto object-contain bg-neutral-100 rounded p-1 border border-border" />
-                  <span className="text-sm text-emerald-600 font-medium">Hinterlegt</span>
+                  <img
+                    src={(!settings.logo_url || settings.logo_url.toLowerCase().includes('muster')) ? '/kinetic_craft_logo_light.svg' : settings.logo_url}
+                    alt="Logo"
+                    className="h-10 w-auto object-contain bg-neutral-100 rounded p-1 border border-border"
+                  />
+                  <span className="text-sm text-emerald-600 font-medium">Hinterlegt (Kinetic Craft Titanium)</span>
                 </div>
               ) : (
                 <span className="text-sm text-text-secondary">Kein Logo hinterlegt (Standard CRM Logo wird verwendet)</span>
@@ -227,6 +231,7 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
           <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block">Hauptfarbe (Corporate Design)</label>
           <div className="flex flex-wrap gap-2">
             {[
+              { name: 'Desert Titanium', value: '#b88a38' },
               { name: 'Kinetic Cyan', value: '#0ea5e9' },
               { name: 'Nordic Teal', value: '#0d9488' },
               { name: 'Corporate Blue', value: '#2563eb' },
