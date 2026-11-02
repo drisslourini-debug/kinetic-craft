@@ -272,7 +272,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   
                   <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-text-secondary mb-1">
-                      Firmenname {hasNameError && <span className="text-red-500 font-normal ml-1">(Pflichtfeld)</span>}
+                      Firmenname {hasNameError ? <span className="text-red-500 font-medium ml-1">(Pflichtfeld: Firmen- oder Nachname *)</span> : <span className="text-text-tertiary font-normal text-[11px] ml-1">(Firma oder Nachname *)</span>}
                     </label>
                     <input 
                       type="text" 
@@ -296,7 +296,7 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                   
                   <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-text-secondary mb-1">
-                      Nachname {hasNameError && <span className="text-red-500 font-normal ml-1">(Pflichtfeld)</span>}
+                      Nachname {hasNameError ? <span className="text-red-500 font-medium ml-1">(Pflichtfeld: Firmen- oder Nachname *)</span> : <span className="text-text-tertiary font-normal text-[11px] ml-1">(Firma oder Nachname *)</span>}
                     </label>
                     <input 
                       type="text" 

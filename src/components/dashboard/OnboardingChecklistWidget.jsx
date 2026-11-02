@@ -92,8 +92,8 @@ export default function OnboardingChecklistWidget({
     }
   }
 
-  // If dismissed and all completed, don't show
-  if (isDismissed || (status?.allCompleted && !status?.hasDemoData && isMinimized)) {
+  // If dismissed or all 5 steps are completed, don't show to keep dashboard clean
+  if (isDismissed || status?.allCompleted) {
     return null
   }
 

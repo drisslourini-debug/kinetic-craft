@@ -33,6 +33,8 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
   const [holidays, setHolidays] = useState([])
   const [calendarEvents, setCalendarEvents] = useState([])
   const [mobileActiveTab, setMobileActiveTab] = useState('ueberfaellig')
+  const [chartPeriod, setChartPeriod] = useState('6m')
+  const [rechnungenRaw, setRechnungenRaw] = useState([])
 
   const todayFormatted = useMemo(() => {
     try {
@@ -86,26 +88,14 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
           }
         }
 
+        setRechnungenRaw(rechnungen)
+
         const ueberfaellig = []
         let offenTotal = 0
         let umsatzTotal = 0
 
         const currentDate = new Date()
         const currentYear = currentDate.getFullYear()
-        
-        // Chart data init (last 6 months)
-        const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
-        const chartDataMap = new Map()
-        
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
-          const key = `${d.getFullYear()}-${d.getMonth()}`
-          chartDataMap.set(key, { 
-            name: monthNames[d.getMonth()], 
-            Umsatz: 0,
-            sortKey: d.getTime()
-          })
-        }
 
         if (rechnungen) {
           rechnungen.forEach(r => {
@@ -117,36 +107,23 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
               offenTotal += Math.max(0, (r.total || 0) - (r.bezahlt || 0))
             }
             
-            // Umsatz & Chart (nur bezahlte Beträge)
+            // Umsatz (nur bezahlte Beträge)
             if (r.bezahlt > 0) {
               const zahlungen = r.daten?.zahlungen || []
-              
               if (zahlungen.length > 0) {
-                // Präzise Berechnung über Einzelzahlungen
                 zahlungen.forEach(z => {
                   if (z.betrag > 0 && z.typ !== 'Ausbuchung') {
                     const d = new Date(z.datum)
                     if (d.getFullYear() === currentYear) {
                       umsatzTotal += z.betrag
                     }
-                    const key = `${d.getFullYear()}-${d.getMonth()}`
-                    if (chartDataMap.has(key)) {
-                      const monthData = chartDataMap.get(key)
-                      monthData.Umsatz += z.betrag
-                    }
                   }
                 })
               } else if (r.status === 'Bezahlt') {
-                // Fallback für alte Rechnungen ohne Detailhistorie
                 const dateStr = r.bezahlt_am || r.faellig_am || r.created_at
                 const d = new Date(dateStr)
                 if (d.getFullYear() === currentYear) {
                   umsatzTotal += r.total || 0
-                }
-                const key = `${d.getFullYear()}-${d.getMonth()}`
-                if (chartDataMap.has(key)) {
-                  const monthData = chartDataMap.get(key)
-                  monthData.Umsatz += r.total || 0
                 }
               }
             }
@@ -155,8 +132,6 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
         
         // Sort ueberfaellig
         ueberfaellig.sort((a, b) => new Date(a.faellig_am) - new Date(b.faellig_am))
-        
-        const chartData = Array.from(chartDataMap.values()).sort((a, b) => a.sortKey - b.sortKey)
 
         // Fetch Offerten (Offen)
         const { data: offerten } = await supabase
@@ -246,8 +221,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
           offen: offerten || [],
           inArbeit: projekte || [],
           umsatzTotal,
-          offenTotal,
-          chartData
+          offenTotal
         })
         
       } catch (err) {
@@ -256,6 +230,66 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
         setIsLoading(false)
       }
   }, [])
+
+  const dynamicChartData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+    const chartDataMap = new Map()
+    const currentDate = new Date()
+    const currentYear = currentDate.getFullYear()
+    const currentMonth = currentDate.getMonth()
+
+    const monthsToGenerate = []
+    if (chartPeriod === '6m') {
+      for (let i = 5; i >= 0; i--) {
+        monthsToGenerate.push(new Date(currentYear, currentMonth - i, 1))
+      }
+    } else if (chartPeriod === 'ytd') {
+      for (let m = 0; m <= currentMonth; m++) {
+        monthsToGenerate.push(new Date(currentYear, m, 1))
+      }
+    } else if (chartPeriod === '12m') {
+      for (let i = 11; i >= 0; i--) {
+        monthsToGenerate.push(new Date(currentYear, currentMonth - i, 1))
+      }
+    }
+
+    monthsToGenerate.forEach(d => {
+      const key = `${d.getFullYear()}-${d.getMonth()}`
+      chartDataMap.set(key, { 
+        name: monthNames[d.getMonth()] + (chartPeriod === '12m' && d.getFullYear() !== currentYear ? ` '${String(d.getFullYear()).slice(2)}` : ''), 
+        Umsatz: 0,
+        sortKey: d.getTime()
+      })
+    })
+
+    if (rechnungenRaw && rechnungenRaw.length > 0) {
+      rechnungenRaw.forEach(r => {
+        if (r.bezahlt > 0) {
+          const zahlungen = r.daten?.zahlungen || []
+          if (zahlungen.length > 0) {
+            zahlungen.forEach(z => {
+              if (z.betrag > 0 && z.typ !== 'Ausbuchung') {
+                const d = new Date(z.datum)
+                const key = `${d.getFullYear()}-${d.getMonth()}`
+                if (chartDataMap.has(key)) {
+                  chartDataMap.get(key).Umsatz += z.betrag
+                }
+              }
+            })
+          } else if (r.status === 'Bezahlt') {
+            const dateStr = r.bezahlt_am || r.faellig_am || r.created_at
+            const d = new Date(dateStr)
+            const key = `${d.getFullYear()}-${d.getMonth()}`
+            if (chartDataMap.has(key)) {
+              chartDataMap.get(key).Umsatz += (r.total || 0)
+            }
+          }
+        }
+      })
+    }
+
+    return Array.from(chartDataMap.values()).sort((a, b) => a.sortKey - b.sortKey)
+  }, [rechnungenRaw, chartPeriod])
 
   useEffect(() => {
     fetchDashboardData()
@@ -325,7 +359,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
 
         {/* Ausstehend */}
         <div 
-          onClick={() => onNavigate && onNavigate('rechnungen')}
+          onClick={() => onNavigate && onNavigate('rechnungen', { filter: 'offen' })}
           className="bg-white border border-gray-200/70 rounded-2xl p-3 sm:p-3.5 shadow-2xs active:scale-[0.98] transition-transform cursor-pointer flex flex-col justify-between min-h-[82px]"
         >
           <div className="flex items-center justify-between mb-1.5">
@@ -419,7 +453,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                 subtitle="Offen oder Überfällig"
                 icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />'
                 color="red"
-                onClick={() => onNavigate && onNavigate('rechnungen')}
+                onClick={() => onNavigate && onNavigate('rechnungen', { filter: 'offen' })}
               />
 
               <StatCard 
@@ -428,24 +462,65 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                 subtitle="Pipeline"
                 icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />'
                 color="amber"
-                onClick={() => onNavigate && onNavigate('offerten')}
+                onClick={() => onNavigate && onNavigate('offerten', { filter: 'offen' })}
               />
             </div>
 
             {/* Revenue Chart */}
             <div className="bento-card p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                 <div>
                   <h3 className="font-semibold text-text-primary text-sm tracking-tight">Umsatzentwicklung</h3>
-                  <p className="text-xs text-text-muted mt-0.5">Bezahlte Beträge (Letzte 6 Monate)</p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {chartPeriod === '6m' && 'Bezahlte Beträge (Letzte 6 Monate)'}
+                    {chartPeriod === 'ytd' && `Bezahlte Beträge (Dieses Jahr ${new Date().getFullYear()} YTD)`}
+                    {chartPeriod === '12m' && 'Bezahlte Beträge (Letzte 12 Monate)'}
+                  </p>
                 </div>
-                <span className="text-[11px] font-mono text-text-muted px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200/60">
-                  CHF kumuliert
-                </span>
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <div className="inline-flex items-center bg-zinc-100 p-0.5 rounded-xl border border-zinc-200/60 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setChartPeriod('6m')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        chartPeriod === '6m'
+                          ? 'bg-white text-text-primary shadow-2xs font-semibold'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      6 Monate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartPeriod('ytd')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        chartPeriod === 'ytd'
+                          ? 'bg-white text-text-primary shadow-2xs font-semibold'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      YTD ({new Date().getFullYear()})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartPeriod('12m')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        chartPeriod === '12m'
+                          ? 'bg-white text-text-primary shadow-2xs font-semibold'
+                          : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      12 Monate
+                    </button>
+                  </div>
+                  <span className="text-[11px] font-mono text-text-muted px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200/60 shrink-0">
+                    CHF
+                  </span>
+                </div>
               </div>
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.chartData} margin={{ top: 10, right: 10, left: 24, bottom: 0 }}>
+                  <BarChart data={dynamicChartData} margin={{ top: 10, right: 10, left: 24, bottom: 0 }}>
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 12 }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 12 }} tickFormatter={(value) => `CHF ${Math.round(value/1000)}k`} />
                     <Tooltip 
@@ -454,8 +529,8 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                       formatter={(value) => [formatCurrency(value), 'Umsatz']}
                     />
                     <Bar dataKey="Umsatz" radius={[6, 6, 0, 0]}>
-                      {data.chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === data.chartData.length - 1 ? '#b88a38' : '#e8dbc3'} />
+                      {dynamicChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === dynamicChartData.length - 1 ? '#b88a38' : '#e8dbc3'} />
                       ))}
                     </Bar>
                   </BarChart>

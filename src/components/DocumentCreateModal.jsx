@@ -64,7 +64,7 @@ export default function DocumentCreateModal({
     
     // Auto-update title if not manually changed
     if (selectedKundeId) {
-      const kundeName = kunden.find(k => k.id === selectedKundeId)?.name || ''
+      const kundeName = kunden.find(k => String(k.id) === String(selectedKundeId))?.name || ''
       const customPrefix = isOfferte 
         ? 'Offerte' 
         : (rechnungTyp === 'schluss' 
@@ -157,6 +157,11 @@ export default function DocumentCreateModal({
         ? await generateNextOfferteNr(supabase, settings?.startnummer_offerten)
         : await generateNextRechnungNr(supabase, settings?.startnummer_rechnungen)
 
+      const selectedKunde = kunden.find(k => String(k.id) === String(selectedKundeId))
+      const kundeZahlungsziel = selectedKunde?.zahlungsziel || `${settings?.zahlungsfrist_tage || 30} Tage netto`
+      const matchDays = kundeZahlungsziel.match(/(\d+)\s*Tage/i)
+      const zahlungsTage = matchDays ? parseInt(matchDays[1], 10) : (settings?.zahlungsfrist_tage || 30)
+
       // Base Draft Data
       const draftData = {
         kunden_id: selectedKundeId,
@@ -168,7 +173,11 @@ export default function DocumentCreateModal({
           titel: title,
           datum: date,
           leistungen: [],
-          konditionen: { rabatt: settings?.standard_rabatt || 0, mwst: settings?.standard_mwst || 8.1 },
+          konditionen: { 
+            rabatt: settings?.standard_rabatt || 0, 
+            mwst: settings?.standard_mwst || 8.1,
+            zahlungsziel: kundeZahlungsziel
+          },
           texte: { 
             einleitungstext: isOfferte 
               ? 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns für Ihre Anfrage und bieten Ihnen folgende Leistungen an:' 
@@ -187,7 +196,7 @@ export default function DocumentCreateModal({
         draftData.daten.gueltig_bis = gueltigBis
         draftData.daten.ausfuehrung = { start: '', dauer: '', notizen: '' }
       } else {
-        const faelligAm = new Date(new Date(date).getTime() + (settings?.zahlungsfrist_tage || 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        const faelligAm = new Date(new Date(date).getTime() + zahlungsTage * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         draftData.faellig_am = faelligAm
         draftData.daten.faellig_am = faelligAm
 

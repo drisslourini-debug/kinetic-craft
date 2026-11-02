@@ -343,10 +343,20 @@ export default function TerminDetailModal({
                   {termin.projekte?.name || termin.projektName || 'Zugeordnetes Projekt'}
                 </p>
                 {termin.projekte?.adresse && (
-                  <p className="text-xs text-indigo-600 mt-0.5 flex items-center gap-1">
-                    <IconLocation className="w-3 h-3 text-indigo-600 shrink-0" />
-                    <span>{termin.projekte.adresse}</span>
-                  </p>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-indigo-100">
+                    <p className="text-xs text-indigo-700 flex items-center gap-1">
+                      <IconLocation className="w-3 h-3 text-indigo-600 shrink-0" />
+                      <span>{termin.projekte.adresse}</span>
+                    </p>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(termin.projekte.adresse)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-indigo-800 hover:text-indigo-950 bg-indigo-100 hover:bg-indigo-200 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
+                    >
+                      <span>Route</span> ↗
+                    </a>
+                  </div>
                 )}
               </div>
               {onNavigate && (
@@ -359,7 +369,7 @@ export default function TerminDetailModal({
                       activeTab: 'termine'
                     });
                   }}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer shrink-0 ml-2"
                 >
                   Zum Projekt →
                 </button>
@@ -395,22 +405,32 @@ export default function TerminDetailModal({
           )}
 
           {/* Location / Address */}
-          {termin.ort && !isProjectEvent && (
+          {termin.ort && (
             <div className="p-3 bg-surface border border-border rounded-xl">
               <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1 mb-1">
                 <IconLocation className="w-3.5 h-3.5 text-text-secondary" />
                 <span>Ort / Baustellenadresse</span>
               </span>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="text-sm text-text-primary font-medium">{termin.ort}</p>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(termin.ort)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold text-primary-600 hover:text-primary-800 transition-colors shrink-0 ml-2"
-                >
-                  In Maps ↗
-                </a>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(termin.ort)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    <span>Route</span> ↗
+                  </a>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(termin.ort)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-1 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-neutral-100 rounded-lg transition-colors"
+                  >
+                    Karte ↗
+                  </a>
+                </div>
               </div>
             </div>
           )}

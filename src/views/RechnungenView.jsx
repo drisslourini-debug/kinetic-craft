@@ -178,6 +178,14 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
     }
   }, [viewParams?.action, selectedRechnung, showWizard])
 
+  useEffect(() => {
+    if (viewParams?.filter === 'offen' || viewParams?.status === 'offen') {
+      setFilterStatus('Offen')
+    } else if (viewParams?.filter === 'overdue' || viewParams?.status === 'overdue') {
+      setFilterStatus('Überfällig')
+    }
+  }, [viewParams?.filter, viewParams?.status])
+
   const stats = useMemo(() => {
     const currentYear = new Date().getFullYear().toString()
     
@@ -328,7 +336,9 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
   let filteredRechnungen = rechnungen.filter(r => {
     if (!showArchived && r.is_archived) return false
 
-    if (filterStatus === 'Mahnwesen') {
+    if (filterStatus === 'Offen' || filterStatus === 'ausstehend') {
+      if (!['Versendet', 'Teilbezahlt', 'Überfällig', 'Gemahnt'].includes(r.status)) return false
+    } else if (filterStatus === 'Mahnwesen') {
       if (r.status !== 'Überfällig' && r.status !== 'Gemahnt' && !r.daten?.mahnstufe) return false
     } else if (filterStatus === 'Mahnstopp') {
       if (!r.daten?.mahnstopp) return false

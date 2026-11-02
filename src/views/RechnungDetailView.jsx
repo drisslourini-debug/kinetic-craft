@@ -391,6 +391,48 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
     }
   }
 
+  const handleDirectFullPayment = async (fullAmount) => {
+    setIsUpdating(true)
+    const today = new Date().toISOString().split('T')[0]
+    try {
+      const amount = parseFloat(fullAmount) || 0
+      const currentPaid = parseFloat(rechnung.bezahlt) || 0
+      const newPaid = currentPaid + amount
+      const existingZahlungen = Array.isArray(rechnung.daten?.zahlungen) ? [...rechnung.daten.zahlungen] : []
+      existingZahlungen.push({
+        datum: today,
+        betrag: amount,
+        typ: 'Zahlung'
+      })
+      const updatedDaten = {
+        ...(rechnung.daten || {}),
+        zahlungen: existingZahlungen
+      }
+      await supabase
+        .from('rechnungen')
+        .update({
+          bezahlt: newPaid,
+          bezahlt_am: today,
+          status: 'Bezahlt',
+          daten: updatedDaten
+        })
+        .eq('id', rechnung.id)
+
+      setStatus('Bezahlt')
+      setShowPaymentForm(false)
+      rechnung.bezahlt = newPaid
+      rechnung.bezahlt_am = today
+      rechnung.status = 'Bezahlt'
+      rechnung.daten = updatedDaten
+      showToast('success', `Zahlung von CHF ${formatMoney(amount)} verbucht! Rechnung vollständig bezahlt.`)
+    } catch (err) {
+      console.error('Fehler beim Verbuchen der Zahlung:', err)
+      showToast('error', 'Fehler beim Speichern der Zahlung.')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handlePayment = async () => {
     setIsUpdating(true)
     try {
@@ -2257,20 +2299,35 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                             </div>
                           </div>
 
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
-                              setPaymentAmount(curOpen > 0 ? curOpen.toFixed(2) : (rechnung.total || 0))
-                              setPaymentType('skonto')
-                              setShowPaymentForm(true)
-                            }}
-                            disabled={isUpdating}
-                            className="w-full py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
-                          >
-                            <IconMoney className="w-4 h-4" />
-                            <span>Zahlung erfassen</span>
-                          </button>
+                          <div className="flex flex-col gap-2">
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                                setPaymentAmount(curOpen > 0 ? curOpen.toFixed(2) : (rechnung.total || 0))
+                                setPaymentType('skonto')
+                                setShowPaymentForm(true)
+                              }}
+                              disabled={isUpdating}
+                              className="w-full py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer text-center shadow-xs flex items-center justify-center gap-1.5"
+                            >
+                              <IconMoney className="w-4 h-4" />
+                              <span>Zahlung erfassen</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={async () => {
+                                const curOpen = Math.max(0, Math.round(((parseFloat(rechnung.total) || 0) - (parseFloat(rechnung.bezahlt) || 0)) * 100) / 100)
+                                if (curOpen > 0) {
+                                  await handleDirectFullPayment(curOpen)
+                                }
+                              }}
+                              disabled={isUpdating}
+                              className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-xs rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95"
+                            >
+                              <span>⚡ 1-Klick: Vollständig bezahlt buchen</span>
+                            </button>
+                          </div>
                         </div>
                       )
                     ) : (

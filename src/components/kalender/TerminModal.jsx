@@ -86,12 +86,26 @@ export default function TerminModal({
 
   const handleProjektChange = (projektIdStr) => {
     const selectedP = projekte.find(p => String(p.id) === String(projektIdStr));
+    const selectedK = selectedP?.kunden_id ? kunden.find(k => String(k.id) === String(selectedP.kunden_id)) : null;
+    const kAdresse = selectedK ? [selectedK.strasse, [selectedK.plz, selectedK.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+    const targetOrt = selectedP?.adresse || kAdresse;
     setFormData(prev => ({
       ...prev,
       projekt_id: projektIdStr,
       kunden_id: selectedP?.kunden_id ? String(selectedP.kunden_id) : prev.kunden_id,
-      ort: selectedP?.adresse || prev.ort,
+      ort: targetOrt || prev.ort,
       titel: prev.titel || (selectedP ? `${prev.typ || 'Termin'} – ${selectedP.name}` : prev.titel)
+    }));
+  };
+
+  const handleKundeChange = (kundeIdStr) => {
+    const selectedK = kunden.find(k => String(k.id) === String(kundeIdStr));
+    const kAdresse = selectedK ? [selectedK.strasse, [selectedK.plz, selectedK.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+    setFormData(prev => ({
+      ...prev,
+      kunden_id: kundeIdStr,
+      ort: prev.ort ? prev.ort : kAdresse,
+      titel: prev.titel || (selectedK ? `${prev.typ || 'Termin'} – ${selectedK.name}` : prev.titel)
     }));
   };
 
@@ -355,7 +369,7 @@ export default function TerminModal({
               </label>
               <select
                 value={formData.kunden_id}
-                onChange={e => setFormData({ ...formData, kunden_id: e.target.value })}
+                onChange={e => handleKundeChange(e.target.value)}
                 className="w-full px-3 py-2.5 bg-surface border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-text-primary"
               >
                 <option value="">Kein Kunde zugeordnet</option>

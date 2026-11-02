@@ -54,11 +54,25 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
       try {
         const { data, error } = await supabase
           .from('kunden')
-          .select('id, name')
+          .select('id, name, strasse, plz, ort')
           .order('name', { ascending: true })
         
         if (error) throw error
         setKunden(data || [])
+
+        // If prefilled customer exists and no address entered yet, auto-fill customer's address
+        if (prefilledKundeId && data) {
+          const matchedKunde = data.find(k => String(k.id) === String(prefilledKundeId))
+          if (matchedKunde) {
+            const kAdresse = [matchedKunde.strasse, [matchedKunde.plz, matchedKunde.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+            if (kAdresse) {
+              setFormData(prev => ({
+                ...prev,
+                adresse: prev.adresse ? prev.adresse : kAdresse
+              }))
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to load kunden:', err)
         setError('Kunden konnten nicht geladen werden.')
@@ -67,7 +81,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
       }
     }
     fetchKunden()
-  }, [])
+  }, [prefilledKundeId])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -191,7 +205,18 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                   ) : (
                     <select
                       value={formData.kunden_id}
-                      onChange={e => setFormData({...formData, kunden_id: e.target.value})}
+                      onChange={e => {
+                        const kid = e.target.value
+                        setFormData(prev => {
+                          const matchedKunde = kunden.find(k => String(k.id) === String(kid))
+                          const kAdresse = matchedKunde ? [matchedKunde.strasse, [matchedKunde.plz, matchedKunde.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') : ''
+                          return {
+                            ...prev,
+                            kunden_id: kid,
+                            adresse: prev.adresse ? prev.adresse : kAdresse
+                          }
+                        })
+                      }}
                       className={`w-full px-3.5 py-3 sm:py-2.5 bg-surface border rounded-xl text-text-primary text-base sm:text-sm focus:outline-none focus:ring-2 transition-all ${!formData.kunden_id && submitted ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20 bg-red-50/30' : 'border-border focus:border-primary-500 focus:ring-primary-500/20'}`}
                     >
                       <option value="">Bitte Kunden auswählen...</option>

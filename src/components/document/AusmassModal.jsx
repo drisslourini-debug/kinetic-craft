@@ -181,7 +181,7 @@ export default function AusmassModal({
                       <div>
                         <input
                           type="text"
-                          value={line.bezeichnung}
+                          value={line.bezeichnung ?? ''}
                           onChange={(e) => handleUpdateLine(line.id, 'bezeichnung', e.target.value)}
                           placeholder="z.B. Wand Nord"
                           className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium focus:ring-1 focus:ring-primary-500"
@@ -194,7 +194,7 @@ export default function AusmassModal({
                           <input
                             type="number"
                             step="any"
-                            value={line.anzahl}
+                            value={line.anzahl ?? ''}
                             onChange={(e) => handleUpdateLine(line.id, 'anzahl', e.target.value)}
                             placeholder="Anz."
                             className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-center focus:ring-1 focus:ring-primary-500"
@@ -208,7 +208,7 @@ export default function AusmassModal({
                         <input
                           type="number"
                           step="0.01"
-                          value={line.laenge}
+                          value={line.laenge ?? ''}
                           onChange={(e) => handleUpdateLine(line.id, 'laenge', e.target.value)}
                           placeholder="L (m)"
                           className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-right focus:ring-1 focus:ring-primary-500"
@@ -221,7 +221,7 @@ export default function AusmassModal({
                         <input
                           type="number"
                           step="0.01"
-                          value={line.breite}
+                          value={line.breite ?? ''}
                           onChange={(e) => handleUpdateLine(line.id, 'breite', e.target.value)}
                           placeholder="B (m)"
                           className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-right focus:ring-1 focus:ring-primary-500"
@@ -234,7 +234,7 @@ export default function AusmassModal({
                         <input
                           type="number"
                           step="0.01"
-                          value={line.hoehe}
+                          value={line.hoehe ?? ''}
                           onChange={(e) => handleUpdateLine(line.id, 'hoehe', e.target.value)}
                           placeholder="H (m)"
                           className="w-full px-2 py-1.5 bg-surface border border-border rounded-lg text-xs text-right focus:ring-1 focus:ring-primary-500"

@@ -1464,48 +1464,95 @@ export default function ProjektDetailView({
           {/* TAB: DATEIEN (Archiv) */}
           {activeTab === 'dateien' && (
             <div className="animate-fade-in-up space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-text-primary">Projekt-Archiv</h3>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <h3 className="text-lg font-bold text-text-primary">Projekt-Archiv & Fotos</h3>
                 {userRole !== 'treuhand' && (
-                  <label className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 min-h-[48px] w-full sm:w-auto bg-primary-600 text-white text-base sm:text-sm font-semibold rounded-xl hover:bg-primary-700 cursor-pointer transition-colors shadow-sm">
-                    <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    Datei hochladen
-                    <input type="file" className="hidden" onChange={async (e) => {
-                      const file = e.target.files[0]
-                      if (!file) return
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Baustellen-Foto direkt aufnehmen / wählen */}
+                    <label className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-all shadow-xs active:scale-95">
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <span>Foto aufnehmen</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0]
+                          if (!file) return
 
-                      const fileExt = file.name.split('.').pop()
-                      const finalName = file.name
+                          const fileExt = file.name.split('.').pop() || 'jpg'
+                          const finalName = `Baustellenfoto_${new Date().toISOString().slice(0, 10)}_${Date.now()}.${fileExt}`
 
-                      try {
-                        setIsLoading(true)
-                        const filePath = getTenantStoragePath(projekt.tenant_id, finalName, 'projekte')
-                        
-                        const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
-                        if (uploadError) throw uploadError
-                        
-                        const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
-                        
-                        const isImg = file.type?.startsWith('image/')
-                        const standardKat = isImg ? 'Fotos & Pläne' : 'Allgemeine Dokumente'
+                          try {
+                            setIsLoading(true)
+                            const filePath = getTenantStoragePath(projekt.tenant_id, finalName, 'projekte')
+                            
+                            const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+                            if (uploadError) throw uploadError
+                            
+                            const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
+                            
+                            const { data, error: dbError } = await supabase.from('dateien').insert([{
+                              name: finalName, typ: file.type || 'image/jpeg', url: publicUrl, size_bytes: file.size, 
+                              kunde_id: projekt.kunden_id, projekt_id: projekt.id, kategorie: 'Fotos & Pläne'
+                            }]).select()
+                            
+                            if (dbError) throw dbError
+                            if (data) setDateien([data[0], ...dateien])
+                            showToast('success', 'Baustellenfoto erfolgreich gespeichert.')
+                          } catch(err) {
+                            console.error(err)
+                            showToast('error', 'Fehler beim Upload des Fotos.')
+                          } finally {
+                            setIsLoading(false)
+                            e.target.value = null
+                          }
+                        }} 
+                      />
+                    </label>
 
-                        const { data, error: dbError } = await supabase.from('dateien').insert([{
-                          name: finalName, typ: file.type || fileExt, url: publicUrl, size_bytes: file.size, 
-                          kunde_id: projekt.kunden_id, projekt_id: projekt.id, kategorie: standardKat
-                        }]).select()
-                        
-                        if (dbError) throw dbError
-                        if (data) setDateien([data[0], ...dateien])
-                        showToast('success', 'Datei erfolgreich hochgeladen.')
-                      } catch(err) {
-                        console.error(err)
-                        showToast('error', 'Fehler beim Upload der Datei.')
-                      } finally {
-                        setIsLoading(false)
-                        e.target.value = null
-                      }
-                    }} />
-                  </label>
+                    {/* Allgemeine Datei / PDF hochladen */}
+                    <label className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 flex-1 sm:flex-none bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-all shadow-xs active:scale-95">
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                      <span>Datei hochladen</span>
+                      <input type="file" className="hidden" onChange={async (e) => {
+                        const file = e.target.files[0]
+                        if (!file) return
+
+                        const fileExt = file.name.split('.').pop()
+                        const finalName = file.name
+
+                        try {
+                          setIsLoading(true)
+                          const filePath = getTenantStoragePath(projekt.tenant_id, finalName, 'projekte')
+                          
+                          const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+                          if (uploadError) throw uploadError
+                          
+                          const { data: { publicUrl } } = supabase.storage.from('anhange').getPublicUrl(filePath)
+                          
+                          const isImg = file.type?.startsWith('image/')
+                          const standardKat = isImg ? 'Fotos & Pläne' : 'Allgemeine Dokumente'
+
+                          const { data, error: dbError } = await supabase.from('dateien').insert([{
+                            name: finalName, typ: file.type || fileExt, url: publicUrl, size_bytes: file.size, 
+                            kunde_id: projekt.kunden_id, projekt_id: projekt.id, kategorie: standardKat
+                          }]).select()
+                          
+                          if (dbError) throw dbError
+                          if (data) setDateien([data[0], ...dateien])
+                          showToast('success', 'Datei erfolgreich hochgeladen.')
+                        } catch(err) {
+                          console.error(err)
+                          showToast('error', 'Fehler beim Upload der Datei.')
+                        } finally {
+                          setIsLoading(false)
+                          e.target.value = null
+                        }
+                      }} />
+                    </label>
+                  </div>
                 )}
               </div>
 

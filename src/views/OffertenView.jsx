@@ -215,6 +215,12 @@ export default function OffertenView({ onNavigate, viewParams, userRole, globalS
     }
   }, [viewParams?.action, selectedOfferte, showCreateDrawer])
 
+  useEffect(() => {
+    if (viewParams?.filter === 'offen' || viewParams?.status === 'offen') {
+      setActiveFilter('Entwurf,Versendet,In Überarbeitung')
+    }
+  }, [viewParams?.filter, viewParams?.status])
+
 
   const statusStyles = {
     'Entwurf': 'bg-gray-100 text-gray-600',

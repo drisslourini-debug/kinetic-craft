@@ -48,6 +48,7 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
     }
   }, [file])
   const fileInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   // Automatische Berechnungen
   const bruttoNum = parseFloat(formData.betrag_brutto) || 0
@@ -637,12 +638,31 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
               {/* Camera capture button - primarily for mobile */}
               <button
                 type="button"
-                onClick={() => setShowCamera(true)}
-                className="w-full mb-2 min-h-[48px] px-4 py-3 text-base sm:text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-colors cursor-pointer flex items-center justify-center gap-2 md:hidden"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+                    setShowCamera(true)
+                  } else {
+                    cameraInputRef.current?.click()
+                  }
+                }}
+                className="w-full mb-2 min-h-[48px] px-4 py-3 text-base sm:text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-200 rounded-xl hover:bg-primary-100 transition-colors cursor-pointer flex items-center justify-center gap-2 md:hidden active:scale-98"
               >
                 <IconPhotoScanner className="w-5 h-5 text-primary-700 inline" />
                 <span>Beleg fotografieren</span>
               </button>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const picked = e.target.files[0]
+                  if (picked) {
+                    handleRunAiScan(picked)
+                  }
+                }}
+              />
               
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:bg-gray-50 transition-colors relative cursor-pointer group">
                 <input
