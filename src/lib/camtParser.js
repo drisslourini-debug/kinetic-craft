@@ -119,14 +119,19 @@ export function parseCamtXml(xmlString) {
 
   try {
     let doc
-    if (typeof window !== 'undefined' && window.DOMParser) {
+    if (typeof globalThis !== 'undefined' && globalThis.DOMParser) {
+      const parser = new globalThis.DOMParser()
+      doc = parser.parseFromString(xmlString, 'text/xml')
+    } else if (typeof window !== 'undefined' && window.DOMParser) {
       const parser = new window.DOMParser()
       doc = parser.parseFromString(xmlString, 'text/xml')
-    } else {
+    } else if (typeof require !== 'undefined') {
       // Node.js test environment or fallback
       const { JSDOM } = require('jsdom')
       const dom = new JSDOM(xmlString, { contentType: 'text/xml' })
       doc = dom.window.document
+    } else {
+      throw new Error('Kein DOMParser verfügbar. Bitte in einem Browser oder mit jsdom ausführen.')
     }
 
     // Check for parse error

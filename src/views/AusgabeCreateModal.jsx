@@ -213,8 +213,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
           try {
             await supabase.from('dateien').insert([{
               name: file.name || `Beleg_${formData.titel || 'Ausgabe'}`,
-              dateityp: file.type || 'image/jpeg',
-              groesse: file.size || 0,
+              typ: file.type || 'image/jpeg',
+              size_bytes: file.size || 0,
               url: belegUrl,
               kategorie: 'Beleg',
               projekt_id: formData.projekt_id || null

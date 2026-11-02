@@ -13,7 +13,7 @@
  * - Detects duplicates via bank transaction ID or existing booked payments
  */
 
-import { generateQrReference } from './qrHelper'
+import { generateQrReference } from './qrHelper.js'
 
 /**
  * Normalizes strings for fuzzy comparison (lowercase, trims, removes special characters)
