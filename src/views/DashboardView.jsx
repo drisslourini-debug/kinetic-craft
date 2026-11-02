@@ -59,7 +59,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
           .maybeSingle()
           
         const firmenname = settings?.firmenname || ''
-        const plzOrt = settings?.plz_ort || ''
+        const plzOrt = [settings?.plz, settings?.ort].filter(Boolean).join(' ') || settings?.plz_ort || ''
 
         // Fetch Rechnungen for Action Center and KPIs
         const { data: rechnungenData } = await supabase
