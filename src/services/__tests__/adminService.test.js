@@ -1,4 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('../../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'admin-123', email: 'support@ki-netic.ch' } }, error: null })
+    },
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({ data: null, error: null })
+        }))
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn().mockResolvedValue({ error: null })
+      }))
+    })),
+    rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null })
+  }
+}))
+
 import { 
   checkIsSuperAdmin, 
   SUPERADMIN_EMAIL,
