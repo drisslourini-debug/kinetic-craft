@@ -14,6 +14,7 @@ import {
   IconSun,
   IconClock,
   IconDocument,
+  IconFolder,
 } from '../components/icons/BrandIcons'
 
 const MARKETING_PAGES = [
@@ -37,7 +38,7 @@ const MARKETING_PAGES = [
     label: 'Firmeneigene KI',
     badge: 'revDSG',
     shortTitle: 'Firmeneigene KI & CRM-Freischaltung',
-    subtitle: 'Freischaltbare KI-Features im CRM & isolierte Schweizer KI-Lösungen',
+    subtitle: 'Freischaltbare KI-Features im CRM & Sovereign Swiss Cloud (revDSG)',
   },
   {
     id: 'gewerke',
@@ -51,7 +52,7 @@ const MARKETING_PAGES = [
     path: '/preise',
     label: 'Preise & Rechner',
     shortTitle: 'Tarife, ROI-Rechner & Beratung',
-    subtitle: 'Standard-CRM ohne KI vs. CRM mit Firmeneigener KI, Ersparnis-Rechner & FAQ',
+    subtitle: 'Kinetic Professional vs. Enterprise Cloud, Team-Lizenzen, Ersparnis-Rechner & FAQ',
   },
 ]
 
@@ -793,11 +794,17 @@ export default function LandingPageView({
                   </div>
                   <div className="space-y-1.5 text-[11px]">
                     <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-[#F5F5F7] flex items-center justify-between">
-                      <span>📁 Projekt Bahnhofstr. 12</span>
+                      <span className="flex items-center gap-1.5">
+                        <IconFolder className="w-3.5 h-3.5 text-[#D6BA94] shrink-0" />
+                        <span>Projekt Bahnhofstr. 12</span>
+                      </span>
                       <span className="text-emerald-300">Live</span>
                     </div>
                     <div className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-[#A1A1A6] flex items-center justify-between">
-                      <span>📸 14 Fotos & Unterschrift</span>
+                      <span className="flex items-center gap-1.5">
+                        <IconCamera className="w-3.5 h-3.5 text-[#E8D3B5] shrink-0" />
+                        <span>14 Fotos & Unterschrift</span>
+                      </span>
                       <span className="text-[#E8D3B5]">Synchron</span>
                     </div>
                   </div>
@@ -1286,26 +1293,48 @@ export default function LandingPageView({
 
                         <div className="space-y-2.5 text-xs font-sans">
                           <div className="p-3 rounded-xl bg-white/[0.06] border border-white/10 text-white font-semibold flex items-center justify-between">
-                            <span>📁 Kunde: Hausverwaltung Meier AG (Zefix verifiziert)</span>
+                            <span className="flex items-center gap-2">
+                              <IconFolder className="w-4 h-4 text-[#D6BA94] shrink-0" />
+                              <span>Kunde: Hausverwaltung Meier AG (Zefix verifiziert)</span>
+                            </span>
                             <span className="text-[11px] text-[#E8D3B5] font-normal">Automatisch erstellt</span>
                           </div>
                           <div className="pl-4 sm:pl-6 space-y-2">
                             <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between">
-                              <span className="text-[#F5F5F7] font-medium">📂 Projekt: Fassadenrenovation Bahnhofstr. 12</span>
+                              <span className="text-[#F5F5F7] font-medium flex items-center gap-2">
+                                <IconFolder className="w-4 h-4 text-emerald-300 shrink-0" />
+                                <span>Projekt: Fassadenrenovation Bahnhofstr. 12</span>
+                              </span>
                               <span className="text-[11px] text-emerald-300 font-semibold">100% Synchron</span>
                             </div>
                             <div className="pl-4 sm:pl-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div className="p-2.5 rounded-lg bg-[#D6BA94]/12 border border-[#D6BA94]/30 text-[#E8D3B5]">
-                                📄 Offerte_2026-041.pdf <span className="block text-[10px] text-[#A1A1A6]">Am Büro-PC aus Katalog erstellt</span>
+                              <div className="p-2.5 rounded-lg bg-[#D6BA94]/12 border border-[#D6BA94]/30 text-[#E8D3B5] flex items-center gap-2">
+                                <IconDocument className="w-4 h-4 text-[#D6BA94] shrink-0" />
+                                <div>
+                                  <span>Offerte_2026-041.pdf</span>
+                                  <span className="block text-[10px] text-[#A1A1A6]">Am Büro-PC aus Katalog erstellt</span>
+                                </div>
                               </div>
-                              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-white">
-                                📸 14 Baustellen-Fotos <span className="block text-[10px] text-[#A1A1A6]">Vom Baustellen-Handy synchronisiert</span>
+                              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-white flex items-center gap-2">
+                                <IconCamera className="w-4 h-4 text-white shrink-0" />
+                                <div>
+                                  <span>14 Baustellen-Fotos</span>
+                                  <span className="block text-[10px] text-[#A1A1A6]">Vom Baustellen-Handy synchronisiert</span>
+                                </div>
                               </div>
-                              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-white">
-                                ✍️ Regierapport_signiert.pdf <span className="block text-[10px] text-[#A1A1A6]">Vor Ort auf Smartphone signiert</span>
+                              <div className="p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-white flex items-center gap-2">
+                                <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                                <div>
+                                  <span>Regierapport_signiert.pdf</span>
+                                  <span className="block text-[10px] text-[#A1A1A6]">Vor Ort auf Smartphone signiert</span>
+                                </div>
                               </div>
-                              <div className="p-2.5 rounded-lg bg-emerald-500/12 border border-emerald-400/25 text-emerald-300">
-                                🇨🇭 QR-Rechnung_2026.pdf <span className="block text-[10px] text-[#A1A1A6]">Mit 1 Klick abgerechnet</span>
+                              <div className="p-2.5 rounded-lg bg-emerald-500/12 border border-emerald-400/25 text-emerald-300 flex items-center gap-2">
+                                <IconQrBill className="w-4 h-4 text-emerald-300 shrink-0" />
+                                <div>
+                                  <span>QR-Rechnung_2026.pdf</span>
+                                  <span className="block text-[10px] text-[#A1A1A6]">Mit 1 Klick abgerechnet</span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1426,7 +1455,7 @@ export default function LandingPageView({
                       Starten Sie ab CHF 49.– / Monat – oder berechnen Sie Ihren ROI.
                     </h2>
                     <p className="text-sm sm:text-base text-[#A1A1A6] leading-relaxed">
-                      Wählen Sie zwischen <strong className="text-white font-medium">Kinetic Craft Professional (ohne KI)</strong> und <strong className="text-white font-medium">Enterprise (inkl. freigeschalteter Firmeneigener KI)</strong>. 14 Tage kostenlos und unverbindlich testen.
+                      Wählen Sie zwischen <strong className="text-white font-medium">Kinetic Craft Professional (ohne KI, ab CHF 49.– / Mt.)</strong> und <strong className="text-white font-medium">Enterprise Cloud (inkl. Schweizer Cloud-KI, ab CHF 149.– / Mt.)</strong>. 14 Tage kostenlos und unverbindlich testen.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-3.5 shrink-0 w-full lg:w-auto">
@@ -1717,7 +1746,7 @@ export default function LandingPageView({
                 <div className="text-center max-w-3xl mx-auto mb-16">
                   <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-emerald-300 text-xs font-medium mb-5">
                     <IconSparkles className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>Kinetic Private AI Node · Firmeneigene Schweizer KI</span>
+                    <span>Kinetic Enterprise Cloud · Firmeneigene Schweizer KI</span>
                   </div>
                   <h1 className="text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-[-0.04em] leading-[1.08]">
                     Ihr digitaler Polier:{' '}
@@ -1754,7 +1783,7 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-[#D6BA94] shrink-0" />
-                          <span>Null externe KI-Schnittstellen · Sofort für CHF 49.–/Mt. startklar</span>
+                          <span>Null externe KI-Schnittstellen · Ab CHF 49.– / Mt. (CHF 59.– mtl.) startklar</span>
                         </li>
                       </ul>
                     </div>
@@ -1763,7 +1792,7 @@ export default function LandingPageView({
                   <div className="apple-glass-stage rounded-[32px] p-8 sm:p-10 border-[#D6BA94]/50 flex flex-col justify-between">
                     <div>
                       <span className="inline-block text-xs font-semibold text-[#0B0B0E] apple-titanium-btn px-3.5 py-1 rounded-full mb-4">
-                        KI-Upgrade · Kinetic Craft + Firmeneigene KI
+                        KI-Upgrade · Kinetic Enterprise Cloud
                       </span>
                       <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-[-0.025em] mb-3">
                         2. Mit KI-Paket: KI-Features im CRM freigeschaltet
@@ -1822,7 +1851,7 @@ export default function LandingPageView({
                             : 'text-[#A1A1A6] hover:text-white'
                         }`}
                       >
-                        ✨ Mit Firmeneigener KI freigeschaltet
+                        Mit Firmeneigener KI freigeschaltet
                       </button>
                     </div>
                   </div>

@@ -93,6 +93,12 @@ export default function DatenschutzModal({ isOpen, onClose, onOpenImpressum }) {
                   Verwaltete PostgreSQL-Instanz bei Supabase Inc. (ISO/IEC 27001 zertifiziert). Strikte Mandanten-Trennung (Row-Level Security), verschlüsselt mit TLS 1.3 (in transit) und AES-256 (at rest).
                 </p>
               </div>
+              <div className="p-3.5 bg-[#D6BA94]/10 border border-[#D6BA94]/25 rounded-2xl space-y-1 sm:col-span-2">
+                <span className="font-semibold text-[#E8D3B5] block">Sovereign Swiss Cloud-KI (Enterprise)</span>
+                <p className="text-[#A1A1A6]">
+                  Beim optionalen KI-Paket (Kinetic Enterprise Cloud) erfolgt die Schweizerdeutsch-Sprach- und Belegverarbeitung ausschliesslich in ISO-27001-zertifizierten Schweizer Rechenzentren (Zürich & Genf) unter vollständiger Einhaltung des revDSG. Keine Übertragung an öffentliche US-Modelle oder fremde Trainings-Pipelines.
+                </p>
+              </div>
             </div>
           </section>
 

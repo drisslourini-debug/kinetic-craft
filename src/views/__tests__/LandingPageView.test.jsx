@@ -115,7 +115,7 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
     const kiNav = screen.getAllByRole('button', { name: /Firmeneigene KI/i })[0]
     fireEvent.click(kiNav)
     expect(window.location.pathname).toBe('/ki-cloud')
-    expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/(?:Kinetic Enterprise Cloud|Kinetic Private AI Node)/i)[0]).toBeInTheDocument()
 
     // Navigate to /gewerke (Branchen)
     const gewerkeNav = screen.getAllByRole('button', { name: /^Branchen$/i })[0]
@@ -326,7 +326,7 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
       />
     )
 
-    expect(screen.getAllByText(/Kinetic Private AI Node/i)[0]).toBeInTheDocument()
+    expect(screen.getAllByText(/(?:Kinetic Enterprise Cloud|Kinetic Private AI Node)/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/1\. Normale Version: 100% ohne KI/i)).toBeInTheDocument()
     expect(screen.getByText(/2\. Mit KI-Paket: KI-Features im CRM freigeschaltet/i)).toBeInTheDocument()
 
