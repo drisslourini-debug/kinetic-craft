@@ -130,7 +130,7 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
     expect(screen.getByRole('heading', { name: /Tarife & Upgrades/i })).toBeInTheDocument()
   })
 
-  it('toggles pricing cycle between monthly (CHF 49.00) and yearly (CHF 44.00) on /preise', () => {
+  it('toggles pricing cycle between monthly (CHF 59.00 / CHF 169.00) and yearly (CHF 49.00 / CHF 149.00) on /preise', () => {
     render(
       <LandingPageView
         initialPage="preise"
@@ -140,14 +140,15 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
     )
 
     expect(screen.getByRole('heading', { name: /Professional/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Enterprise/i })).toBeInTheDocument()
-    expect(screen.getByText(/CHF 49\.00/i)).toBeInTheDocument()
-    expect(screen.getByText(/ab CHF 149\.00/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Enterprise Cloud$/i })).toBeInTheDocument()
+    expect(screen.getByText(/CHF 59\.00/i)).toBeInTheDocument()
+    expect(screen.getByText(/CHF 169\.00/i)).toBeInTheDocument()
 
     const yearlyBtn = screen.getByRole('button', { name: /Jährlich/i })
     fireEvent.click(yearlyBtn)
 
-    expect(screen.getByText(/CHF 44\.00/i)).toBeInTheDocument()
+    expect(screen.getByText(/CHF 49\.00/i)).toBeInTheDocument()
+    expect(screen.getByText(/CHF 149\.00/i)).toBeInTheDocument()
   })
 
   it('displays all 6 detailed trade portraits with weekly time savings on /gewerke (without NPK calculator)', () => {
@@ -184,7 +185,7 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
     )
 
     // Click CTA in Firmeneigene KI to jump to /preise#anfrage
-    const requestNodeBtn = screen.getByRole('button', { name: /Private AI Node für meinen Betrieb anfragen/i })
+    const requestNodeBtn = screen.getByRole('button', { name: /(?:Kinetic Enterprise Cloud|Private AI Node) für meinen Betrieb anfragen/i })
     fireEvent.click(requestNodeBtn)
 
     expect(window.location.pathname).toBe('/preise')
@@ -336,7 +337,7 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
 
     // Check 3-column revDSG section
     expect(screen.getByText(/100% Schweizer Datensouveränität \(revDSG\)/i)).toBeInTheDocument()
-    expect(screen.getByText(/Lokaler Server vor Ort/i)).toBeInTheDocument()
+    expect(screen.getByText(/Schweizer Dialekt-Engine/i)).toBeInTheDocument()
     expect(screen.getByText(/Klassische US-Cloud APIs/i)).toBeInTheDocument()
     expect(screen.getByText(/Kinetic Private Cloud/i)).toBeInTheDocument()
   })

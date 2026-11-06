@@ -491,11 +491,11 @@ export default function LandingPageView({
     },
     {
       q: 'Was beinhaltet die 14-tägige kostenlose Testphase?',
-      a: 'Sie erhalten sofort vollen Zugriff auf alle 10 Module von Kinetic Craft Professional – ohne Eingabe einer Kreditkarte und ohne automatische Verlängerung. Nach den 14 Tagen können Sie nahtlos für CHF 49.– / Monat weiterarbeiten. Ihre Daten, Baustellen und Dokumente bleiben stets sicher erhalten.',
+      a: 'Sie erhalten sofort vollen Zugriff auf alle 10 Module von Kinetic Craft Professional – ohne Eingabe einer Kreditkarte und ohne automatische Verlängerung. Nach den 14 Tagen können Sie nahtlos für CHF 59.– / Monat (bzw. CHF 49.– / Monat bei jährlicher Zahlung) weiterarbeiten. Ihre Daten, Baustellen und Dokumente bleiben stets sicher erhalten.',
     },
     {
       q: 'Wie funktioniert das Prinzip «Standard-CRM ohne KI» vs. «Firmeneigene KI freischalten»?',
-      a: 'Die Standard-Version von Kinetic Craft (Professional) ist bewusst zu 100% frei von KI. Sie erhalten ein extrem schnelles, klassisches und verlässliches Handwerker-CRM. Wenn Ihr Betrieb zusätzlich maximale Automatisierung wünscht, schalten wir mit dem Paket «Firmeneigene KI» (Enterprise) direkt im CRM die KI-Integrationen frei (automatischer KI-Belegscanner, Schweizerdeutsches Sprachdiktat zu Rapport/Offerte, KI-Offertenvorschläge aus Ihrer eigenen Firmenhistorie) – betrieben auf Ihrer eigenen isolierten Schweizer KI-Instanz.',
+      a: 'Die Standard-Version von Kinetic Craft (Professional) ist bewusst zu 100% frei von KI. Sie erhalten ein extrem schnelles, klassisches und verlässliches Handwerker-CRM. Wenn Ihr Betrieb zusätzlich maximale Automatisierung wünscht, schalten wir mit dem Paket «Kinetic Enterprise Cloud» direkt im CRM die KI-Integrationen frei (automatischer Belegscanner mit MWST-Erkennung, Schweizerdeutsch-Sprachmemo für Regierapporte & Offerten, KI-Beleg-Chat) – betrieben auf Ihrer eigenen isolierten Schweizer Private-Cloud-Instanz (Zürich/Genf).',
     },
     {
       q: 'Unterstützt Kinetic Craft den Export zu Banana Buchhaltung und Schweizer Treuhändern?',
@@ -511,7 +511,7 @@ export default function LandingPageView({
     },
     {
       q: 'Wo werden meine Unternehmensdaten gespeichert und wie steht es um den Schweizer Datenschutz (revDSG)?',
-      a: 'Kinetic Craft garantiert 100 % Konformität mit dem neuen Schweizer Datenschutzgesetz (revDSG): Ihre Daten liegen isoliert und verschlüsselt in Schweizer und europäischen ISO/IEC 27001 zertifizierten Hochsicherheits-Rechenzentren. Beim Upgrade auf die «Firmeneigene KI» wählen Sie zwischen einer dedizierten Schweizer Private Cloud (Zürich/Genf) oder einem eigenen lokalen KI-Server direkt in Ihrem Betrieb – 100% frei vom US CLOUD Act.',
+      a: 'Kinetic Craft garantiert 100 % Konformität mit dem neuen Schweizer Datenschutzgesetz (revDSG): Ihre Daten liegen isoliert und verschlüsselt in Schweizer und europäischen ISO/IEC 27001 zertifizierten Hochsicherheits-Rechenzentren. Beim Upgrade auf die «Kinetic Enterprise Cloud» läuft Ihre eigene isolierte Schweizer KI-Instanz in Zürich und Genf – 100% DSG-konform und frei vom US CLOUD Act.',
     },
     {
       q: 'Wer steht hinter Kinetic Craft und Kinetic Schweiz?',
@@ -1983,7 +1983,7 @@ export default function LandingPageView({
               </div>
             </section>
 
-            {/* PART 3: DIE BEIDEN KI-BEREITSTELLUNGS-LÖSUNGEN (SCHWEIZER PRIVATE CLOUD ODER LOKAL VOR ORT) */}
+            {/* PART 3: DIE SCHWEIZER CLOUD-KI-INFRASTRUKTUR (100% RECHTSKONFORM & ISOLIERT) */}
             <section id="datensicherheit" className="py-24 relative overflow-hidden">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <div className="text-center max-w-3xl mx-auto mb-14">
@@ -1993,19 +1993,19 @@ export default function LandingPageView({
                   <h2 className="text-3xl sm:text-5xl font-semibold mt-5 tracking-[-0.035em]">
                     Ihre Betriebsdaten gehören Ihnen. <br />
                     <span className="apple-titanium-text">
-                      Wählen Sie Ihre KI-Infrastruktur.
+                      Souveräne Schweizer Cloud-KI.
                     </span>
                   </h2>
                   <p className="text-[#A1A1A6] text-base sm:text-lg mt-4 leading-relaxed font-normal">
-                    Damit Ihre Kundenadressen, Margen und Kalkulationen niemals in öffentlichen US-Clouds landen, stellen wir Ihre <strong className="text-white font-medium">Firmeneigene KI</strong> in zwei massgeschneiderten Schweizer Lösungen bereit:
+                    Damit Ihre Kundenadressen, Margen und Kalkulationen niemals in öffentlichen US-Clouds landen, stellen wir Ihre <strong className="text-white font-medium">Firmeneigene KI</strong> vollständig in isolierten Schweizer Rechenzentren (Zürich & Genf) bereit:
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                  {/* Lösung A: Kinetic Private Cloud (Schweizer Empfehlung) */}
+                  {/* Lösung A: Kinetic Private Cloud */}
                   <div className="p-7 sm:p-8 rounded-[28px] apple-glass-stage border-[#D6BA94]/60 flex flex-col justify-between relative">
                     <span className="absolute -top-3.5 right-6 apple-titanium-btn text-xs font-semibold px-3.5 py-1 rounded-full">
-                      Lösung A · Schweizer Empfehlung
+                      Sovereign Swiss Cloud
                     </span>
 
                     <div>
@@ -2027,7 +2027,7 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-start gap-2.5">
                           <span className="w-5 h-5 rounded-full bg-[#D6BA94]/20 text-[#E8D3B5] flex items-center justify-center font-semibold text-xs shrink-0 mt-0.5">✓</span>
-                          <span><strong>Null Hardware-Wartung:</strong> Kein Server im Büro nötig, sofort von jeder Baustelle erreichbar.</span>
+                          <span><strong>Null Hardware-Wartung:</strong> Kein Server im Büro nötig, sofort von jeder Baustelle per Handy erreichbar.</span>
                         </li>
                         <li className="flex items-start gap-2.5">
                           <span className="w-5 h-5 rounded-full bg-[#D6BA94]/20 text-[#E8D3B5] flex items-center justify-center font-semibold text-xs shrink-0 mt-0.5">✓</span>
@@ -2037,41 +2037,41 @@ export default function LandingPageView({
                     </div>
 
                     <div className="mt-8 p-3.5 rounded-2xl bg-[#D6BA94]/15 border border-[#D6BA94]/35 text-xs text-[#E8D3B5] text-center font-semibold">
-                      Ideal für 1 bis 25+ Mitarbeiter · Null Wartungsaufwand
+                      Ideal für 1 bis 25+ Mitarbeiter · 100% revDSG
                     </div>
                   </div>
 
-                  {/* Lösung B: Lokaler Server vor Ort im Betrieb */}
+                  {/* Schweizer Dialekt- & Beleg-Verarbeitung */}
                   <div className="p-7 sm:p-8 rounded-[28px] apple-glass-card flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-medium text-[#F5F5F7] bg-white/10 border border-white/15 px-3 py-1 rounded-full">
-                          Lösung B · On-Premise im Betrieb
+                        <span className="text-xs font-medium text-emerald-300 bg-emerald-500/12 border border-emerald-400/25 px-3 py-1 rounded-full">
+                          Mundart & Beleg-Scanner
                         </span>
                       </div>
-                      <h3 className="text-xl font-semibold text-white mb-2">Lokaler Server vor Ort</h3>
+                      <h3 className="text-xl font-semibold text-white mb-2">Schweizer Dialekt-Engine</h3>
                       <p className="text-xs text-[#A1A1A6] mb-6">
-                        Eigene kompakte KI-Hardware direkt bei Ihnen im Büro oder in der Werkstatt.
+                        Versteht Schweizer Mundarten und wandelt Sprache in präzise A4-Belege um.
                       </p>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-[#F5F5F7]/90">
                         <li className="flex items-start gap-2.5">
                           <span className="font-semibold text-emerald-300 shrink-0">✓</span>
-                          <span><strong>100% physische Datenhoheit:</strong> Die KI-Box steht physisch in Ihren eigenen Geschäftsräumen.</span>
+                          <span><strong>Whisper Large-v3 Dialekt:</strong> Schwyzerdütsch sprechen → fehlerfreie hochdeutsche A4-Offerte & Regierapport.</span>
                         </li>
                         <li className="flex items-start gap-2.5">
                           <span className="font-semibold text-emerald-300 shrink-0">✓</span>
-                          <span><strong>Volle CRM-Freischaltung:</strong> Schaltet exakt dieselben KI-Features im CRM frei wie die Private Cloud.</span>
+                          <span><strong>Auto-MWST Erkennung:</strong> Trennt Hornbach- & HGC-Belege automatisch in 8.1% und 2.6% Steuersätze.</span>
                         </li>
                         <li className="flex items-start gap-2.5 text-[#A1A1A6]">
-                          <span className="font-semibold text-[#D6BA94] shrink-0">•</span>
-                          <span><strong>Schlüsselfertige Einrichtung:</strong> Unser Schweizer Team installiert und verbindet die Box vor Ort.</span>
+                          <span className="font-semibold text-[#D6BA94] shrink-0">✓</span>
+                          <span><strong>120 Min. Audio & 1'500 Anfragen:</strong> Grosszügiges Monatskontingent im Enterprise-Tarif inklusive.</span>
                         </li>
                       </ul>
                     </div>
 
                     <div className="mt-8 p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-xs text-[#A1A1A6] text-center font-medium">
-                      Ideal bei Wunsch nach 100% Hardware im eigenen Haus
+                      Spart Meistern bis zu 45 Min. Büroarbeit täglich
                     </div>
                   </div>
 
@@ -2113,10 +2113,10 @@ export default function LandingPageView({
                 <div className="mt-12 text-center">
                   <button
                     type="button"
-                    onClick={() => handleJumpToInquiry({ paketWunsch: 'private_node' })}
+                    onClick={() => handleJumpToInquiry({ paketWunsch: 'enterprise_cloud' })}
                     className="px-8 py-4 rounded-full apple-titanium-btn font-semibold text-xs sm:text-sm cursor-pointer"
                   >
-                    Private AI Node für meinen Betrieb anfragen →
+                    Kinetic Enterprise Cloud für meinen Betrieb anfragen →
                   </button>
                 </div>
               </div>
@@ -2287,13 +2287,13 @@ export default function LandingPageView({
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center max-w-3xl mx-auto mb-12">
                   <span className="text-xs font-medium text-[#E8D3B5] bg-[#D6BA94]/12 border border-[#D6BA94]/25 px-4 py-1.5 rounded-full">
-                    Transparente Tarife
+                    Transparente Tarife nach Schweizer Standard
                   </span>
                   <h1 className="text-3xl sm:text-5xl lg:text-6xl font-semibold text-white mt-5 tracking-[-0.04em]">
                     Tarife & Upgrades
                   </h1>
                   <p className="text-base text-[#A1A1A6] mt-3">
-                    Wählen Sie zwischen dem kompletten Standard-CRM (100% ohne KI) oder dem Paket inklusive freigeschalteter Firmeneigener KI. 14 Tage kostenlos testen.
+                    Wählen Sie zwischen dem kompletten Standard-CRM (100% ohne KI) oder dem Paket inklusive Schweizer Cloud-KI. 14 Tage kostenlos testen.
                   </p>
 
                   {/* Monthly / Yearly Toggle */}
@@ -2318,7 +2318,7 @@ export default function LandingPageView({
                     >
                       <span>Jährlich</span>
                       <span className="bg-[#D6BA94]/25 text-[#E8D3B5] text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                        10% Rabatt
+                        2 Monate geschenkt (~17% Rabatt)
                       </span>
                     </button>
                   </div>
@@ -2340,14 +2340,23 @@ export default function LandingPageView({
                         </span>
                       </div>
                       <div className="text-3xl sm:text-4xl font-semibold apple-titanium-text my-4 tabular-nums">
-                        {billingCycle === 'yearly' ? 'CHF 44.00' : 'CHF 49.00'}{' '}
+                        {billingCycle === 'yearly' ? 'CHF 49.00' : 'CHF 59.00'}{' '}
                         <span className="text-xs font-normal text-[#A1A1A6]">/ Monat</span>
                       </div>
+                      {billingCycle === 'yearly' && (
+                        <p className="text-[11px] text-[#A1A1A6] -mt-2 mb-4">
+                          CHF 588.00 / Jahr bei Vorauszahlung
+                        </p>
+                      )}
                       <p className="text-xs text-[#A1A1A6] mb-6 leading-relaxed">
                         Die komplette Handwerker-Software mit allen 10 Modulen – bewusst zu 100% ohne KI, extrem schnell und verlässlich.
                       </p>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-[#F5F5F7]">
+                        <li className="flex items-center gap-2.5">
+                          <IconCheck className="w-4 h-4 text-[#D6BA94] shrink-0" />
+                          <span><strong>1 vollwertiger Büro-Benutzer</strong> (Chef) inklusive</span>
+                        </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-[#D6BA94] shrink-0" />
                           <span>Unbegrenzte Kunden, Projekte & Baustellen-Dossiers</span>
@@ -2392,20 +2401,30 @@ export default function LandingPageView({
                     </div>
                   </div>
 
-                  {/* 2. Enterprise / Private AI Node Plan (Unlocks AI in CRM) */}
-                  <div className="apple-glass-card rounded-[32px] p-8 flex flex-col justify-between relative">
+                  {/* 2. Enterprise Cloud Plan (Unlocks AI in CRM) */}
+                  <div className="apple-glass-card rounded-[32px] p-8 flex flex-col justify-between relative border border-emerald-500/30">
+                    <span className="absolute -top-3.5 right-6 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-semibold px-4 py-1 rounded-full">
+                      Meistgewählt von Schweizer Betrieben
+                    </span>
+
                     <div>
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <h3 className="text-2xl font-semibold text-white tracking-[-0.02em]">Enterprise</h3>
+                        <h3 className="text-2xl font-semibold text-white tracking-[-0.02em]">Enterprise Cloud</h3>
                         <span className="text-xs bg-emerald-500/15 text-emerald-300 px-3 py-0.5 rounded-full font-medium border border-emerald-400/25">
-                          Inkl. Firmeneigener KI
+                          Inkl. Schweizer Cloud-KI
                         </span>
                       </div>
                       <div className="text-3xl sm:text-4xl font-semibold text-white my-4 tabular-nums">
-                        ab CHF 149.00 <span className="text-xs font-normal text-[#A1A1A6]">/ Monat</span>
+                        {billingCycle === 'yearly' ? 'CHF 149.00' : 'CHF 169.00'}{' '}
+                        <span className="text-xs font-normal text-[#A1A1A6]">/ Monat</span>
                       </div>
+                      {billingCycle === 'yearly' && (
+                        <p className="text-[11px] text-emerald-300 -mt-2 mb-4">
+                          CHF 1'788.00 / Jahr bei Vorauszahlung (2 Monate geschenkt)
+                        </p>
+                      )}
                       <p className="text-xs text-[#A1A1A6] mb-6 leading-relaxed">
-                        Schaltet alle KI-Integrationen & KI-Optimierungen direkt im CRM frei – auf Ihrer isolierten Schweizer Private Cloud oder lokal vor Ort im Betrieb.
+                        Vollwertiges CRM inklusive firmeneigener Schweizer KI. Reduziert die Büroarbeit nach Feierabend um bis zu 45 Minuten pro Tag.
                       </p>
 
                       <ul className="space-y-3 text-xs sm:text-sm text-[#F5F5F7]/90">
@@ -2415,46 +2434,118 @@ export default function LandingPageView({
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                          <span><strong>KI-Freischaltung im CRM:</strong> Automatischer KI-Beleg- & Rechnungsscanner</span>
+                          <span><strong>Schweizerdeutsch-Sprachmemo:</strong> Mundart-Diktat direkt in A4-Offerte & SIA 118 Regierapport</span>
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                          <span><strong>KI-Freischaltung im CRM:</strong> Schweizerdeutsches Sprachdiktat zu Rapport & Offerte</span>
+                          <span><strong>Intelligenter Beleg-Scanner:</strong> Hornbach- & HGC-Quittungen mit Auto-MWST (8.1% / 2.6%)</span>
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                          <span><strong>KI-Freischaltung im CRM:</strong> KI-Offerten-Assistent aus eigener Firmenhistorie</span>
+                          <span><strong>Firmeneigener Beleg-Chat:</strong> Sichere Abfragen zu offenen Posten, Rechnungen & Projekten</span>
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                          <span><strong>Eigene KI-Instanz:</strong> Schweizer Private Cloud (Zürich/Genf) oder lokaler Server vor Ort</span>
+                          <span><strong>100% Sovereign Swiss Cloud:</strong> Eigene Instanz in Zürich & Genf (100% revDSG-konform)</span>
                         </li>
                         <li className="flex items-center gap-2.5">
                           <IconCheck className="w-4 h-4 text-emerald-300 shrink-0" />
-                          <span>Persönliche Datenmigration (Bexio, Sorba, Excel) & Einrichtung</span>
+                          <span><strong>Inklusiv-Kontingent:</strong> 120 Min. Audio & 1'500 KI-Anfragen / Mt. (Top-Up CHF 29.–)</span>
                         </li>
                       </ul>
                     </div>
 
-                    <a
-                      href="#anfrage"
-                      onClick={() => setInquiryData((prev) => ({ ...prev, paketWunsch: 'private_node' }))}
-                      className="mt-8 block w-full py-3.5 text-center text-xs sm:text-sm font-semibold rounded-full apple-titanium-btn cursor-pointer"
-                    >
-                      Live-Demo & KI-Paket anfragen
-                    </a>
+                    <div className="mt-8 space-y-2.5">
+                      <button
+                        onClick={onGoToRegistration}
+                        className="w-full py-3.5 text-xs sm:text-sm font-semibold rounded-full apple-titanium-btn cursor-pointer"
+                      >
+                        14 Tage mit KI testen
+                      </button>
+                      <div className="text-center">
+                        <a
+                          href="#anfrage"
+                          onClick={() => setInquiryData((prev) => ({ ...prev, paketWunsch: 'private_node' }))}
+                          className="text-xs text-[#A1A1A6] hover:text-[#E8D3B5] transition-colors underline cursor-pointer"
+                        >
+                          Oder persönliche 1:1 Live-Demo anfragen →
+                        </a>
+                      </div>
+                      <p className="text-xs text-center text-[#A1A1A6]">
+                        Inkl. 15 Min. Dialekt-Testguthaben · 14 Tage unverbindlich testen
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Direktvergleich: Standard-CRM (ohne KI) vs. Enterprise (mit Firmeneigener KI) */}
+                {/* Team-Lizenzen & Onboarding-Pakete */}
+                <div className="mt-12 max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Team-Lizenzen */}
+                  <div className="apple-glass-card rounded-[26px] p-6 border border-white/10">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-[#E8D3B5] bg-[#D6BA94]/15 px-3 py-1 rounded-full border border-[#D6BA94]/25">
+                        Flexible Mitarbeiter-Lizenzen
+                      </span>
+                    </div>
+                    <h4 className="text-base font-semibold text-white mb-1.5">Passend für jede Betriebsgrösse</h4>
+                    <p className="text-xs text-[#A1A1A6] mb-4">
+                      1 Büro-Admin ist in jedem Paket enthalten. Ergänzen Sie Lizenzen nach Bedarf:
+                    </p>
+                    <div className="space-y-3 text-xs">
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-[#F5F5F7]">Monteur-Lizenz (Mobile Baustellen-App)</span>
+                        <span className="font-semibold text-white">CHF 9.– / Mt. je Handwerker</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-[#F5F5F7]">Zusätzlicher Büro- / Projektleiter-User</span>
+                        <span className="font-semibold text-white">CHF 29.– / Mt.</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-[#F5F5F7]">Zusätzlicher Mandant / Tochterbetrieb</span>
+                        <span className="font-semibold text-white">CHF 49.– / Mt.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Einmalige Onboarding-Pakete */}
+                  <div className="apple-glass-card rounded-[26px] p-6 border border-white/10">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-400/25">
+                        Schweizer Onboarding-Services
+                      </span>
+                    </div>
+                    <h4 className="text-base font-semibold text-white mb-1.5">Schlüsselfertiger Umstieg</h4>
+                    <p className="text-xs text-[#A1A1A6] mb-4">
+                      Wir übernehmen den Wechselaufwand für Sie – transparent zum Festpreis:
+                    </p>
+                    <div className="space-y-3 text-xs">
+                      <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <div>
+                          <span className="text-[#F5F5F7] block font-medium">Altdaten-Migration Express</span>
+                          <span className="text-[11px] text-[#A1A1A6]">Kunden, Artikel & Offerten aus Bexio, Sorba, Excel</span>
+                        </div>
+                        <span className="font-semibold text-white shrink-0 ml-2">ab CHF 890.– pauschal</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <div>
+                          <span className="text-[#F5F5F7] block font-medium">Briefpapier & DIN 5008 Setup</span>
+                          <span className="text-[11px] text-[#A1A1A6]">Logo, Hausschrift & Fensterkuvert-Falzmarken</span>
+                        </div>
+                        <span className="font-semibold text-white shrink-0 ml-2">CHF 390.– pauschal</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Direktvergleich: Standard-CRM (ohne KI) vs. Enterprise Cloud (mit Schweizer Cloud-KI) */}
                 <div className="mt-14 max-w-4xl mx-auto apple-glass-card rounded-[28px] p-6 sm:p-8 border border-white/10">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-5 border-b border-white/10">
                     <div>
                       <h3 className="text-lg sm:text-xl font-semibold text-white">
-                        Direktvergleich: Standard-CRM vs. Mit Firmeneigener KI
+                        Direktvergleich: Standard-CRM vs. Enterprise Cloud
                       </h3>
                       <p className="text-xs text-[#A1A1A6] mt-0.5">
-                        Alle 10 Kern-Module sind bereits im Standard-Paket voll enthalten. Das KI-Paket schaltet zusätzlich die KI-Automatisierungen frei.
+                        Alle 10 Kern-Module sind bereits im Standard-Paket voll enthalten. Das KI-Paket schaltet zusätzlich die Schweizer Sprach- und Beleg-KI frei.
                       </p>
                     </div>
                   </div>
@@ -2463,7 +2554,7 @@ export default function LandingPageView({
                     <div className="py-3 grid grid-cols-12 items-center gap-2 font-semibold text-[#E8D3B5]">
                       <div className="col-span-6 sm:col-span-6">Funktion / Modul im CRM</div>
                       <div className="col-span-3 sm:col-span-3 text-center">Professional (Ohne KI)</div>
-                      <div className="col-span-3 sm:col-span-3 text-center text-emerald-300">Enterprise (Mit KI)</div>
+                      <div className="col-span-3 sm:col-span-3 text-center text-emerald-300">Enterprise Cloud (Mit KI)</div>
                     </div>
                     <div className="py-3 grid grid-cols-12 items-center gap-2">
                       <div className="col-span-6 text-[#F5F5F7]">Alle 10 CRM-Module, Katalog & Auto-PDF-Ersteller</div>
@@ -2491,7 +2582,7 @@ export default function LandingPageView({
                       <div className="col-span-3 text-center text-emerald-300 font-semibold">✓ Freigeschaltet</div>
                     </div>
                     <div className="py-3 grid grid-cols-12 items-center gap-2">
-                      <div className="col-span-6 text-[#F5F5F7]">Eigene isolierte Schweizer KI-Instanz (Private Cloud oder Vor Ort)</div>
+                      <div className="col-span-6 text-[#F5F5F7]">Eigene isolierte Schweizer KI-Instanz (Sovereign Cloud Zürich/Genf)</div>
                       <div className="col-span-3 text-center text-[#A1A1A6]">100% KI-frei</div>
                       <div className="col-span-3 text-center text-emerald-300 font-semibold">✓ Inklusive (revDSG)</div>
                     </div>
@@ -2671,16 +2762,16 @@ export default function LandingPageView({
                             type="button"
                             onClick={() => setInquiryData({ ...inquiryData, paketWunsch: 'private_node' })}
                             className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                              inquiryData.paketWunsch === 'private_node'
+                              inquiryData.paketWunsch === 'private_node' || inquiryData.paketWunsch === 'enterprise_cloud'
                                 ? 'border-[#D6BA94] bg-[#D6BA94]/15'
                                 : 'border-white/10 bg-white/[0.04] hover:border-white/25'
                             }`}
                           >
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-white mb-1">
-                              <span>Firmeneigene KI (Enterprise)</span>
+                              <span>Enterprise Cloud (Mit KI)</span>
                             </div>
                             <p className="text-xs text-[#A1A1A6] leading-tight">
-                              ab CHF 149.-/Mt. · Inkl. KI-Freischaltung im CRM & eigener Instanz
+                              ab CHF 149.– / Mt. · Inkl. Sprachmemos, Belegscanner & Schweizer Cloud-KI
                             </p>
                           </button>
 
@@ -2697,7 +2788,7 @@ export default function LandingPageView({
                               <span>Professional (Ohne KI)</span>
                             </div>
                             <p className="text-xs text-[#A1A1A6] leading-tight">
-                              CHF 49.-/Mt. · Alle 10 CRM-Module ohne KI
+                              ab CHF 49.– / Mt. (CHF 59.– mtl.) · Alle 10 CRM-Module ohne KI
                             </p>
                           </button>
 
@@ -2711,10 +2802,10 @@ export default function LandingPageView({
                             }`}
                           >
                             <div className="flex items-center gap-1.5 text-xs font-semibold text-white mb-1">
-                              <span>Altdaten-Migration</span>
+                              <span>Altdaten-Migration & CI</span>
                             </div>
                             <p className="text-xs text-[#A1A1A6] leading-tight">
-                              Übernahme aus Bexio, Sorba, Excel & Schulung
+                              ab CHF 890.– pauschal · Übernahme aus Bexio, Sorba, Excel
                             </p>
                           </button>
                         </div>

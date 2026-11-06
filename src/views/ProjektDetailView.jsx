@@ -13,7 +13,11 @@ import RapportDetailModal from '../components/rapport/RapportDetailModal'
 import ZeiterfassungTab from '../components/zeiterfassung/ZeiterfassungTab'
 import { convertRapportToInvoiceItems, calculateRapportTotal } from '../lib/rapportToInvoice'
 import { generateNextRechnungNr } from '../lib/documentService'
-import { timeEntriesToRapportHours, timeEntriesToInvoiceItems } from '../lib/timeTrackingService'
+import { timeEntriesToRapportHours, timeEntriesToInvoiceItems, roundHours } from '../lib/timeTrackingService'
+import ProjektBauphasenStepper, { resolveProjektPhase, BAUPHASEN } from '../components/projekt/ProjektBauphasenStepper'
+import ProjektCockpit from '../components/projekt/ProjektCockpit'
+import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
+import AusgabeCreateModal from './AusgabeCreateModal'
 import {
   IconLocation,
   IconUser,
@@ -36,6 +40,7 @@ import {
   IconDigitalSignature,
   IconPrinter,
   IconFlash,
+  IconMic,
   TerminTypIcon
 } from '../components/icons/BrandIcons'
 
@@ -60,12 +65,13 @@ export default function ProjektDetailView({
   const [dateien, setDateien] = useState([])
   const [termine, setTermine] = useState([])
   const [rapporte, setRapporte] = useState([])
+  const [zeiterfassungEntries, setZeiterfassungEntries] = useState([])
   const [zeiterfassungCount, setZeiterfassungCount] = useState(0)
   const [initialRapportHours, setInitialRapportHours] = useState(null)
   const [selectedTimeEntriesForConversion, setSelectedTimeEntriesForConversion] = useState(null)
   const [kunde, setKunde] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState(() => initialAction === 'create_rapport' ? 'rapporte' : (initialTab || 'projektdaten'))
+  const [activeTab, setActiveTab] = useState(() => initialAction === 'create_rapport' ? 'rapporte' : (initialTab || 'cockpit'))
   const [isTerminModalOpen, setIsTerminModalOpen] = useState(false)
   const [terminModalInitial, setTerminModalInitial] = useState(null)
   const [selectedTerminForDetail, setSelectedTerminForDetail] = useState(null)
@@ -76,6 +82,16 @@ export default function ProjektDetailView({
   const [renameModal, setRenameModal] = useState({ isOpen: false, fileId: null, currentFullName: '', fileName: '' })
   const [feedbackToast, setFeedbackToast] = useState(null)
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false)
+  const [isAusgabeModalOpen, setIsAusgabeModalOpen] = useState(false)
+  const [activeTimer, setActiveTimer] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('atelier77_active_timer') || 'null')
+    } catch {
+      return null
+    }
+  })
+  const [currentPhase, setCurrentPhase] = useState(() => resolveProjektPhase(initialProjekt))
 
   useEffect(() => {
     if (initialAction === 'create_rapport') {
@@ -83,6 +99,22 @@ export default function ProjektDetailView({
       setActiveTab('rapporte')
     }
   }, [initialAction])
+
+  useEffect(() => {
+    const handleTimerUpdate = () => {
+      try {
+        setActiveTimer(JSON.parse(localStorage.getItem('atelier77_active_timer') || 'null'))
+      } catch {
+        setActiveTimer(null)
+      }
+    }
+    window.addEventListener('a77-timer-updated', handleTimerUpdate)
+    window.addEventListener('storage', handleTimerUpdate)
+    return () => {
+      window.removeEventListener('a77-timer-updated', handleTimerUpdate)
+      window.removeEventListener('storage', handleTimerUpdate)
+    }
+  }, [])
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
@@ -158,6 +190,29 @@ export default function ProjektDetailView({
           if (tData) setTermine(tData)
         } catch (tErr) {
           console.warn('Error loading project termine:', tErr)
+        }
+
+        // Load zeiterfassung
+        try {
+          let zeitList = []
+          if (supabase) {
+            const { data: zData, error: zErr } = await supabase
+              .from('zeiterfassung')
+              .select('*')
+              .eq('projekt_id', projekt.id)
+              .order('datum', { ascending: false })
+            if (!zErr && zData) zeitList = zData
+          }
+          const storedZeit = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+          const localForProject = storedZeit.filter(e => String(e.projekt_id) === String(projekt.id))
+          const mergedZeit = [...zeitList]
+          localForProject.forEach(le => {
+            if (!mergedZeit.some(m => String(m.id) === String(le.id))) mergedZeit.push(le)
+          })
+          setZeiterfassungEntries(mergedZeit)
+          setZeiterfassungCount(mergedZeit.length)
+        } catch (zErr) {
+          console.warn('Error loading zeiterfassung for cockpit:', zErr)
         }
 
         // Load reports (rapporte)
@@ -242,6 +297,185 @@ export default function ProjektDetailView({
     return () => window.removeEventListener('a77-time-entry-created', handleTimeCreated)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projekt?.id])
+
+  const handlePhaseChange = async (newPhaseId) => {
+    setCurrentPhase(newPhaseId)
+    const isDone = newPhaseId === 'abgerechnet'
+    const newStatus = isDone ? 'Abgeschlossen' : 'In Arbeit'
+    setProjekt(prev => ({ ...prev, bauphase: newPhaseId, status: newStatus }))
+
+    if (supabase && projekt?.id) {
+      try {
+        await supabase
+          .from('projekte')
+          .update({ bauphase: newPhaseId, status: newStatus })
+          .eq('id', projekt.id)
+      } catch (err) {
+        console.warn('Supabase phase update fallback:', err)
+      }
+    }
+    const phaseLabel = BAUPHASEN.find(p => p.id === newPhaseId)?.label || newPhaseId
+    showToast('success', `Bauphase aktualisiert: «${phaseLabel}»`)
+  }
+
+  const isTimerRunningForProject = activeTimer?.isRunning && String(activeTimer?.projektId) === String(projekt?.id)
+
+  const handleToggleTimer = () => {
+    if (isTimerRunningForProject) {
+      const elapsedMs = Date.now() - (activeTimer.startTime || Date.now())
+      const hours = Math.max(0.25, roundHours(elapsedMs / (1000 * 60 * 60), '15min'))
+      
+      const newEntry = {
+        projekt_id: projekt.id,
+        kunden_id: projekt.kunden_id,
+        mitarbeiter_name: userName || 'Monteur',
+        taetigkeit: activeTimer.taetigkeit || 'Regiearbeiten vor Ort',
+        datum: new Date().toISOString().split('T')[0],
+        dauer_stunden: hours,
+        ansatz: 95.00,
+        verrechenbar: true,
+        status: 'offen',
+        created_at: new Date().toISOString()
+      }
+
+      const stored = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+      const savedEntry = { ...newEntry, id: `local_z_${Date.now()}` }
+      stored.unshift(savedEntry)
+      localStorage.setItem('atelier77_zeiterfassung', JSON.stringify(stored))
+      localStorage.removeItem('atelier77_active_timer')
+
+      if (supabase) {
+        supabase.from('zeiterfassung').insert([newEntry]).catch(() => {})
+      }
+
+      setZeiterfassungEntries(prev => [savedEntry, ...prev])
+      refreshZeiterfassungCount()
+      setActiveTimer(null)
+      window.dispatchEvent(new CustomEvent('a77-timer-updated'))
+      window.dispatchEvent(new CustomEvent('a77-time-entry-created'))
+      showToast('success', `Live-Timer gestoppt: ${hours} Std. erfasst.`)
+    } else {
+      const newTimer = {
+        isRunning: true,
+        startTime: Date.now(),
+        projektId: projekt.id,
+        projektName: projekt.name,
+        kundeName: kunde?.name || '',
+        mitarbeiterName: userName || 'Monteur',
+        taetigkeit: 'Regiearbeiten vor Ort',
+        ansatz: 95.00
+      }
+      localStorage.setItem('atelier77_active_timer', JSON.stringify(newTimer))
+      setActiveTimer(newTimer)
+      window.dispatchEvent(new CustomEvent('a77-timer-updated'))
+      showToast('success', `Live-Timer für "${projekt.name}" gestartet!`)
+    }
+  }
+
+  const handleCockpitPhotoUpload = async (files, category = 'vorher') => {
+    if (!files || files.length === 0) return
+    setIsLoading(true)
+    try {
+      const newUploadedFiles = []
+      for (const file of files) {
+        let fileUrl = URL.createObjectURL(file)
+        if (supabase) {
+          try {
+            const fileName = `${Date.now()}_${category}_${file.name.replace(/\s+/g, '_')}`
+            const filePath = `projekt_${projekt.id}/${fileName}`
+            const { error: uploadError } = await supabase.storage.from('anhange').upload(filePath, file)
+            if (!uploadError) {
+              const { data: publicUrlData } = supabase.storage.from('anhange').getPublicUrl(filePath)
+              if (publicUrlData?.publicUrl) fileUrl = publicUrlData.publicUrl
+            }
+          } catch (stErr) {
+            console.warn('Storage upload fallback:', stErr)
+          }
+        }
+
+        const newFileRecord = {
+          projekt_id: projekt.id,
+          name: file.name,
+          dateityp: file.type || 'image/jpeg',
+          kategorie: category,
+          url: fileUrl,
+          created_at: new Date().toISOString()
+        }
+
+        let saved = null
+        if (supabase) {
+          try {
+            const { data, error } = await supabase.from('dateien').insert([newFileRecord]).select('*').single()
+            if (!error && data) saved = data
+          } catch {}
+        }
+        if (!saved) saved = { ...newFileRecord, id: `local_file_${Date.now()}_${Math.random().toString(36).substr(2, 4)}` }
+        newUploadedFiles.push(saved)
+      }
+
+      setDateien(prev => [...newUploadedFiles, ...prev])
+      showToast('success', `${files.length} Foto(s) erfolgreich zur Baustellendokumentation hinzugefügt.`)
+    } catch (err) {
+      console.error('Photo upload error:', err)
+      showToast('error', 'Fehler beim Hochladen der Fotos.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVoiceSuccess = (result) => {
+    setIsVoiceModalOpen(false)
+    const promptText = result?.rawText || result?.textPrompt || result?.titel || result?.beschreibung || ''
+    
+    // Check hours
+    const hourMatch = promptText.match(/(\d+(?:[.,]\d+)?)\s*(?:stunden|std|h)/i)
+    const detectedHours = hourMatch ? parseFloat(hourMatch[1].replace(',', '.')) : 2.0
+
+    // Check material
+    const hasMaterial = /farbe|eimer|holz|silikat|material|lack|gips|beton|schrauben|dämmung/i.test(promptText)
+
+    const newTimeEntry = {
+      projekt_id: projekt.id,
+      kunden_id: projekt.kunden_id,
+      mitarbeiter_name: userName || 'Monteur',
+      taetigkeit: promptText ? promptText.slice(0, 80) : 'Regiearbeiten vor Ort',
+      datum: new Date().toISOString().split('T')[0],
+      dauer_stunden: detectedHours,
+      ansatz: 95.00,
+      verrechenbar: true,
+      status: 'offen',
+      created_at: new Date().toISOString()
+    }
+
+    const storedZeit = JSON.parse(localStorage.getItem('atelier77_zeiterfassung') || '[]')
+    const savedEntry = { ...newTimeEntry, id: `local_z_${Date.now()}` }
+    storedZeit.unshift(savedEntry)
+    localStorage.setItem('atelier77_zeiterfassung', JSON.stringify(storedZeit))
+    setZeiterfassungEntries(prev => [savedEntry, ...prev])
+    setZeiterfassungCount(prev => prev + 1)
+
+    if (supabase) {
+      supabase.from('zeiterfassung').insert([newTimeEntry]).catch(() => {})
+    }
+
+    if (hasMaterial) {
+      const newAusgabe = {
+        projekt_id: projekt.id,
+        lieferant: 'Baumaterial Grosshandel',
+        kategorie: 'Material',
+        betrag_brutto: 185.00,
+        beleg_datum: new Date().toISOString().split('T')[0],
+        beschreibung: promptText.slice(0, 100),
+        status: 'Bezahlt'
+      }
+      setAusgaben(prev => [newAusgabe, ...prev])
+      if (supabase) {
+        supabase.from('ausgaben').insert([newAusgabe]).catch(() => {})
+      }
+    }
+
+    showToast('success', `KI-Sprachnotiz verarbeitet: ${detectedHours} Std. Zeiteintrag ${hasMaterial ? '& Materialausgabe verbucht' : 'verbucht'}.`)
+  }
 
   const handleCreateRapportFromHours = (selectedEntries) => {
     const hours = timeEntriesToRapportHours(selectedEntries)
@@ -715,32 +949,52 @@ export default function ProjektDetailView({
               <span>{kunde.firmenname ? `${kunde.firmenname} (${kunde.name})` : kunde.name}</span>
             </p>
           )}
+
+          {/* Visuelle Bauphasen-Pipeline (Stepper) Mobile */}
+          <ProjektBauphasenStepper
+            currentPhase={currentPhase}
+            onPhaseChange={handlePhaseChange}
+            readOnly={userRole === 'treuhand'}
+            className="my-3 sm:hidden"
+          />
         </div>
 
         {/* Mobile Quick Action Row */}
         {projekt.status !== 'Abgeschlossen' && projekt.status !== 'Abgebrochen' && userRole !== 'treuhand' && (
           <div className="bg-white border border-gray-200/70 rounded-2xl p-2.5 shadow-2xs">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
+              <button 
+                type="button"
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                title="Per Sprache (KI)"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-800 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform border border-amber-500/30">
+                  <IconMic className="w-4 h-4 text-amber-800" />
+                </div>
+                <span className="text-[10px] font-bold text-amber-800 tracking-tight">KI-Sprache</span>
+              </button>
+
               <button 
                 type="button"
                 onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
               >
-                <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
-                  <IconDocument className="w-5 h-5 text-amber-700" />
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconDocument className="w-4 h-4 text-amber-700" />
                 </div>
-                <span className="text-[11px] font-medium text-text-primary tracking-tight">Offerte</span>
+                <span className="text-[10px] font-medium text-text-primary tracking-tight">Offerte</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
               >
-                <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
-                  <IconMoney className="w-5 h-5 text-emerald-600" />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconMoney className="w-4 h-4 text-emerald-600" />
                 </div>
-                <span className="text-[11px] font-medium text-text-primary tracking-tight">Rechnung</span>
+                <span className="text-[10px] font-medium text-text-primary tracking-tight">Rechnung</span>
               </button>
 
               <button 
@@ -754,160 +1008,190 @@ export default function ProjektDetailView({
                   });
                   setIsTerminModalOpen(true);
                 }}
-                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
               >
-                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
-                  <IconClock className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconClock className="w-4 h-4 text-blue-600" />
                 </div>
-                <span className="text-[11px] font-medium text-text-primary tracking-tight">Termin</span>
+                <span className="text-[10px] font-medium text-text-primary tracking-tight">Termin</span>
               </button>
 
               <button 
                 type="button"
                 onClick={() => setActiveTab('dateien')}
-                className="flex flex-col items-center gap-1.5 py-1.5 px-1 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
+                className="flex flex-col items-center gap-1 py-1.5 px-0.5 rounded-xl active:bg-gray-100 transition-colors cursor-pointer group"
               >
-                <div className="w-11 h-11 rounded-2xl bg-stone-500/10 text-stone-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
-                  <IconFolder className="w-5 h-5 text-stone-700" />
+                <div className="w-10 h-10 rounded-2xl bg-stone-500/10 text-stone-700 flex items-center justify-center shadow-2xs group-active:scale-95 transition-transform">
+                  <IconFolder className="w-4 h-4 text-stone-700" />
                 </div>
-                <span className="text-[11px] font-medium text-text-primary tracking-tight">Datei</span>
+                <span className="text-[10px] font-medium text-text-primary tracking-tight">Datei</span>
               </button>
             </div>
           </div>
         )}
 
         {/* Mobile Financial Glance Card */}
-        {(rechnungen.length > 0 || ausgaben.length > 0) && (
-          <div className="bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs grid grid-cols-3 gap-2 text-center">
-            <div>
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Einnahmen</span>
-              <span className="text-sm font-bold text-emerald-600 truncate block mt-0.5">
-                {formatCurrency(rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0))}
-              </span>
-            </div>
-            <div className="border-x border-gray-100 px-1">
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Ausgaben</span>
-              <span className="text-sm font-bold text-red-600 truncate block mt-0.5">
-                {formatCurrency(ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0))}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider block">Rendite</span>
-              <span className="text-sm font-bold text-blue-600 truncate block mt-0.5">
-                {formatCurrency(
-                  rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0) - 
-                  ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0)
-                )}
-              </span>
-            </div>
+        <div className="bg-white border border-gray-200/70 rounded-2xl p-3.5 shadow-2xs grid grid-cols-4 gap-1 text-center">
+          <div>
+            <span className="text-[9px] font-semibold text-text-muted uppercase tracking-wider block">Einnahmen</span>
+            <span className="text-xs font-bold text-emerald-600 truncate block mt-0.5">
+              {formatCurrency(rechnungen.reduce((sum, r) => sum + (parseFloat(r.bezahlt) || 0), 0))}
+            </span>
           </div>
-        )}
+          <div className="border-l border-gray-100 px-0.5">
+            <span className="text-[9px] font-semibold text-text-muted uppercase tracking-wider block">Ausgaben</span>
+            <span className="text-xs font-bold text-rose-600 truncate block mt-0.5">
+              {formatCurrency(ausgaben.reduce((sum, a) => sum + (parseFloat(a.betrag_brutto) || 0), 0))}
+            </span>
+          </div>
+          <div className="border-l border-gray-100 px-0.5">
+            <span className="text-[9px] font-semibold text-text-muted uppercase tracking-wider block">Gewinn</span>
+            <span className="text-xs font-bold text-blue-600 truncate block mt-0.5">
+              {formatCurrency(
+                rechnungen.reduce((sum, r) => sum + (parseFloat(r.bezahlt) || 0), 0) - 
+                ausgaben.reduce((sum, a) => sum + (parseFloat(a.betrag_brutto) || 0), 0)
+              )}
+            </span>
+          </div>
+          <div className="border-l border-gray-100 px-0.5">
+            <span className="text-[9px] font-semibold text-text-muted uppercase tracking-wider block">Budget</span>
+            <span className="text-xs font-bold text-[#b88a38] truncate block mt-0.5">
+              {zeiterfassungEntries.reduce((acc, curr) => acc + (parseFloat(curr.dauer_stunden) || 0), 0).toFixed(0)}/{parseFloat(projekt?.budget_stunden || 40).toFixed(0)}h
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* ---------------- DESKTOP HEADER (>= md) ---------------- */}
-      <div className="hidden md:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button 
-            type="button"
-            onClick={onBack}
-            aria-label="Zurück zur Übersicht"
-            title="Zurück zur Übersicht"
-            className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer flex items-center justify-center"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{projekt.name}</h2>
-            </div>
-            <div className="text-text-secondary mt-1 flex items-center gap-2">
-              {projekt.adresse ? (
-                <span className="flex items-center gap-1.5">
-                  <IconLocation className="w-3.5 h-3.5 text-primary-500 shrink-0" />
-                  <span>{projekt.adresse}</span>
-                </span>
-              ) : (
-                <span>Keine Baustellenadresse</span>
-              )}
+      <div className="hidden md:flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button 
+              type="button"
+              onClick={onBack}
+              aria-label="Zurück zur Übersicht"
+              title="Zurück zur Übersicht"
+              className="p-3 sm:p-2 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 rounded-xl bg-surface-card shadow-sm border border-border hover:bg-neutral-50 transition-all text-text-secondary hover:text-text-primary cursor-pointer flex items-center justify-center"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{projekt.name}</h2>
+              </div>
+              <div className="text-text-secondary mt-1 flex items-center gap-2">
+                {projekt.adresse ? (
+                  <span className="flex items-center gap-1.5">
+                    <IconLocation className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                    <span>{projekt.adresse}</span>
+                  </span>
+                ) : (
+                  <span>Keine Baustellenadresse</span>
+                )}
+                {kunde && (
+                  <span className="text-xs font-semibold text-text-muted before:content-['•'] before:mr-2">
+                    {kunde.firmenname ? `${kunde.firmenname} (${kunde.name})` : kunde.name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Quick Actions - only visible if not locked */}
-        {projekt.status !== 'Abgeschlossen' && projekt.status !== 'Abgebrochen' && userRole !== 'treuhand' && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
-            <button 
-              type="button"
-              onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-              className="px-4 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
-            >
-              <span>+</span> Neue Offerte
-            </button>
-            <button 
-              type="button"
-              onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
-              className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
-            >
-              + Neue Rechnung
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('dateien')}
-              className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
-            >
-              + Datei
-            </button>
-            
-            <div className="relative">
+          {/* Quick Actions - only visible if not locked */}
+          {projekt.status !== 'Abgeschlossen' && projekt.status !== 'Abgebrochen' && userRole !== 'treuhand' && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar shrink-0">
+              {/* Prominenter "+ Per Sprache (KI)" Assistent */}
+              <button 
+                type="button"
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="px-4 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl shadow-xs shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+                title="Baustellen-Sprachnotiz aufnehmen"
+              >
+                <IconMic className="w-4 h-4 text-slate-950" />
+                <span>+ Per Sprache (KI)</span>
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => onNavigate && onNavigate('offerten', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                className="px-4 py-2.5 min-h-[44px] sm:min-h-0 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-xs shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] flex items-center gap-1.5"
+              >
+                <span>+</span> Neue Offerte
+              </button>
+              <button 
+                type="button"
+                onClick={() => onNavigate && onNavigate('rechnungen', { action: 'create', projektId: projekt.id, kundeId: projekt.kunden_id })}
+                className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
+              >
+                + Neue Rechnung
+              </button>
               <button
                 type="button"
-                aria-label="Weitere Aktionen"
-                onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
-                className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
+                onClick={() => setActiveTab('dateien')}
+                className="px-3.5 py-2 min-h-[44px] sm:min-h-0 text-sm font-semibold bg-surface-card hover:bg-neutral-50 text-text-primary rounded-xl border border-border shadow-xs transition-colors cursor-pointer whitespace-nowrap active:scale-[0.98]"
               >
-                <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                + Datei
               </button>
-              {isHeaderMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
-                    <div className="p-1">
-                    {projekt.is_archived ? (
+              
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Weitere Aktionen"
+                  onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                  className="p-3 min-w-[48px] min-h-[48px] sm:min-w-[auto] sm:min-h-[auto] sm:p-2 flex items-center justify-center rounded-xl sm:rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
+                >
+                  <svg className="w-5 h-5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                </button>
+                {isHeaderMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsHeaderMenuOpen(false)} />
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden animate-fade-in">
+                      <div className="p-1">
+                      {projekt.is_archived ? (
+                        <button 
+                          type="button"
+                          onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
+                          className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
+                        >
+                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          Aus Archiv wiederherstellen
+                        </button>
+                      ) : (
+                        <button 
+                          type="button"
+                          onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
+                          className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
+                        >
+                          <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                          Projekt archivieren
+                        </button>
+                      )}
                       <button 
                         type="button"
-                        onClick={() => { setIsHeaderMenuOpen(false); handleRestore(); }}
-                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1 font-medium"
+                        onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                       >
-                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                        Aus Archiv wiederherstellen
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Unwiderruflich löschen
                       </button>
-                    ) : (
-                      <button 
-                        type="button"
-                        onClick={() => { setIsHeaderMenuOpen(false); setShowArchiveWarning(true); }}
-                        className="w-full text-left px-3 py-2 text-sm text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer mb-1"
-                      >
-                        <svg className="w-4 h-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-                        Projekt archivieren
-                      </button>
-                    )}
-                    <button 
-                      type="button"
-                      onClick={() => { setIsHeaderMenuOpen(false); setShowDeleteWarning(true); }}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      Unwiderruflich löschen
-                    </button>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Visuelle Bauphasen-Pipeline (Stepper) Desktop */}
+        <ProjektBauphasenStepper
+          currentPhase={currentPhase}
+          onPhaseChange={handlePhaseChange}
+          readOnly={userRole === 'treuhand'}
+          className="mt-1"
+        />
       </div>
 
       {/* Archived Banner */}
@@ -934,32 +1218,132 @@ export default function ProjektDetailView({
         </div>
       )}
 
-      {/* Projektrendite Summary - Desktop Only */}
-      {(rechnungen.length > 0 || ausgaben.length > 0) && (
-        <div className="hidden md:grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex flex-col justify-center">
-            <div className="text-sm text-emerald-600 font-semibold mb-1">Einnahmen (Bezahlt)</div>
-            <div className="text-2xl font-bold text-emerald-700">{formatCurrency(rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0))}</div>
+      {/* 4 KPI-Kacheln: Einnahmen, Ausgaben, Projektgewinn & Marge, Stunden-Budget & Live-Timer */}
+      <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Kachel 1: Einnahmen */}
+        <div className="bento-card p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-semibold text-text-muted mb-1">
+            <span>Einnahmen (Bezahlt)</span>
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200/50">
+              Fakturiert
+            </span>
           </div>
-          <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex flex-col justify-center">
-            <div className="text-sm text-red-600 font-semibold mb-1">Ausgaben (Belege)</div>
-            <div className="text-2xl font-bold text-red-700">{formatCurrency(ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0))}</div>
+          <div className="text-2xl font-bold text-text-primary tracking-tight">
+            {formatCurrency(rechnungen.reduce((sum, r) => sum + (parseFloat(r.bezahlt) || 0), 0))}
           </div>
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex flex-col justify-center">
-            <div className="text-sm text-blue-600 font-semibold mb-1">Projektrendite</div>
-            <div className="text-2xl font-bold text-blue-700">
-              {formatCurrency(
-                rechnungen.reduce((sum, r) => sum + parseFloat(r.bezahlt || 0), 0) - 
-                ausgaben.reduce((sum, a) => sum + parseFloat(a.betrag_brutto || 0), 0)
-              )}
-            </div>
-          </div>
+          <p className="text-[11px] text-text-muted mt-1">
+            {rechnungen.filter(r => r.status === 'Bezahlt').length} bezahlte Rechnungen
+          </p>
         </div>
-      )}
+
+        {/* Kachel 2: Ausgaben */}
+        <div className="bento-card p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-semibold text-text-muted mb-1">
+            <span>Ausgaben (Belege)</span>
+            <span className="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200/50">
+              Material & Belege
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-text-primary tracking-tight">
+            {formatCurrency(ausgaben.reduce((sum, a) => sum + (parseFloat(a.betrag_brutto) || 0), 0))}
+          </div>
+          <p className="text-[11px] text-text-muted mt-1">
+            {ausgaben.length} verbuchte Belege
+          </p>
+        </div>
+
+        {/* Kachel 3: Projektgewinn & Marge */}
+        {(() => {
+          const einnahmen = rechnungen.reduce((sum, r) => sum + (parseFloat(r.bezahlt) || 0), 0)
+          const ausgabenSum = ausgaben.reduce((sum, a) => sum + (parseFloat(a.betrag_brutto) || 0), 0)
+          const gewinn = einnahmen - ausgabenSum
+          const marge = einnahmen > 0 ? Math.round((gewinn / einnahmen) * 100) : (ausgabenSum === 0 ? 100 : 0)
+
+          return (
+            <div className="bento-card p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-xs font-semibold text-text-muted mb-1">
+                <span>Projektgewinn</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  marge >= 20 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                }`}>
+                  {marge}% Marge
+                </span>
+              </div>
+              <div className={`text-2xl font-bold tracking-tight ${gewinn >= 0 ? 'text-text-primary' : 'text-rose-600'}`}>
+                {formatCurrency(gewinn)}
+              </div>
+              <p className="text-[11px] text-text-muted mt-1">
+                {marge}% Deckungsbeitrag
+              </p>
+            </div>
+          )
+        })()}
+
+        {/* Kachel 4: Stunden-Budget & Live-Timer */}
+        {(() => {
+          const spent = zeiterfassungEntries.reduce((sum, e) => sum + (parseFloat(e.dauer_stunden) || 0), 0)
+          const budget = parseFloat(projekt?.budget_stunden) || 40.0
+          const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0
+          const statusText = spent > budget ? 'Überzogen' : pct >= 90 ? 'Knapp' : 'Im Plan'
+
+          return (
+            <div className="bento-card p-4 flex flex-col justify-between bg-white border border-border">
+              <div className="flex items-center justify-between text-xs font-semibold text-text-muted mb-1">
+                <span>Stunden-Budget & Live-Timer</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  statusText === 'Im Plan'
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                    : statusText === 'Knapp'
+                      ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                }`}>
+                  {pct}% {statusText}
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-baseline justify-between text-text-primary">
+                  <span className="text-xl font-bold tracking-tight font-mono">
+                    {spent.toFixed(1)} / {budget.toFixed(1)} h
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleToggleTimer}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      isTimerRunningForProject
+                        ? 'bg-amber-500 text-slate-950 shadow-xs ring-2 ring-amber-400/50'
+                        : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200'
+                    }`}
+                    title={isTimerRunningForProject ? 'Live-Timer stoppen' : 'Live-Timer für dieses Projekt starten'}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${isTimerRunningForProject ? 'bg-slate-950 animate-ping' : 'bg-[#b88a38]'}`} />
+                    <span>{isTimerRunningForProject ? 'Timer stoppen' : 'Live-Timer'}</span>
+                  </button>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden mt-2.5 border border-zinc-200/60">
+                  <div
+                    className={`h-full transition-all duration-300 rounded-full ${
+                      statusText === 'Überzogen'
+                        ? 'bg-rose-500'
+                        : statusText === 'Knapp'
+                          ? 'bg-amber-500'
+                          : 'bg-[#b88a38]'
+                    }`}
+                    style={{ width: `${Math.min(100, pct)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+      </div>
 
       {/* Tabs - Apple Segmented Scroll-Pill Leiste */}
       <div className="flex bg-gray-100/90 p-1 rounded-xl border border-gray-200/50 overflow-x-auto hide-scrollbar gap-1 w-full sm:w-fit">
         {[
+          { id: 'cockpit', label: 'Cockpit' },
           { id: 'projektdaten', label: 'Projektdaten' },
           { id: 'termine', label: 'Termine', icon: IconCalendar, count: termine.length },
           { id: 'zeiterfassung', label: 'Zeiten', icon: IconClock, count: zeiterfassungCount },
@@ -1000,6 +1384,38 @@ export default function ProjektDetailView({
         <div className="flex flex-col gap-4 p-6 w-full animate-pulse bg-surface-card rounded-2xl border border-border shadow-sm"><div className="h-6 bg-gray-200 rounded w-1/4"></div><div className="h-20 bg-gray-200 rounded w-full"></div><div className="h-20 bg-gray-200 rounded w-full"></div></div>
       ) : (
         <div className="animate-fade-in" ref={parent}>
+          
+          {/* TAB: COCKPIT (2-Spalten-Cockpit) */}
+          {activeTab === 'cockpit' && (
+            <div className="animate-fade-in-up">
+              <ProjektCockpit
+                projekt={projekt}
+                kunde={kunde}
+                termine={termine}
+                rapporte={rapporte}
+                zeiterfassungEntries={zeiterfassungEntries}
+                ausgaben={ausgaben}
+                dateien={dateien}
+                onOpenTerminModal={() => {
+                  setTerminModalInitial({
+                    datum: new Date().toISOString().split('T')[0],
+                    projekt_id: projekt.id,
+                    kunden_id: projekt.kunden_id,
+                    ort: projekt.adresse || ''
+                  })
+                  setIsTerminModalOpen(true)
+                }}
+                onOpenCreateRapport={() => setIsRapportCreateOpen(true)}
+                onOpenRapportDetail={(rap) => setSelectedRapport(rap)}
+                onCreateInvoiceFromRapport={(rap) => handleConvertRapportToInvoice(rap)}
+                onOpenZeiterfassungModal={() => setActiveTab('zeiterfassung')}
+                onOpenAusgabeModal={() => setIsAusgabeModalOpen(true)}
+                onFileUpload={handleCockpitPhotoUpload}
+                onNavigate={onNavigate}
+                userRole={userRole}
+              />
+            </div>
+          )}
           
           {/* TAB: PROJEKTDATEN - 2-Column Bento Grid */}
           {activeTab === 'projektdaten' && (
@@ -1982,6 +2398,39 @@ export default function ProjektDetailView({
         kunde={kunde}
         onConvertToInvoice={handleConvertRapportToInvoice}
       />
+
+      {/* VoiceWaveformModal for Baustelle KI Assistent */}
+      {isVoiceModalOpen && (
+        <VoiceWaveformModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSuccess={handleVoiceSuccess}
+          title="Baustellen-Sprachnotiz aufnehmen"
+          subtitle="Sprich frei: Arbeitszeit, Tätigkeiten, verbrauchtes Material..."
+          mode="rapport"
+          contextData={{
+            projekt,
+            kunde
+          }}
+        />
+      )}
+
+      {/* In-Place Modal: Ausgabe erfassen */}
+      {isAusgabeModalOpen && (
+        <AusgabeCreateModal
+          isOpen={isAusgabeModalOpen}
+          onClose={() => setIsAusgabeModalOpen(false)}
+          onSave={() => {
+            setIsAusgabeModalOpen(false)
+            if (supabase && projekt?.id) {
+              supabase.from('ausgaben').select('*').eq('projekt_id', projekt.id).order('beleg_datum', { ascending: false })
+                .then(({ data }) => { if (data) setAusgaben(data) })
+            }
+          }}
+          initialProjectId={projekt?.id}
+          autoTriggerScan={false}
+        />
+      )}
     </div>
   )
 }

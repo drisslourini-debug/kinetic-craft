@@ -145,6 +145,18 @@ vi.mock('recharts', () => ({
       {children}
     </div>
   ),
+  AreaChart: ({ children, data }) => (
+    <div data-testid="bar-chart" data-points={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  Area: () => <div data-testid="area" />,
+  LineChart: ({ children, data }) => (
+    <div data-testid="bar-chart" data-points={data?.length || 0}>
+      {children}
+    </div>
+  ),
+  Line: () => <div data-testid="line" />,
   Bar: () => <div data-testid="bar" />,
   XAxis: () => <div data-testid="x-axis" />,
   YAxis: () => <div data-testid="y-axis" />,

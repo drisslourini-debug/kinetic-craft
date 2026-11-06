@@ -6,6 +6,9 @@ import { navigateBack } from '../lib/router'
 import ProjektDetailView from './ProjektDetailView'
 import ProjektCreateModal from './ProjektCreateModal'
 import StatCard from '../components/StatCard'
+import ProjektKanbanBoard from '../components/projekt/ProjektKanbanBoard'
+import ProjektBauTimeline from '../components/projekt/ProjektBauTimeline'
+import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
 import { IconMic, IconFolder, IconBauunternehmung, IconLocation, IconCalendar, IconClock, IconUser, IconWarning, IconCheck } from '../components/icons/BrandIcons'
 
 export default function ProjekteView({ onNavigate, viewParams, userRole, userName }) {
@@ -16,6 +19,8 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false)
+  const [viewMode, setViewMode] = useState('list') // 'list' | 'kanban' | 'timeline'
   const [showArchived, setShowArchived] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState(null)
   const [archiveConfirmProjekt, setArchiveConfirmProjekt] = useState(null)
@@ -25,6 +30,49 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
     setTimeout(() => setFeedbackToast(null), 3500)
+  }
+
+  const handleUpdateProjektPhase = async (projektId, newPhaseId) => {
+    setProjekte(prev => prev.map(p => {
+      if (String(p.id) === String(projektId)) {
+        const isDone = newPhaseId === 'abgerechnet'
+        return {
+          ...p,
+          bauphase: newPhaseId,
+          status: isDone ? 'Abgeschlossen' : 'In Arbeit'
+        }
+      }
+      return p
+    }))
+
+    if (supabase) {
+      try {
+        const isDone = newPhaseId === 'abgerechnet'
+        await supabase
+          .from('projekte')
+          .update({
+            bauphase: newPhaseId,
+            status: isDone ? 'Abgeschlossen' : 'In Arbeit'
+          })
+          .eq('id', projektId)
+      } catch (err) {
+        console.warn('Phase update error:', err)
+      }
+    }
+    showToast('success', 'Projektphase im Kanban-Board aktualisiert.')
+  }
+
+  const handleVoiceSuccess = (result) => {
+    setIsVoiceModalOpen(false)
+    const promptText = result?.rawText || result?.textPrompt || result?.titel || ''
+    
+    // Auto-create or open create modal with voice text
+    if (onNavigate) {
+      onNavigate('projekte', { action: 'create', voiceText: promptText })
+    } else {
+      setIsCreateModalOpen(true)
+    }
+    showToast('success', 'Sprachnotiz erfasst – erstelle neues Projekt.')
   }
 
   useEffect(() => {
@@ -263,7 +311,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
             <button 
               type="button"
-              onClick={() => onNavigate ? onNavigate('projekte', { action: 'create' }) : setIsCreateModalOpen(true)}
+              onClick={() => setIsVoiceModalOpen(true)}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 min-h-[48px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-base sm:text-sm rounded-xl active:scale-[0.97] transition-all shadow-md shadow-amber-500/20 cursor-pointer"
               title="Projekt per Spracheingabe einsprechen"
             >
@@ -592,8 +640,67 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
         )}
       </div>
 
-      {/* ---------------- DESKTOP ONLY: DATATABLE (>= md) ---------------- */}
-      <div className="hidden md:block bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
+      {/* ---------------- DESKTOP VIEW SWITCHER: LISTE | KANBAN-BOARD | BAU-TIMELINE ---------------- */}
+      <div className="hidden md:flex items-center justify-between gap-4 mt-6 mb-3">
+        <div className="inline-flex items-center bg-zinc-100 p-1 rounded-xl border border-zinc-200/70 text-xs">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'list'
+                ? 'bg-white text-text-primary shadow-xs'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <span>Liste</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('kanban')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'kanban'
+                ? 'bg-white text-text-primary shadow-xs'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <span>Kanban-Board</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('timeline')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'timeline'
+                ? 'bg-white text-text-primary shadow-xs'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <span>Bau-Timeline</span>
+          </button>
+        </div>
+
+        <div className="text-xs text-text-muted font-medium">
+          {filteredProjekte.length} {filteredProjekte.length === 1 ? 'Projekt' : 'Projekte'} aktiv
+        </div>
+      </div>
+
+      {viewMode === 'kanban' ? (
+        <div className="hidden md:block">
+          <ProjektKanbanBoard
+            projekte={filteredProjekte}
+            onSelectProjekt={(p) => onNavigate ? onNavigate('projekte', { projektId: p.id }) : setSelectedProjekt(p)}
+            onUpdateProjektPhase={handleUpdateProjektPhase}
+          />
+        </div>
+      ) : viewMode === 'timeline' ? (
+        <div className="hidden md:block">
+          <ProjektBauTimeline
+            projekte={filteredProjekte}
+            onSelectProjekt={(p) => onNavigate ? onNavigate('projekte', { projektId: p.id }) : setSelectedProjekt(p)}
+          />
+        </div>
+      ) : (
+        /* ---------------- DESKTOP ONLY: DATATABLE (>= md) ---------------- */
+        <div className="hidden md:block bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         
         {/* Integrated Toolbar */}
         <div className="p-4 border-b border-border bg-surface/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -831,6 +938,7 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
           </div>
         )}
       </div>
+      )}
 
       {/* Archive Confirmation Modal */}
       {archiveConfirmProjekt && (
@@ -893,6 +1001,18 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
           {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
+      )}
+
+      {/* VoiceWaveformModal for Sprachassistent */}
+      {isVoiceModalOpen && (
+        <VoiceWaveformModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSuccess={handleVoiceSuccess}
+          title="Neues Projekt per Sprache (KI) erfassen"
+          subtitle="Sprich frei: Projektname, Kunde, Adresse, Baustellenart..."
+          mode="offerte"
+        />
       )}
     </div>
   )

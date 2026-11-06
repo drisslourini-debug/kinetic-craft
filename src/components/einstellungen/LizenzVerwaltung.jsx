@@ -108,12 +108,12 @@ export default function LizenzVerwaltung({ tenant, settings }) {
         </div>
       </div>
 
-      {/* Plan-Vergleich (Free vs. Pro) */}
+      {/* Plan-Vergleich (Professional vs. Enterprise Cloud) */}
       <div className="bg-surface-card rounded-2xl border border-border p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h4 className="text-base font-bold text-text-primary">Tarife & Upgrades</h4>
-            <p className="text-xs text-text-secondary mt-0.5">Wähle den passenden Plan für deinen Handwerksbetrieb.</p>
+            <p className="text-xs text-text-secondary mt-0.5">Wähle den passenden Plan für deinen Schweizer Handwerksbetrieb.</p>
           </div>
           <div className="flex items-center bg-surface border border-border rounded-xl p-1 self-start sm:self-auto">
             <button
@@ -130,42 +130,45 @@ export default function LizenzVerwaltung({ tenant, settings }) {
                 selectedBillingCycle === 'yearly' ? 'bg-primary-600 text-white shadow-xs' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
-              Jährlich (10% Rabatt)
+              Jährlich (2 Monate geschenkt)
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Free Plan */}
+          {/* Professional Plan */}
           <div className="border border-border rounded-2xl p-6 bg-surface flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <h5 className="text-lg font-bold text-text-primary">Starter / Free</h5>
-                <span className="text-xs bg-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full font-semibold">Basis</span>
+                <h5 className="text-lg font-bold text-text-primary">Professional</h5>
+                <span className="text-xs bg-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full font-semibold">Ohne KI</span>
               </div>
-              <div className="text-3xl font-black text-text-primary mb-4">
-                CHF 0 <span className="text-xs font-normal text-text-secondary">/ Monat</span>
+              <div className="text-3xl font-black text-text-primary mb-1">
+                {selectedBillingCycle === 'yearly' ? 'CHF 49.00' : 'CHF 59.00'} <span className="text-xs font-normal text-text-secondary">/ Monat</span>
               </div>
-              <ul className="space-y-2 text-xs text-text-secondary">
+              {selectedBillingCycle === 'yearly' && (
+                <p className="text-[11px] text-text-secondary mb-3">CHF 588.00 / Jahr bei Vorauszahlung</p>
+              )}
+              <ul className="space-y-2 text-xs text-text-secondary mt-2">
                 <li className="flex items-center gap-2">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Bis zu 20 Kunden</span>
+                  <span>1 vollwertiger Büro-Arbeitsplatz inklusive</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Standard Offerten & Rechnungen</span>
+                  <span>Alle 10 CRM-Module unbegrenzt</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Schweizer QR-Code Generierung</span>
+                  <span>Schweizer QR-Rechnung & 3-Stufen-Mahnwesen</span>
                 </li>
-                <li className="flex items-center gap-2 text-gray-400">
-                  <IconClose className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                  <span>Eigenes Briefpapier-Layout & Branding</span>
+                <li className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>Banana- & Schweizer Treuhand-Export (OR 957)</span>
                 </li>
-                <li className="flex items-center gap-2 text-gray-400">
-                  <IconClose className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                  <span>Treuhand-Portal & Exporte</span>
+                <li className="flex items-center gap-2">
+                  <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
+                  <span>SIA 118 Art. 141 Ausmassrechner & Zefix-Import</span>
                 </li>
               </ul>
             </div>
@@ -175,47 +178,50 @@ export default function LizenzVerwaltung({ tenant, settings }) {
                 !isPro ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-default' : 'bg-surface hover:bg-neutral-100 text-text-primary border-border cursor-pointer'
               }`}
             >
-              {!isPro ? 'Aktueller Status' : 'Auf Starter wechseln'}
+              {!isPro ? 'Aktueller Status' : 'Auf Professional wechseln'}
             </button>
           </div>
 
-          {/* Pro Plan */}
+          {/* Enterprise Cloud Plan */}
           <div className="border-2 border-primary-500 rounded-2xl p-6 bg-primary-50/20 flex flex-col justify-between relative shadow-md">
             <span className="absolute -top-3 right-6 bg-primary-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-xs">
               Beliebteste Wahl
             </span>
             <div>
               <div className="flex justify-between items-center mb-2">
-                <h5 className="text-lg font-bold text-text-primary">Professional</h5>
-                <span className="text-xs bg-primary-100 text-primary-800 px-2.5 py-0.5 rounded-full font-bold">Unbegrenzt</span>
+                <h5 className="text-lg font-bold text-text-primary">Enterprise Cloud</h5>
+                <span className="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">Inkl. Schweizer Cloud-KI</span>
               </div>
-              <div className="text-3xl font-black text-primary-700 mb-4">
-                {selectedBillingCycle === 'yearly' ? 'CHF 44.00' : 'CHF 49.00'} <span className="text-xs font-normal text-text-secondary">/ Monat</span>
+              <div className="text-3xl font-black text-primary-700 mb-1">
+                {selectedBillingCycle === 'yearly' ? 'CHF 149.00' : 'CHF 169.00'} <span className="text-xs font-normal text-text-secondary">/ Monat</span>
               </div>
-              <ul className="space-y-2 text-xs text-text-primary">
+              {selectedBillingCycle === 'yearly' && (
+                <p className="text-[11px] text-emerald-700 mb-3">CHF 1'788.00 / Jahr bei Vorauszahlung</p>
+              )}
+              <ul className="space-y-2 text-xs text-text-primary mt-2">
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Unbegrenzte Kunden & Projekte</span>
+                  <span><strong>Alle 10 Module aus Professional</strong> enthalten</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Unbegrenzte Offerten & QR-Rechnungen</span>
+                  <span><strong>Schweizerdeutsch-Sprachmemo:</strong> Mundart direkt in Rapport & Offerte</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Vollwertige Buchhaltung & MWST-Abrechnung</span>
+                  <span><strong>Intelligenter Beleg-Scanner:</strong> Auto-MWST (8.1% / 2.6%)</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Treuhand-Zugänge inklusive</span>
+                  <span><strong>Sovereign Swiss Cloud:</strong> Zürich & Genf (100% revDSG-konform)</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Eigenes Briefpapier, Firmenlogo & Farben</span>
+                  <span><strong>Inklusiv-Volumen:</strong> 120 Min. Audio & 1'500 Anfragen / Monat</span>
                 </li>
                 <li className="flex items-center gap-2 font-medium">
                   <IconCheck className="w-3.5 h-3.5 text-primary-600 shrink-0" />
-                  <span>Word- & PDF-Export mit Firmen-Design</span>
+                  <span>Monteur-Apps für Baustelle zubuchbar (+ CHF 9.– / Mt.)</span>
                 </li>
               </ul>
             </div>
@@ -223,8 +229,18 @@ export default function LizenzVerwaltung({ tenant, settings }) {
               onClick={() => setShowUpgradeModal(true)}
               className="mt-6 w-full py-2.5 text-xs font-bold rounded-xl bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-600/20 transition-all cursor-pointer"
             >
-              {isPro ? 'Abonnement verwalten' : 'Jetzt auf Pro upgraden'}
+              {isPro ? 'Abonnement verwalten' : 'Jetzt auf Enterprise Cloud upgraden'}
             </button>
+          </div>
+        </div>
+
+        {/* Zusatzlizenzen Info */}
+        <div className="mt-6 pt-5 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-text-secondary">
+          <div>
+            <strong className="text-text-primary">Team-Lizenzen:</strong> Monteur-App (Baustelle/Rapporte) CHF 9.– / Mt. · Weiterer Büro-User CHF 29.– / Mt. · Mandant CHF 49.– / Mt.
+          </div>
+          <div>
+            <strong className="text-text-primary">Onboarding:</strong> Altdaten-Migration ab CHF 890.– · Briefpapier CHF 390.–
           </div>
         </div>
       </div>
@@ -285,12 +301,12 @@ export default function LizenzVerwaltung({ tenant, settings }) {
                 Mandant: <strong>{tenant?.name || settings?.firmenname}</strong>
               </div>
               <div className="text-xs text-primary-700 mt-1">
-                Plan: Pro (CHF 49.- / Monat)
+                Plan: Professional (ab CHF 49.– / Mt.) oder Enterprise Cloud (ab CHF 149.– / Mt.)
               </div>
             </div>
             <div className="space-y-3">
               <a
-                href={`mailto:support@ki-netic.ch?subject=Stripe-Aktivierung für ${encodeURIComponent(tenant?.name || 'Mandant')}&body=Hallo Kinetic Craft Team,%0D%0Awir möchten das Pro-Abonnement aktivieren.`}
+                href={`mailto:support@ki-netic.ch?subject=Abonnement-Aktivierung für ${encodeURIComponent(tenant?.name || 'Mandant')}&body=Hallo Kinetic Craft Team,%0D%0Awir möchten unser Abonnement aktivieren.`}
                 className="w-full flex items-center justify-center py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl text-sm transition-colors"
               >
                 Support für Checkout kontaktieren
