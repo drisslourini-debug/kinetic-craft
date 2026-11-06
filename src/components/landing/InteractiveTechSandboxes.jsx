@@ -437,7 +437,7 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
       label: '3. Schweizerdeutsches Baustellen-Diktat',
       badge: 'Audio-to-Rapport · 1.8 Sek.',
       rawType: 'Sprachnotiz im Transporter (Mundart)',
-      rawTitle: '🎙️ Gesprochene Audio-Aufnahme (00:18 Min.)',
+      rawTitle: 'Gesprochene Audio-Aufnahme (00:18 Min.)',
       rawLines: [
         '«Hoi zäme, Regierapport für d Liegenschaft Bahnhofstrasse 14:',
         'Drüehalb Stund Monteur-Arbeit für de Notfall-Ustusch vo de',
@@ -640,7 +640,7 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
           <div>
             <span className="inline-flex items-center gap-2 text-xs font-medium text-[#E8D3B5] bg-[#D6BA94]/12 border border-[#D6BA94]/25 px-3.5 py-1 rounded-full mb-3">
               <IconShieldCheck className="w-3.5 h-3.5 text-[#D6BA94]" />
-              <span>Kinetic Private AI Node · Schweizer Architektur-Blueprint</span>
+              <span>Kinetic Enterprise Cloud · Schweizer Architektur-Blueprint</span>
             </span>
             <h3 className="text-2xl sm:text-3xl font-semibold tracking-[-0.03em] text-white">
               Ihre isolierte Schweizer Firmen-KI (Infomaniak / Exoscale)
@@ -734,7 +734,7 @@ export function KiAndPrivateCloudSandbox({ onRequestPrivateNode }) {
                   onClick={onRequestPrivateNode}
                   className="w-full py-3 rounded-full apple-titanium-btn font-semibold text-xs cursor-pointer"
                 >
-                  Private AI Node für meinen Betrieb anfragen →
+                  Enterprise Cloud KI für meinen Betrieb anfragen →
                 </button>
               </div>
             )}

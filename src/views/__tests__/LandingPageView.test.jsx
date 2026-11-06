@@ -339,6 +339,6 @@ describe('LandingPageView Component - 5-Subpage Apple Pro Titanium Content Archi
     expect(screen.getByText(/100% Schweizer Datensouveränität \(revDSG\)/i)).toBeInTheDocument()
     expect(screen.getByText(/Schweizer Dialekt-Engine/i)).toBeInTheDocument()
     expect(screen.getByText(/Klassische US-Cloud APIs/i)).toBeInTheDocument()
-    expect(screen.getByText(/Kinetic Private Cloud/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Kinetic Enterprise Cloud$/i })).toBeInTheDocument()
   })
 })

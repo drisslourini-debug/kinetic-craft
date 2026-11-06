@@ -1497,24 +1497,26 @@ export default function KalenderView({ onNavigate, viewParams, userRole, globalS
           <button
             type="button"
             onClick={() => setMobileViewTab('strip')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               mobileViewTab === 'strip'
                 ? 'bg-white text-text-primary shadow-xs'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            📅 Tages-Kalender
+            <IconCalendar className="w-3.5 h-3.5 shrink-0" />
+            <span>Tages-Kalender</span>
           </button>
           <button
             type="button"
             onClick={() => setMobileViewTab('agenda')}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               mobileViewTab === 'agenda'
                 ? 'bg-white text-text-primary shadow-xs'
                 : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            📋 Alle Termine (Agenda)
+            <IconDocument className="w-3.5 h-3.5 shrink-0" />
+            <span>Alle Termine (Agenda)</span>
           </button>
         </div>
       </div>

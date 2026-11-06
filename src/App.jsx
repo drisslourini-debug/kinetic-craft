@@ -807,7 +807,7 @@ export default function App() {
         {isOffline && (
           <div className="bg-amber-900 text-amber-100 text-xs px-4 py-2 flex items-center justify-center gap-2 border-b border-amber-800 backdrop-blur-xs sticky top-0 z-30 animate-fade-in print:hidden shadow-md">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-            <span className="font-bold">📡 Offline-Modus aktiv:</span>
+            <span className="font-bold">Offline-Modus aktiv:</span>
             <span>Änderungen und Rapporte werden lokal im Browser gesichert & bei Empfang synchronisiert.</span>
           </div>
         )}

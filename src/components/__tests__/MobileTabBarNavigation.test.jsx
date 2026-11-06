@@ -119,7 +119,7 @@ describe('MobileTabBar Navigation & History Integrity', () => {
     const actionBtn = screen.getByRole('button', { name: /Baustellen-Schnellaktionen öffnen/i })
     fireEvent.click(actionBtn)
 
-    expect(screen.getByText('⚡ Baustellen-Schnellaktionen')).toBeInTheDocument()
+    expect(screen.getByText('Baustellen-Schnellaktionen')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Neue Offerte/i })).toBeInTheDocument()
 
     // Click Neue Offerte

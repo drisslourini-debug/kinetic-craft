@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import BottomSheet from './ui/BottomSheet';
-import { IconNav } from './icons/BrandIcons';
+import { IconNav, IconClock, IconDocument, IconCamera, IconQrBill, IconRapport } from './icons/BrandIcons';
 
 export default function MobileTabBar({ activeView, onNavigate, userRole }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -79,7 +79,7 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
       <BottomSheet
         isOpen={isQuickActionsOpen}
         onClose={() => setIsQuickActionsOpen(false)}
-        title="⚡ Baustellen-Schnellaktionen"
+        title="Baustellen-Schnellaktionen"
         subtitle="Direktzugriff für Handwerker & Montage"
       >
         <div className="space-y-2.5 pb-2">
@@ -92,8 +92,8 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             }}
             className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-amber-100/60"
           >
-            <div className="w-11 h-11 rounded-xl bg-amber-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
-              ⏱️
+            <div className="w-11 h-11 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <IconClock className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="text-sm font-bold text-slate-900 block truncate">Stempeluhr starten</span>
@@ -108,8 +108,8 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             onClick={() => handleTabClick('projekte', { action: 'create_rapport' })}
             className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-emerald-100/60"
           >
-            <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
-              📝
+            <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <IconRapport className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="text-sm font-bold text-slate-900 block truncate">Neuer Regierapport</span>
@@ -118,17 +118,17 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
             <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">Sign</span>
           </button>
 
-          {/* 3. Beleg mit Gemini KI scannen */}
+          {/* 3. Beleg mit KI scannen */}
           <button
             type="button"
             onClick={() => handleTabClick('buchhaltung', { action: 'scan_beleg' })}
             className="w-full flex items-center gap-3.5 p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200/80 text-left active:scale-[0.98] transition-all min-h-[56px] touch-action-manipulation cursor-pointer hover:bg-sky-100/60"
           >
-            <div className="w-11 h-11 rounded-xl bg-sky-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
-              📸
+            <div className="w-11 h-11 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <IconCamera className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-sm font-bold text-slate-900 block truncate">Beleg mit Gemini KI scannen</span>
+              <span className="text-sm font-bold text-slate-900 block truncate">Beleg mit KI scannen</span>
               <span className="text-xs text-sky-900 block truncate">Quittung fotografieren & automatische OCR</span>
             </div>
             <span className="text-xs font-semibold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">KI</span>
@@ -141,8 +141,8 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
               onClick={() => handleTabClick('offerten', { action: 'create' })}
               className="flex items-center gap-2.5 p-3 rounded-2xl bg-white border border-slate-200 text-left active:scale-[0.98] transition-all min-h-[50px] touch-action-manipulation cursor-pointer hover:border-amber-300"
             >
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center font-bold shrink-0 text-sm">
-                📄
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
+                <IconDocument className="w-4 h-4 text-amber-800" />
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 block truncate">Neue Offerte</span>
@@ -155,8 +155,8 @@ export default function MobileTabBar({ activeView, onNavigate, userRole }) {
               onClick={() => handleTabClick('rechnungen', { action: 'create' })}
               className="flex items-center gap-2.5 p-3 rounded-2xl bg-white border border-slate-200 text-left active:scale-[0.98] transition-all min-h-[50px] touch-action-manipulation cursor-pointer hover:border-amber-300"
             >
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold shrink-0 text-sm">
-                🧾
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
+                <IconQrBill className="w-4 h-4 text-emerald-800" />
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 block truncate">Neue Rechnung</span>

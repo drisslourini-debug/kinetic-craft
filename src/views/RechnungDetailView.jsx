@@ -2325,7 +2325,8 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                               disabled={isUpdating}
                               className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-xs rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 active:scale-95"
                             >
-                              <span>⚡ 1-Klick: Vollständig bezahlt buchen</span>
+                              <IconCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                              <span>1-Klick: Vollständig bezahlt buchen</span>
                             </button>
                           </div>
                         </div>

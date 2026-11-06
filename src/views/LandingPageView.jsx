@@ -177,7 +177,7 @@ export default function LandingPageView({
   const [inquiryData, setInquiryData] = useState({
     gewerk: 'Schreinerei',
     teamSize: '2-5 Mitarbeiter',
-    paketWunsch: 'private_node',
+    paketWunsch: 'enterprise_cloud',
     name: '',
     firma: '',
     email: '',
@@ -1226,8 +1226,9 @@ export default function LandingPageView({
                               «Mach mir e Offerte für d Familie Meier: Wohnzimmer und Gang zäme 85 Quadratmeter abdecke und zweimal wiiss striiche, plus 3 Stund Regie für chliini Gipser-Usbeserige...»
                             </p>
                           </div>
-                          <div className="p-2.5 rounded-xl bg-emerald-500/12 border border-emerald-400/25 text-emerald-300 text-[11px] font-medium">
-                            ✨ KI übersetzt Mundart → Hochdeutsch & ordnet Katalogpreise zu
+                          <div className="p-2.5 rounded-xl bg-emerald-500/12 border border-emerald-400/25 text-emerald-300 text-[11px] font-medium flex items-center gap-2">
+                            <IconCheck className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                            <span>KI übersetzt Mundart → Hochdeutsch & ordnet Katalogpreise zu</span>
                           </div>
                         </div>
 
@@ -2044,7 +2045,7 @@ export default function LandingPageView({
                         </span>
                         <IconSwissFlag className="w-5 h-5 rounded shadow-xs" />
                       </div>
-                      <h3 className="text-xl font-semibold text-white mb-2">Kinetic Private Cloud</h3>
+                      <h3 className="text-xl font-semibold text-white mb-2">Kinetic Enterprise Cloud</h3>
                       <p className="text-xs text-[#E8D3B5] mb-6">
                         Eigene isolierte Schweizer KI-Instanz (Rechenzentrum Zürich & Genf).
                       </p>
@@ -2494,7 +2495,7 @@ export default function LandingPageView({
                       <div className="text-center">
                         <a
                           href="#anfrage"
-                          onClick={() => setInquiryData((prev) => ({ ...prev, paketWunsch: 'private_node' }))}
+                          onClick={() => setInquiryData((prev) => ({ ...prev, paketWunsch: 'enterprise_cloud' }))}
                           className="text-xs text-[#A1A1A6] hover:text-[#E8D3B5] transition-colors underline cursor-pointer"
                         >
                           Oder persönliche 1:1 Live-Demo anfragen →
@@ -2789,9 +2790,9 @@ export default function LandingPageView({
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <button
                             type="button"
-                            onClick={() => setInquiryData({ ...inquiryData, paketWunsch: 'private_node' })}
+                            onClick={() => setInquiryData({ ...inquiryData, paketWunsch: 'enterprise_cloud' })}
                             className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                              inquiryData.paketWunsch === 'private_node' || inquiryData.paketWunsch === 'enterprise_cloud'
+                              inquiryData.paketWunsch === 'enterprise_cloud'
                                 ? 'border-[#D6BA94] bg-[#D6BA94]/15'
                                 : 'border-white/10 bg-white/[0.04] hover:border-white/25'
                             }`}

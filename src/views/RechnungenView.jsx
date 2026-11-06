@@ -698,7 +698,8 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
                     : 'bg-rose-50/80 text-rose-900 border border-rose-200/80 hover:bg-rose-100/70'
                 }`}
               >
-                <span>🔴 Letzte Mahnung ({stats.stufe3Count})</span>
+                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                <span>Letzte Mahnung ({stats.stufe3Count})</span>
               </button>
               {stats.betreibungCount > 0 && (
                 <button
@@ -710,7 +711,8 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
                       : 'bg-red-100 text-red-950 border border-red-300 hover:bg-red-200'
                   }`}
                 >
-                  <span>🚨 Betreibung bereit ({stats.betreibungCount})</span>
+                  <IconWarning className="w-3.5 h-3.5 shrink-0" />
+                  <span>Betreibung bereit ({stats.betreibungCount})</span>
                 </button>
               )}
               {stats.mahnstoppCount > 0 && (
@@ -966,7 +968,8 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
                               : 'bg-rose-50 text-rose-700 border border-rose-300'
                           }`}
                         >
-                          <span>{isBetreibungReady ? '🚨 Betreiben' : 'Mahnen'}</span>
+                          {isBetreibungReady && <IconWarning className="w-3 h-3 shrink-0" />}
+                          <span>{isBetreibungReady ? 'Betreiben' : 'Mahnen'}</span>
                           <span className="text-xs">→</span>
                         </button>
                       )}
@@ -995,7 +998,8 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
                         className="inline-flex items-center justify-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap group/btn"
                         title="SchKG Betreibungsbegehren einleiten"
                       >
-                        <span>🚨 Betreiben</span>
+                        <IconWarning className="w-3.5 h-3.5 shrink-0" />
+                        <span>Betreiben</span>
                         <svg className="w-3 h-3 text-white/80 group-hover/btn:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                         </svg>

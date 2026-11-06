@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import CameraCapture from '../components/CameraCapture'
 import { scanReceipt } from '../services/aiService'
-import { IconSparkles, IconPhotoScanner, IconCheck, IconWarning, IconRefresh } from '../components/icons/BrandIcons'
+import { IconSparkles, IconPhotoScanner, IconCheck, IconWarning, IconRefresh, IconEye } from '../components/icons/BrandIcons'
 
 export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData = null, autoTriggerScan = false }) {
   const [formData, setFormData] = useState({
@@ -356,7 +356,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                     onClick={() => setIsZoomOpen(true)}
                     className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer bg-slate-800 px-2 py-0.5 rounded-md"
                   >
-                    <span>🔍 Zoomen</span>
+                    <IconEye className="w-3 h-3 text-slate-300" />
+                    <span>Zoomen</span>
                   </button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -406,7 +407,8 @@ export default function AusgabeCreateModal({ isOpen, onClose, onSave, editData =
                       onClick={() => setIsZoomOpen(true)}
                       className="text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg transition"
                     >
-                      <span>🔍 Vollbild</span>
+                      <IconEye className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Vollbild</span>
                     </button>
                   </div>
 
