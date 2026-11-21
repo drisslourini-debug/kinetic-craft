@@ -52,6 +52,11 @@ function serverlessDevPlugin() {
               await mod.default(req, res);
               return;
             }
+            if (url.startsWith('/api/zefix')) {
+              const mod = await import('./api/zefix.js');
+              await mod.default(req, res);
+              return;
+            }
             next();
           } catch (err) {
             console.error('Local API dev server error:', err);

@@ -84,7 +84,7 @@ export default function KundePreviewDrawer({
           id: `pr-${p.id}`,
           type: 'projekt',
           title: `Projekt: ${p.name}`,
-          subtitle: p.projekt_nr ? `#${p.projekt_nr}` : 'Laufend',
+          subtitle: (p.projektnummer || p.projekt_nr) ? `#${p.projektnummer || p.projekt_nr}` : 'Laufend',
           status: p.status,
           date: p.created_at || p.startdatum,
           raw: p

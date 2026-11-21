@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { supabase } from '../lib/supabase'
 import { formatDate, formatCurrency } from '../lib/formatters'
@@ -47,9 +47,9 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
       const [kundenRes, projekteRes, rechnungenRes, offertenRes] = await Promise.allSettled([
         supabase.from('kunden').select('*').order('name', { ascending: true }),
-        supabase.from('projekte').select('id, name, status, kunde_id, created_at, startdatum, projekt_nr').eq('is_archived', false),
-        supabase.from('rechnungen').select('id, rechnung_nr, total, bezahlt, status, faellig_am, bezahlt_am, created_at, kunde_id').eq('is_archived', false),
-        supabase.from('offerten').select('id, offerte_nr, total, status, created_at, kunde_id').eq('is_archived', false)
+        supabase.from('projekte').select('id, name, status, kunden_id, created_at, startdatum, projektnummer').eq('is_archived', false),
+        supabase.from('rechnungen').select('id, rechnung_nr, total, bezahlt, status, faellig_am, bezahlt_am, created_at, kunden_id').eq('is_archived', false),
+        supabase.from('offerten').select('id, offerte_nr, total, status, created_at, kunden_id').eq('is_archived', false)
       ])
 
       if (kundenRes.status === 'rejected' || kundenRes.value.error) {
@@ -62,9 +62,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       const projekteByKunde = {}
       if (projekteRes.status === 'fulfilled' && projekteRes.value.data) {
         projekteRes.value.data.forEach(p => {
-          if (p.kunde_id) {
-            if (!projekteByKunde[p.kunde_id]) projekteByKunde[p.kunde_id] = []
-            projekteByKunde[p.kunde_id].push(p)
+          const kId = p.kunden_id || p.kunde_id
+          if (kId) {
+            if (!projekteByKunde[kId]) projekteByKunde[kId] = []
+            projekteByKunde[kId].push(p)
           }
         })
       }
@@ -73,9 +74,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       const rechnungenByKunde = {}
       if (rechnungenRes.status === 'fulfilled' && rechnungenRes.value.data) {
         rechnungenRes.value.data.forEach(r => {
-          if (r.kunde_id) {
-            if (!rechnungenByKunde[r.kunde_id]) rechnungenByKunde[r.kunde_id] = []
-            rechnungenByKunde[r.kunde_id].push(r)
+          const kId = r.kunden_id || r.kunde_id
+          if (kId) {
+            if (!rechnungenByKunde[kId]) rechnungenByKunde[kId] = []
+            rechnungenByKunde[kId].push(r)
           }
         })
       }
@@ -84,9 +86,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       const offertenByKunde = {}
       if (offertenRes.status === 'fulfilled' && offertenRes.value.data) {
         offertenRes.value.data.forEach(o => {
-          if (o.kunde_id) {
-            if (!offertenByKunde[o.kunde_id]) offertenByKunde[o.kunde_id] = []
-            offertenByKunde[o.kunde_id].push(o)
+          const kId = o.kunden_id || o.kunde_id
+          if (kId) {
+            if (!offertenByKunde[kId]) offertenByKunde[kId] = []
+            offertenByKunde[kId].push(o)
           }
         })
       }
@@ -97,7 +100,7 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         const rList = rechnungenByKunde[k.id] || []
         const oList = offertenByKunde[k.id] || []
 
-        const aktiveProjekteCount = pList.filter(p => p.status === 'In Arbeit').length
+        const aktiveProjekteCount = pList.filter(p => p.status === 'In Arbeit' || p.status === 'Aktiv').length
 
         let totalUmsatz = 0
         let offenTotal = 0
@@ -208,6 +211,8 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
     fetchKundenData()
   }, [fetchKundenData])
 
+  const prevViewParamKundeId = useRef(viewParams?.kundeId)
+
   // Sync selectedKunde with viewParams
   useEffect(() => {
     if (viewParams?.action === 'create' && selectedKunde) {
@@ -236,9 +241,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
       if (kunde && (!selectedKunde || selectedKunde.id !== kunde.id)) {
         setSelectedKunde(kunde)
       }
-    } else if (!viewParams?.kundeId && selectedKunde) {
+    } else if (prevViewParamKundeId.current && !viewParams?.kundeId && selectedKunde) {
       setSelectedKunde(null)
     }
+    prevViewParamKundeId.current = viewParams?.kundeId
   }, [viewParams?.kundeId, kunden, selectedKunde])
 
   useEffect(() => {
@@ -374,9 +380,10 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
 
   // Stats calculation
   const stats = {
-    total: kunden.length,
-    active: kunden.filter(k => k.status === 'Aktiv' && !k.is_archived).length,
+    total: kunden.filter(k => showArchived || !k.is_archived).length,
+    active: kunden.filter(k => k.status === 'Aktiv' && (showArchived || !k.is_archived)).length,
     newThisMonth: kunden.filter(k => {
+      if (!showArchived && k.is_archived) return false
       const d = new Date(k.created_at)
       const now = new Date()
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -1020,7 +1027,11 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
         onClose={() => setPreviewKunde(null)}
         onOpenFullView={(k) => {
           setPreviewKunde(null)
-          setSelectedKunde(k)
+          if (onNavigate) {
+            onNavigate('kunden', { kundeId: k.id })
+          } else {
+            setSelectedKunde(k)
+          }
         }}
         onNavigate={onNavigate}
       />
@@ -1037,6 +1048,15 @@ export default function KundenView({ onNavigate, viewParams, userRole }) {
           }} 
           onSuccess={(newKunde) => {
             setIsCreateModalOpen(false)
+            if (viewParams?.action === 'create') {
+              if (onNavigate) {
+                onNavigate('kunden', { kundeId: newKunde.id }, { replace: true })
+              } else {
+                navigateBack('kunden')
+              }
+            } else if (onNavigate) {
+              onNavigate('kunden', { kundeId: newKunde.id })
+            }
             fetchKundenData()
             setSelectedKunde(newKunde)
           }} 

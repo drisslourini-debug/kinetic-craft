@@ -195,6 +195,8 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
     let overdueTotal = 0
     let bezahltCount = 0
     let bezahltTotal = 0
+    let bezahltTotalAll = 0
+    let bezahltCountJahr = 0
     let mahnwesenCount = 0
     let mahnstoppCount = 0
     let stufe1Count = 0
@@ -234,25 +236,34 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
         }
       }
       
-      // Jahresumsatz = Echte bezahlte Beträge (ohne Ausbuchungen)
+      // Jahresumsatz & Gesamtumsatz = Echte bezahlte Beträge (ohne Ausbuchungen)
       if (r.bezahlt > 0) {
         if (r.status === 'Bezahlt') bezahltCount++
         
         const zahlungen = r.daten?.zahlungen || []
+        let hasCurrentYearPayment = false
         if (zahlungen.length > 0) {
           zahlungen.forEach(z => {
             if (z.betrag > 0 && z.typ !== 'Ausbuchung') {
+              bezahltTotalAll += z.betrag
               if (new Date(z.datum).getFullYear().toString() === currentYear) {
                 bezahltTotal += z.betrag
+                hasCurrentYearPayment = true
               }
             }
           })
         } else if (r.status === 'Bezahlt' || r.status === 'Teilbezahlt') {
           // Fallback für alte Rechnungen ohne Detailhistorie
+          const amt = (r.bezahlt || 0)
+          bezahltTotalAll += amt
           const rDate = r.bezahlt_am || r.rechnungsdatum || r.created_at || ''
           if (rDate.startsWith(currentYear)) {
-            bezahltTotal += (r.bezahlt || 0)
+            bezahltTotal += amt
+            hasCurrentYearPayment = true
           }
+        }
+        if (hasCurrentYearPayment && r.status === 'Bezahlt') {
+          bezahltCountJahr++
         }
       }
     })
@@ -260,7 +271,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
     return {
       offeneCount, offeneTotal,
       overdueCount, overdueTotal,
-      bezahltCount, bezahltTotal,
+      bezahltCount, bezahltCountJahr, bezahltTotal, bezahltTotalAll,
       mahnwesenCount, mahnstoppCount,
       stufe1Count, stufe2Count, stufe3Count, betreibungCount
     }
@@ -531,7 +542,7 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           </div>
           <p className="text-base font-extrabold text-emerald-700 leading-tight">{stats.bezahltCount}</p>
-          <p className="text-[10px] text-text-secondary truncate mt-0.5">{formatCurrency(stats.bezahltTotal)}</p>
+          <p className="text-[10px] text-text-secondary truncate mt-0.5">{formatCurrency(stats.bezahltTotalAll)}</p>
         </button>
       </div>
 
@@ -560,10 +571,10 @@ export default function RechnungenView({ onNavigate, viewParams, userRole, globa
         />
 
         <StatCard 
-          title={`Jahresumsatz ${new Date().getFullYear()}`}
+          title="Bezahlte Rechnungen"
           value={stats.bezahltCount}
-          secondaryValue={`${formatCurrency(stats.bezahltTotal)} eingenommen`}
-          subtitle="Bezahlte Rechnungen"
+          secondaryValue={`${formatCurrency(stats.bezahltTotalAll)} eingenommen`}
+          subtitle={`${formatCurrency(stats.bezahltTotal)} im Jahr ${new Date().getFullYear()}`}
           icon='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
           color="emerald"
           onClick={() => setFilterStatus(filterStatus === 'Bezahlt' ? '' : 'Bezahlt')}

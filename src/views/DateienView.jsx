@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import CameraCapture from '../components/CameraCapture'
-import { getTenantStoragePath, extractStoragePath } from '../lib/storageHelper'
+import { getTenantStoragePath, extractStoragePath, getFileAccessUrl } from '../lib/storageHelper'
 import { formatCurrency } from '../lib/formatters'
 import {
   IconFolder,
@@ -123,6 +123,20 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
       localStorage.setItem('atelier77_recent_files', JSON.stringify(updated))
       return updated
     })
+  }
+
+  const handleExecuteOpenFile = (file) => {
+    if (!file) return
+    console.log('handleExecuteOpenFile called for file:', file?.name, 'url:', file?.url)
+    handleOpenFile(file)
+
+    if (file.url) {
+      window.open(file.url, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    // Wenn noch kein physisches PDF existiert: Direkt zum Beleg/Datensatz springen
+    handleJumpToSource(file)
   }
 
   useEffect(() => {
@@ -910,14 +924,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                             {mobileRootSearchResults.matchedFiles.map(file => (
                               <div
                                 key={file.id}
-                                onClick={() => {
-                                  if (file.url) {
-                                    handleOpenFile(file)
-                                    window.open(file.url, '_blank')
-                                  } else {
-                                    handleJumpToSource(file)
-                                  }
-                                }}
+                                onClick={() => handleExecuteOpenFile(file)}
                                 className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -1074,14 +1081,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                         {recentDateienList.slice(0, 4).map(file => (
                           <div
                             key={file.id}
-                            onClick={() => {
-                              if (file.url) {
-                                handleOpenFile(file)
-                                window.open(file.url, '_blank')
-                              } else {
-                                handleJumpToSource(file)
-                              }
-                            }}
+                            onClick={() => handleExecuteOpenFile(file)}
                             className="bg-surface-card rounded-2xl border border-border p-3.5 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative group"
                           >
                             <div className="flex items-start justify-between">
@@ -1121,14 +1121,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                         {currentContents.files.map(file => (
                           <div
                             key={file.id}
-                            onClick={() => {
-                              if (file.url) {
-                                handleOpenFile(file)
-                                window.open(file.url, '_blank')
-                              } else {
-                                handleJumpToSource(file)
-                              }
-                            }}
+                            onClick={() => handleExecuteOpenFile(file)}
                             className="bg-surface-card rounded-2xl border border-border p-3 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative min-h-[130px]"
                           >
                             <div className="flex items-start justify-between w-full">
@@ -1366,14 +1359,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                             {currentContents.files.map(file => (
                               <div
                                 key={file.id}
-                                onClick={() => {
-                                  if (file.url) {
-                                    handleOpenFile(file)
-                                    window.open(file.url, '_blank')
-                                  } else {
-                                    handleJumpToSource(file)
-                                  }
-                                }}
+                                onClick={() => handleExecuteOpenFile(file)}
                                 className="bg-surface-card rounded-2xl border border-border p-3 flex flex-col justify-between shadow-xs hover:border-primary-300 active:scale-[0.98] transition-all cursor-pointer relative min-h-[140px]"
                               >
                                 {/* Top row: badge & ... button */}
@@ -1456,14 +1442,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                             {currentContents.files.map(file => (
                               <div
                                 key={file.id}
-                                onClick={() => {
-                                  if (file.url) {
-                                    handleOpenFile(file)
-                                    window.open(file.url, '_blank')
-                                  } else {
-                                    handleJumpToSource(file)
-                                  }
-                                }}
+                                onClick={() => handleExecuteOpenFile(file)}
                                 className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -1671,28 +1650,75 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                   
                   {/* Files */}
                   {currentContents.files.map(file => (
-                    <div key={file.id} className="group relative flex flex-col items-center p-4 rounded-xl hover:bg-gray-100 transition-colors">
+                    <div
+                      key={file.id}
+                      onClick={() => handleExecuteOpenFile(file)}
+                      className="group relative flex flex-col items-center p-4 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-primary-500/50"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleExecuteOpenFile(file); } }}
+                    >
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
                         {file.url ? (
-                          <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-primary-600 cursor-pointer" title="PDF / Datei ansehen">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleExecuteOpenFile(file)
+                            }}
+                            className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-primary-600 cursor-pointer"
+                            title="PDF / Datei ansehen"
+                          >
                             <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                          </a>
+                          </button>
                         ) : (
-                          <button onClick={() => handleJumpToSource(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-amber-600 hover:text-amber-700 cursor-pointer" title="Beleg öffnen & PDF erstellen">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleJumpToSource(file)
+                            }}
+                            className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-amber-600 hover:text-amber-700 cursor-pointer"
+                            title="Beleg öffnen & PDF erstellen"
+                          >
                             <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                           </button>
                         )}
                         {(file.kunde_id || file.projekt_id || file.docId) && (
-                          <button onClick={() => handleJumpToSource(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-blue-500 cursor-pointer" title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleJumpToSource(file)
+                            }}
+                            className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-blue-500 cursor-pointer"
+                            title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}
+                          >
                             <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                           </button>
                         )}
                         {userRole !== 'treuhand' && !file.isLiveOnly && (
                           <>
-                            <button onClick={() => handleOpenRename(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer" title="Umbenennen">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenRename(file)
+                              }}
+                              className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-amber-500 cursor-pointer"
+                              title="Umbenennen"
+                            >
                               <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
-                            <button onClick={() => handleRequestDelete(file)} className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer" title="Löschen">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRequestDelete(file)
+                              }}
+                              className="p-3 sm:p-1.5 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center bg-white shadow rounded text-gray-500 hover:text-red-600 cursor-pointer"
+                              title="Löschen"
+                            >
                               <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </>
@@ -1784,20 +1810,18 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                       ))}
                       {/* Files */}
                       {currentContents.files.map(file => (
-                        <tr key={file.id} className="border-b border-gray-100 hover:bg-gray-50 group">
+                        <tr
+                          key={file.id}
+                          onClick={() => handleExecuteOpenFile(file)}
+                          className="border-b border-gray-100 hover:bg-gray-50 group cursor-pointer"
+                        >
                           <td className="px-4 py-3 font-medium text-text-primary flex items-center gap-3">
                             <FileIcon typ={file.typ} className="w-6 h-6" />
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
-                                {file.url ? (
-                                  <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="hover:underline font-semibold">
-                                    {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
-                                  </a>
-                                ) : (
-                                  <span className="font-semibold text-text-primary">
-                                    {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
-                                  </span>
-                                )}
+                                <span className="font-semibold text-text-primary hover:text-primary-600 transition-colors">
+                                  {file.docNr ? `${file.docNr} • ${file.name}` : file.name}
+                                </span>
                                 {file.docStatus && (
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                     file.docStatus === 'Bezahlt' || file.docStatus === 'Akzeptiert' ? 'bg-emerald-100 text-emerald-800' :
@@ -1827,21 +1851,53 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                           <td className="px-4 py-3 text-right">
                             <div className="opacity-0 group-hover:opacity-100 flex justify-end gap-1 transition-opacity">
                               {file.url ? (
-                                <a href={file.url} target="_blank" rel="noopener noreferrer" onClick={() => handleOpenFile(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Ansehen">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleExecuteOpenFile(file)
+                                  }}
+                                  className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg cursor-pointer"
+                                  title="Ansehen"
+                                >
                                   <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                </a>
+                                </button>
                               ) : null}
                               {(file.kunde_id || file.projekt_id || file.docId) && (
-                                <button onClick={() => handleJumpToSource(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-lg cursor-pointer" title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleJumpToSource(file)
+                                  }}
+                                  className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-blue-500 hover:bg-gray-100 rounded-lg cursor-pointer"
+                                  title={file.docType ? `Zur ${file.docType === 'offerte' ? 'Offerte' : 'Rechnung'} springen` : `Gehe zu ${file.projekt_id ? 'Projekt' : 'Kunde'}`}
+                                >
                                   <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                 </button>
                               )}
                               {userRole !== 'treuhand' && !file.isLiveOnly && (
                                 <>
-                                  <button onClick={() => handleOpenRename(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer" title="Umbenennen">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleOpenRename(file)
+                                    }}
+                                    className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-amber-500 hover:bg-gray-100 rounded-lg cursor-pointer"
+                                    title="Umbenennen"
+                                  >
                                     <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                   </button>
-                                  <button onClick={() => handleRequestDelete(file)} className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer" title="Löschen">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleRequestDelete(file)
+                                    }}
+                                    className="p-3 min-w-[48px] min-h-[48px] sm:min-w-0 sm:min-h-0 flex items-center justify-center text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg cursor-pointer"
+                                    title="Löschen"
+                                  >
                                     <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                   </button>
                                 </>
@@ -1909,13 +1965,12 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
             {/* Action buttons */}
             <div className="space-y-1">
               {selectedFileForSheet.url ? (
-                <a
-                  href={selectedFileForSheet.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   onClick={() => {
-                    handleOpenFile(selectedFileForSheet)
+                    const fileToOpen = selectedFileForSheet
                     setSelectedFileForSheet(null)
+                    handleExecuteOpenFile(fileToOpen)
                   }}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-primary text-sm font-medium transition-colors cursor-pointer"
                 >
@@ -1923,7 +1978,7 @@ export default function DateienView({ onNavigate, userRole, globalSettings }) {
                     <IconEye className="w-5 h-5 text-blue-600" />
                   </span>
                   <span>Öffnen / Vorschau</span>
-                </a>
+                </button>
               ) : (
                 <button
                   type="button"

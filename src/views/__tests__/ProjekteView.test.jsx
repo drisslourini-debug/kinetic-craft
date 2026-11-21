@@ -7,6 +7,7 @@ const mockProjects = [
   {
     id: 'p-10',
     name: 'Dachstockausbau Winterthur',
+    projektnummer: 'P-1010',
     status: 'In Planung',
     startdatum: '2026-08-01',
     enddatum: '2026-09-15',
@@ -88,5 +89,47 @@ describe('ProjekteView Calendar Integration', () => {
       projektId: 'p-10',
       date: '2026-08-01'
     })
+  })
+
+  it('navigates to project details on clicking "Bearbeiten" without ReferenceError', async () => {
+    const onNavigateMock = vi.fn()
+    render(<ProjekteView onNavigate={onNavigateMock} />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Dachstockausbau Winterthur').length).toBeGreaterThan(0)
+    })
+
+    const buttons = screen.getAllByRole('button')
+    const menuBtn = buttons.find(b => b.getAttribute('aria-label') === 'Aktionsmenü' || b.getAttribute('title') === 'Aktionsmenü') || buttons.find(b => b.querySelector('svg circle') || b.querySelector('svg path'))
+    fireEvent.click(menuBtn)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Bearbeiten/i).length).toBeGreaterThan(0)
+    })
+
+    const editBtn = screen.getAllByText(/Bearbeiten/i)[0]
+    fireEvent.click(editBtn)
+
+    expect(onNavigateMock).toHaveBeenCalledWith('projekte', {
+      projektId: 'p-10',
+      activeTab: 'projektdaten'
+    })
+  })
+
+  it('filters project list by projektnummer', async () => {
+    render(<ProjekteView />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('P-1010').length).toBeGreaterThan(0)
+    })
+
+    const searchInput = screen.getAllByPlaceholderText(/Projekte suchen/i)[0]
+    fireEvent.change(searchInput, { target: { value: 'P-1010' } })
+
+    expect(screen.getAllByText('Dachstockausbau Winterthur').length).toBeGreaterThan(0)
+
+    fireEvent.change(searchInput, { target: { value: 'P-9999' } })
+    expect(screen.queryByText('Dachstockausbau Winterthur')).toBeNull()
+    expect(screen.getAllByText(/Keine Projekte gefunden/i).length).toBeGreaterThan(0)
   })
 })

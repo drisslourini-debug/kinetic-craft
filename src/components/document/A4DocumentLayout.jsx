@@ -298,12 +298,18 @@ export function DocumentHeader({ settings, brandColor }) {
         )}
       </div>
       <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#555', lineHeight: '1.5' }}>
-        <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || ''}</div>
-        <div>{cleanString(settings?.strasse)}</div>
-        <div>{cleanString((settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort)}</div>
-        {settings?.telefon && <div style={{ marginTop: '1.5mm' }}>{cleanString(settings.telefon)}</div>}
-        {settings?.email && <div>{cleanString(settings.email)}</div>}
-        {settings?.website && <div>{cleanString(settings.website)}</div>}
+        {settings?.pdf_kopfzeile ? (
+          <div style={{ whiteSpace: 'pre-line' }}>{settings.pdf_kopfzeile}</div>
+        ) : (
+          <>
+            <div style={{ fontWeight: 700, color: '#1a1a1a', fontSize: '9pt' }}>{settings?.firmenname || ''}</div>
+            <div>{cleanString(settings?.strasse)}</div>
+            <div>{cleanString((settings?.plz && settings?.ort) ? `${settings.plz} ${settings.ort}` : settings?.plz_ort)}</div>
+            {settings?.telefon && <div style={{ marginTop: '1.5mm' }}>{cleanString(settings.telefon)}</div>}
+            {settings?.email && <div>{cleanString(settings.email)}</div>}
+            {settings?.website && <div>{cleanString(settings.website)}</div>}
+          </>
+        )}
       </div>
     </div>
   )

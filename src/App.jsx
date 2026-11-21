@@ -8,6 +8,7 @@ import {
   getCurrentHistoryIndex,
   setHistoryIndex,
   checkHasUnsavedChanges,
+  areRoutesEqual,
 } from './lib/router'
 import UnsavedChangesDialog from './components/UnsavedChangesDialog'
 import Sidebar from './components/Sidebar'
@@ -19,7 +20,9 @@ import GlobalTimerWidget from './components/zeiterfassung/GlobalTimerWidget'
 import { IconNav, IconWarning } from './components/icons/BrandIcons'
 import AdminImpersonationBanner from './components/admin/AdminImpersonationBanner'
 import SupportRequestModal from './components/support/SupportRequestModal'
+import FirstLoginWelcomeModal from './components/onboarding/FirstLoginWelcomeModal'
 import { checkIsSuperAdmin } from './services/adminService'
+import { finalizeTenantRegistration } from './services/onboardingService'
 
 const DashboardView = lazy(() => import('./views/DashboardView'))
 const KundenView = lazy(() => import('./views/KundenView'))
@@ -160,6 +163,7 @@ export default function App() {
     return false
   })
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false)
+  const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false)
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false)
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' ? !navigator.onLine : false)
   const [appRefreshKey, setAppRefreshKey] = useState(0)
@@ -267,7 +271,7 @@ export default function App() {
     const handlePopState = (event) => {
       const { view: nextView, params: nextParams } = parseLocation()
       const current = currentRouteRef.current
-      const isSameRoute = nextView === current.view && JSON.stringify(nextParams) === JSON.stringify(current.params)
+      const isSameRoute = areRoutesEqual(nextView, nextParams, current.view, current.params)
 
       const hasUnsaved = checkHasUnsavedChanges()
       const prevIndex = getCurrentHistoryIndex()
@@ -489,6 +493,46 @@ export default function App() {
             } catch (invErr) {
               console.warn('Auto accept invitation notice:', invErr)
             }
+          } else if (session.user.user_metadata?.firmenname) {
+            // Auto-provision brand new tenant after email confirmation from user_metadata
+            try {
+              const meta = session.user.user_metadata
+              const fullName = meta.full_name || `${meta.vorname || ''} ${meta.nachname || ''}`.trim()
+              await supabase.rpc('register_new_tenant', {
+                p_firmenname: meta.firmenname,
+                p_primary_color: meta.primary_color || '#b88a38',
+                p_logo_url: meta.logo_url || '',
+                p_user_name: fullName || session.user.email?.split('@')[0] || 'Admin'
+              })
+
+              await finalizeTenantRegistration({
+                userId: session.user.id,
+                vorname: meta.vorname || '',
+                nachname: meta.nachname || '',
+                firmenname: meta.firmenname,
+                strasse: meta.strasse || '',
+                plz: meta.plz || '',
+                ort: meta.ort || '',
+                kanton: meta.kanton || 'BE',
+                uid: meta.uid || '',
+                telefon: meta.telefon || '',
+                branche: meta.branche || 'maler_gipser',
+                primaryColor: meta.primary_color || '#b88a38',
+                logoUrl: meta.logo_url || '',
+                createDemoData: meta.create_demo_data !== false
+              })
+
+              const retryRes = await supabase
+                .from('user_roles')
+                .select('role, tenant_id, user_name, tenants(name, trial_ends_at, status)')
+                .eq('id', session.user.id)
+                .maybeSingle()
+              if (retryRes.data) {
+                data = retryRes.data
+              }
+            } catch (metaErr) {
+              console.warn('Auto provision from metadata notice:', metaErr)
+            }
           }
         }
         
@@ -534,6 +578,16 @@ export default function App() {
             if (settingsData.primary_color) {
               injectThemeVariables(settingsData.primary_color)
             }
+
+            // Check if First-Login Welcome Modal should be presented
+            try {
+              const tId = data.tenant_id
+              const isFirstLoginDone = localStorage.getItem(`kinetic_first_login_done_${tId}`) === 'true'
+              const hasBank = Boolean(settingsData.qr_iban || settingsData.bankverbindung)
+              if (!hasBank && !isFirstLoginDone && role !== 'treuhand' && role !== 'monteur') {
+                setIsWelcomeModalOpen(true)
+              }
+            } catch {}
           }
         }
       } catch (err) {
@@ -943,6 +997,29 @@ export default function App() {
         tenantId={tenantInfo?.id}
         userName={userName}
         userEmail={session?.user?.email}
+      />
+      {/* First-Login Swiss Onboarding Quick-Setup Modal */}
+      <FirstLoginWelcomeModal
+        isOpen={isWelcomeModalOpen}
+        onClose={() => {
+          try {
+            const tId = tenantInfo?.id || userRoles?.tenant_id
+            if (tId) localStorage.setItem(`kc_seen_welcome_${tId}`, 'true')
+          } catch {}
+          setIsWelcomeModalOpen(false)
+        }}
+        globalSettings={globalSettings}
+        refreshGlobalSettings={refreshGlobalSettings}
+        tenantInfo={tenantInfo}
+        onNavigate={handleNavigate}
+        onOpenCreateKunde={() => {
+          try {
+            const tId = tenantInfo?.id || userRoles?.tenant_id
+            if (tId) localStorage.setItem(`kc_seen_welcome_${tId}`, 'true')
+          } catch {}
+          setIsWelcomeModalOpen(false)
+          handleNavigate('kunden', { openCreate: true })
+        }}
       />
       {/* 2026 Spotlight Command Bar */}
       <CommandBar 

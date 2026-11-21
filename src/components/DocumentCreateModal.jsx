@@ -86,12 +86,15 @@ export default function DocumentCreateModal({
 
   async function loadInitialData() {
     if (!supabase) return
+    const einstellungenQuery = typeof supabase.from('einstellungen')?.select === 'function'
+      ? supabase.from('einstellungen').select('*')
+      : null
     const [kData, sData] = await Promise.all([
-      supabase.from('kunden').select('*').order('name', { ascending: true }),
-      supabase.from('einstellungen').select('*').limit(1).maybeSingle()
+      typeof supabase.from('kunden')?.select === 'function' ? supabase.from('kunden').select('*').order('name', { ascending: true }) : null,
+      typeof einstellungenQuery?.maybeSingle === 'function' ? einstellungenQuery.maybeSingle() : einstellungenQuery
     ])
-    if (kData.data) setKunden(kData.data)
-    if (sData.data) setSettings(sData.data)
+    if (kData?.data) setKunden(kData.data)
+    if (sData?.data) setSettings(sData.data)
   }
 
   const handleCreateKunde = async () => {
@@ -180,11 +183,11 @@ export default function DocumentCreateModal({
           },
           texte: { 
             einleitungstext: isOfferte 
-              ? 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns für Ihre Anfrage und bieten Ihnen folgende Leistungen an:' 
-              : 'Sehr geehrte Damen und Herren,\n\nwir stellen Ihnen folgende Leistungen in Rechnung:', 
+              ? (settings?.text_vorlagen?.find(t => t.category === 'offerte_einleitung')?.text || 'Sehr geehrte Damen und Herren,\n\nwir bedanken uns für Ihre Anfrage und bieten Ihnen folgende Leistungen an:') 
+              : (settings?.text_vorlagen?.find(t => t.category === 'rechnung_einleitung')?.text || 'Sehr geehrte Damen und Herren,\n\nwir stellen Ihnen folgende Leistungen in Rechnung:'), 
             schlusstext: isOfferte 
-              ? 'Wir hoffen, unser Angebot entspricht Ihren Vorstellungen.' 
-              : 'Bitte überweisen Sie den Betrag innert der Zahlungsfrist auf unser Konto.' 
+              ? (settings?.text_vorlagen?.find(t => t.category === 'offerte_schluss')?.text || 'Wir hoffen, unser Angebot entspricht Ihren Vorstellungen.') 
+              : (settings?.text_vorlagen?.find(t => t.category === 'rechnung_schluss')?.text || 'Bitte überweisen Sie den Betrag innert der Zahlungsfrist auf unser Konto.') 
           },
           pauschalpreis: null
         }

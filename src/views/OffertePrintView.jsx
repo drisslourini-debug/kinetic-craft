@@ -47,7 +47,7 @@ export default function OffertePrintView({
   useEffect(() => {
     if (propSettings) return
     if (supabase) {
-      supabase.from('einstellungen').select('*').limit(1).maybeSingle()
+      supabase.from('einstellungen').select('*').maybeSingle()
         .then(({ data, error }) => {
           if (error && (error.code === '42703' || error.code === 'PGRST205' || error.code === '42P01')) {
             const localSettings = localStorage.getItem('atelier77_einstellungen_v2')
@@ -428,7 +428,7 @@ export default function OffertePrintView({
               className="px-3.5 sm:px-4 py-2 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl transition-all shadow-xs shadow-primary-600/20 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] min-h-[40px]"
               title="PDF herunterladen"
             >
-              <span>⬇️</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               <span className="hidden sm:inline">{isGenerating ? 'Erstelle PDF...' : 'PDF herunterladen'}</span>
               <span className="sm:hidden">{isGenerating ? '...' : 'PDF laden'}</span>
             </button>

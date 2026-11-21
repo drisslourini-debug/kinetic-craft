@@ -217,10 +217,10 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                 }
               })
             } else if (r.status === 'Bezahlt') {
-              const dateStr = r.bezahlt_am || r.faellig_am || r.created_at
+              const dateStr = r.bezahlt_am || r.rechnungsdatum || r.faellig_am || r.created_at
               const d = new Date(dateStr)
               if (d.getFullYear() === currentYear) {
-                umsatzTotal += r.total || 0
+                umsatzTotal += (r.bezahlt || r.total || 0)
               }
             }
           }
@@ -259,8 +259,8 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
       const openOfferten = allOfferten.filter(o => ['Entwurf', 'Versendet'].includes(o.status))
       const offertenVolumenTotal = openOfferten.reduce((sum, o) => sum + (o.total || 0), 0)
       
-      const wonOfferten = allOfferten.filter(o => o.status === 'Angenommen')
-      const decidedOfferten = allOfferten.filter(o => ['Angenommen', 'Abgelehnt'].includes(o.status))
+      const wonOfferten = allOfferten.filter(o => ['Angenommen', 'Akzeptiert', 'Verrechnet'].includes(o.status))
+      const decidedOfferten = allOfferten.filter(o => ['Angenommen', 'Akzeptiert', 'Verrechnet', 'Abgelehnt'].includes(o.status))
       const winRate = decidedOfferten.length > 0
         ? Math.round((wonOfferten.length / decidedOfferten.length) * 100)
         : (allOfferten.length > 0 ? Math.round((wonOfferten.length / allOfferten.length) * 100) : 65)
@@ -268,9 +268,9 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
       // Fetch Projekte (In Arbeit)
       const { data: projekte } = await supabase
         .from('projekte')
-        .select('id, projekt_nr, name, status, startdatum, enddatum, kunden(name)')
+        .select('id, projektnummer, name, status, startdatum, enddatum, kunden(name)')
         .eq('is_archived', false)
-        .eq('status', 'In Arbeit')
+        .in('status', ['In Arbeit', 'Aktiv'])
         .order('created_at', { ascending: false })
 
       // Build calendar events from projects, invoices, and offerten
@@ -694,7 +694,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
               <div className="flex items-end justify-between gap-2 mt-1">
                 <div>
                   <div className="text-2xl font-bold tracking-tight text-text-primary tabular-nums">
-                    {formatCurrency(data.offertenVolumenTotal || (data.offen.length * 2450))}
+                    {formatCurrency(data.offertenVolumenTotal || 0)}
                   </div>
                   <p className="text-xs text-text-muted mt-1 font-medium">
                     {data.offen.length} Offerte{data.offen.length !== 1 ? 'n' : ''} in Pipeline
@@ -1102,8 +1102,8 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/50">
                               In Bearbeitung
                             </span>
-                            {p.projekt_nr && (
-                              <span className="text-[11px] text-text-muted font-medium">#{p.projekt_nr}</span>
+                            {(p.projektnummer || p.projekt_nr) && (
+                              <span className="text-[11px] text-text-muted font-medium">#{p.projektnummer || p.projekt_nr}</span>
                             )}
                           </div>
                           <h4 className="font-semibold text-text-primary text-sm mt-1 truncate">
@@ -1381,7 +1381,7 @@ export default function DashboardView({ onNavigate, userName, globalSettings, re
                                 </td>
                                 <td className="py-3.5 px-4 font-medium text-text-primary">
                                   <div>{p.name}</div>
-                                  {p.projekt_nr && <span className="font-mono text-xs text-text-muted">{p.projekt_nr}</span>}
+                                  {(p.projektnummer || p.projekt_nr) && <span className="font-mono text-xs text-text-muted">#{p.projektnummer || p.projekt_nr}</span>}
                                 </td>
                                 <td className="py-3.5 px-4 text-xs text-text-secondary">
                                   {p.startdatum ? formatDate(p.startdatum) : 'Offen'} {p.enddatum ? `– ${formatDate(p.enddatum)}` : ''}

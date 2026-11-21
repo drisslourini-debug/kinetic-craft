@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-export default function AddressAutocomplete({ value, onChange, placeholder, className, onBlur }) {
+export default function AddressAutocomplete({ value, onChange, placeholder, className, onBlur, darkTheme = false }) {
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -138,7 +138,11 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
       )}
 
       {isOpen && suggestions.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-surface-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <ul className={`absolute z-50 w-full mt-1 rounded-xl shadow-2xl max-h-60 overflow-y-auto ${
+          darkTheme
+            ? 'bg-[#16161A] border border-white/15 divide-y divide-white/10 text-white'
+            : 'bg-surface-card border border-border divide-y divide-border/60 text-text-primary'
+        }`}>
           {suggestions.map((item, idx) => {
             const cleanLabel = item.attrs.label.replace(/<[^>]+>/g, '');
             const isHighlighted = idx === highlightedIndex;
@@ -147,8 +151,10 @@ export default function AddressAutocomplete({ value, onChange, placeholder, clas
                 key={idx}
                 onClick={() => handleSelect(item)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm cursor-pointer border-b border-border last:border-b-0 text-text-primary flex items-center transition-colors ${
-                  isHighlighted ? 'bg-primary-50 text-primary-900 font-medium' : 'hover:bg-primary-50/50'
+                className={`px-4 py-3 sm:py-2 min-h-[48px] sm:min-h-0 text-base sm:text-sm cursor-pointer border-b last:border-b-0 flex items-center transition-colors ${
+                  darkTheme
+                    ? isHighlighted ? 'bg-[#D6BA94]/20 text-[#D6BA94] font-medium border-white/10' : 'hover:bg-white/10 text-white border-white/10'
+                    : isHighlighted ? 'bg-primary-50 text-primary-900 font-medium border-border' : 'hover:bg-primary-50/50 text-text-primary border-border'
                 }`}
               >
                 {cleanLabel}

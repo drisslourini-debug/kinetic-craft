@@ -64,7 +64,10 @@ export function parseLocation(
     return { view: 'dashboard', params }
   }
 
-  const [mainSegment, subSegment] = segments
+  let [mainSegment, subSegment] = segments
+  if (mainSegment === 'archiv') {
+    mainSegment = 'dateien'
+  }
   if (!VALID_VIEWS.includes(mainSegment)) {
     return { view: 'dashboard', params }
   }
@@ -76,6 +79,19 @@ export function parseLocation(
   }
 
   return { view, params }
+}
+
+/**
+ * Compares two routes for equivalence regardless of key order or string/number type differences
+ */
+export function areRoutesEqual(viewA, paramsA, viewB, paramsB) {
+  if (viewA !== viewB) return false
+  const a = paramsA || {}
+  const b = paramsB || {}
+  const keysA = Object.keys(a).filter(k => a[k] !== undefined && a[k] !== null && a[k] !== '')
+  const keysB = Object.keys(b).filter(k => b[k] !== undefined && b[k] !== null && b[k] !== '')
+  if (keysA.length !== keysB.length) return false
+  return keysA.every(k => String(a[k]) === String(b[k]))
 }
 
 /**

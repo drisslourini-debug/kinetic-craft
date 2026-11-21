@@ -177,7 +177,11 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
         initialAction={viewParams?.action}
         onBack={() => {
           setSelectedProjekt(null)
-          navigateBack('projekte')
+          if (onNavigate) {
+            onNavigate('projekte', null)
+          } else {
+            navigateBack('projekte')
+          }
           // Refresh to capture potential name/status changes
           supabase.from('projekte').select('*, kunden(name)').order('created_at', { ascending: false })
             .then(({ data }) => { if (data) setProjekte(data) })
@@ -188,10 +192,17 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
 
   let filteredProjekte = projekte.filter(p => {
     if (!showArchived && p.is_archived) return false;
-    if (filterStatus && p.status !== filterStatus) return false;
+    if (filterStatus) {
+      if (filterStatus === 'In Arbeit') {
+        if (!['In Arbeit', 'Aktiv'].includes(p.status)) return false;
+      } else if (p.status !== filterStatus) {
+        return false;
+      }
+    }
     const term = searchTerm.toLowerCase()
     return (
       (p.name || '').toLowerCase().includes(term) ||
+      (p.projektnummer || '').toLowerCase().includes(term) ||
       (p.adresse || '').toLowerCase().includes(term) ||
       (p.kunden?.name || '').toLowerCase().includes(term)
     )
@@ -262,9 +273,9 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
 
   // Stats calculation
   const stats = {
-    total: projekte.filter(p => !p.is_archived).length,
-    inArbeit: projekte.filter(p => !p.is_archived && p.status === 'In Arbeit').length,
-    abgeschlossen: projekte.filter(p => !p.is_archived && p.status === 'Abgeschlossen').length,
+    total: projekte.filter(p => showArchived || !p.is_archived).length,
+    inArbeit: projekte.filter(p => (showArchived || !p.is_archived) && (p.status === 'In Arbeit' || p.status === 'Aktiv')).length,
+    abgeschlossen: projekte.filter(p => (showArchived || !p.is_archived) && p.status === 'Abgeschlossen').length,
   }
 
   return (
@@ -469,6 +480,11 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        {p.projektnummer && (
+                          <span className="font-mono text-[10px] font-bold text-zinc-700 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
+                            {p.projektnummer}
+                          </span>
+                        )}
                         {p.is_archived ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
                             <IconFolder className="w-3.5 h-3.5" /> Archiv
@@ -781,20 +797,27 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
               >
                 {/* Primary Info */}
                 <div className="min-w-0 w-full flex flex-col justify-center">
-                  {p.adresse ? (
-                    <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {p.projektnummer && (
+                      <span className="font-mono text-[11px] font-bold text-zinc-700 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200 shrink-0">
+                        {p.projektnummer}
+                      </span>
+                    )}
+                    {p.adresse ? (
                       <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
                         <IconLocation className="w-3.5 h-3.5 text-primary-500 lg:hidden shrink-0" />
                         <span>{p.adresse}</span>
                       </div>
-                      <div className="text-xs text-text-secondary truncate mt-0.5 font-medium">
-                        {p.name}
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
+                        <IconBauunternehmung className="w-3.5 h-3.5 text-primary-500 lg:hidden shrink-0" />
+                        <span>{p.name}</span>
                       </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-sm font-bold text-text-primary truncate">
-                      <IconBauunternehmung className="w-3.5 h-3.5 text-primary-500 lg:hidden shrink-0" />
-                      <span>{p.name}</span>
+                    )}
+                  </div>
+                  {p.adresse && (
+                    <div className="text-xs text-text-secondary truncate mt-0.5 font-medium">
+                      {p.name}
                     </div>
                   )}
                 </div>
@@ -899,7 +922,15 @@ export default function ProjekteView({ onNavigate, viewParams, userRole, userNam
                               <>
                                 <button 
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); setEditingProjekt(p); }} 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setActiveMenuId(null); 
+                                    if (onNavigate) {
+                                      onNavigate('projekte', { projektId: p.id, activeTab: 'projektdaten' });
+                                    } else {
+                                      setSelectedProjekt(p);
+                                    }
+                                  }} 
                                   className="w-full text-left px-3 py-2 text-xs font-medium text-text-primary hover:bg-neutral-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                                 >
                                   <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>

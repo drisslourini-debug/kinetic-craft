@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { formatCurrency, formatDate } from '../lib/formatters'
+import { getFileAccessUrl } from '../lib/storageHelper'
 import { calculateDocumentTotals } from '../lib/calculations'
 import { generateNextRechnungNr, parseZahlungsfrist, calculateDueDate } from '../lib/documentService'
 import { formatUrl } from '../lib/router'
@@ -11,6 +12,7 @@ import KatalogDrawer from '../components/KatalogDrawer'
 import DocumentDuplicateModal from '../components/DocumentDuplicateModal'
 import TerminModal from '../components/kalender/TerminModal'
 import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
+import AusmassModal from '../components/document/AusmassModal'
 import { canEditOfferte, canDeleteOfferte, isOffertePermanentlyLocked } from '../lib/statusLogic'
 import {
   IconFolder,
@@ -84,6 +86,17 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
   const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [katalogList, setKatalogList] = useState([])
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
+  const [ausmassModalPos, setAusmassModalPos] = useState(null)
+
+  const handleSaveAusmass = (totalMenge, details) => {
+    if (!ausmassModalPos) return
+    setEditLeistungen(prev => prev.map(p => 
+      p._id === ausmassModalPos._id 
+        ? { ...p, menge: totalMenge, ausmass_details: details } 
+        : p
+    ))
+    setAusmassModalPos(null)
+  }
 
   const handleBackClick = () => {
     if (isEditing) {
@@ -310,7 +323,6 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
     setStatus(newStatus)
     if (newStatus !== 'Entwurf' && newStatus !== 'In Überarbeitung') {
       setIsEditing(false)
-      setIsDirty(false)
     }
     setIsUpdating(true)
     
@@ -412,14 +424,15 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
       if (pData) setProjekteList(pData)
     }
 
+    const docNr = offerte.offerte_nr || `#${offerte.id}`
     setTerminModalInitial({
-      titel: `${type}: Offerte #${offerte.id} - ${kunde?.name || offerte.kunden_name || ''}`.trim(),
+      titel: `${type}: ${docNr} - ${kunde?.name || offerte.kunden_name || ''}`.trim(),
       typ: type.includes('Montage') ? 'Montage' : (type.includes('Aufmass') ? 'Aufmass' : 'Besprechung'),
       datum: new Date().toISOString().split('T')[0],
       kunden_id: offerte.kunden_id ? String(offerte.kunden_id) : '',
       projekt_id: offerte.projekt_id ? String(offerte.projekt_id) : '',
       ort: projekt?.adresse || kunde?.adresse || (kunde ? `${kunde.strasse || ''}, ${kunde.plz || ''} ${kunde.ort || ''}`.trim() : ''),
-      beschreibung: `Termin bezüglich Offerte #${offerte.id}`
+      beschreibung: `Termin bezüglich Offerte ${docNr}`
     })
     setIsTerminModalOpen(true)
   }
@@ -865,23 +878,34 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-text-primary truncate">
-                Offerte #{offerte.id}
+                {offerte.offerte_nr || `Offerte #${offerte.id}`}
               </h2>
+              {offerte.offerte_nr && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-700 border border-zinc-200">
+                  {offerte.offerte_nr}
+                </span>
+              )}
               {isUpdating && <span className="text-xs text-text-secondary">Speichert...</span>}
             </div>
+            {offerte.daten?.titel && (
+              <p className="text-xs text-text-secondary truncate font-medium mt-0.5">
+                {offerte.daten.titel}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
               <p className="text-text-secondary text-xs sm:text-sm">Erstellt am {formatDate(offerte.created_at)}</p>
               {offerte.pdf_url ? (
-                <a
-                  href={offerte.pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(offerte.pdf_url, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
                   title="Archiviertes PDF anzeigen"
                 >
                   <IconFolder className="w-3.5 h-3.5 inline text-emerald-700" /> <span className="hidden sm:inline">Im Archiv gesichert</span><span className="sm:hidden">Archiviert</span>
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </a>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -1070,7 +1094,7 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
             </button>
             {!offerte.projekt_id && (
               <button
-                onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: offerte.kunden_id, name: offerte.daten?.titel || `Projekt zu Offerte #${offerte.id}` })}
+                onClick={() => onNavigate && onNavigate('projekte', { action: 'create', kundeId: offerte.kunden_id, name: offerte.daten?.titel || `Projekt zu Offerte ${offerte.offerte_nr || `#${offerte.id}`}` })}
                 className="px-3.5 py-2 bg-white hover:bg-emerald-100/50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <IconBauunternehmung className="w-4 h-4" />
@@ -1471,14 +1495,29 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 pl-0 sm:pl-10">
                               <div>
                                 <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Menge</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={pos.menge}
-                                  onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                  placeholder="0"
-                                />
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={pos.menge}
+                                    onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-sm transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    placeholder="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setAusmassModalPos(pos)}
+                                    className={`p-1.5 rounded-lg border text-xs font-semibold shrink-0 cursor-pointer flex items-center justify-center transition-colors min-h-[34px] min-w-[34px] ${
+                                      pos.ausmass_details && pos.ausmass_details.length > 0
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                        : 'bg-surface text-text-secondary border-border hover:text-primary-700 hover:border-primary-300'
+                                    }`}
+                                    title={pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length} Ausmass-Zeilen (SIA 118)` : 'Bau-Ausmass berechnen (SIA 118)'}
+                                    aria-label="Bau-Ausmass berechnen"
+                                  >
+                                    <IconRuler className="w-3.5 h-3.5 shrink-0" />
+                                  </button>
+                                </div>
                               </div>
                               <div>
                                 <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
@@ -2383,6 +2422,16 @@ export default function OfferteDetailView({ offerte, onBack, onNavigate, viewPar
           {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
+      )}
+
+      {/* SIA 118 Ausmassrechner Modal */}
+      {ausmassModalPos && (
+        <AusmassModal
+          isOpen={!!ausmassModalPos}
+          onClose={() => setAusmassModalPos(null)}
+          position={ausmassModalPos}
+          onSaveAusmass={handleSaveAusmass}
+        />
       )}
     </div>
   )

@@ -10,7 +10,9 @@ import {
   IconDocument,
   IconClose,
   IconSparkles,
-  IconWarning
+  IconWarning,
+  IconSwissFlag,
+  IconRuler
 } from '../icons/BrandIcons'
 
 export default function OfferteLeistungsTabelle({
@@ -164,7 +166,6 @@ export default function OfferteLeistungsTabelle({
                   onClick={() => setShowNpkMenu(!showNpkMenu)}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-3 min-h-[48px] bg-primary-50 text-primary-800 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
                 >
-                  <span>🇨🇭</span>
                   <span>+ NPK Kapitel</span>
                 </button>
                 {showNpkMenu && (
@@ -261,7 +262,7 @@ export default function OfferteLeistungsTabelle({
                                 onClick={() => setAusmassModalPos(pos)}
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded cursor-pointer"
                               >
-                                <span>📐</span>
+                                <IconRuler className="w-3.5 h-3.5 shrink-0" />
                                 <span>Ausmass ({pos.ausmass_details.length} Zeilen)</span>
                               </button>
                             </div>
@@ -307,7 +308,7 @@ export default function OfferteLeistungsTabelle({
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded cursor-pointer"
                                 title="Detailliertes Schweizer Bau-Ausmass anzeigen"
                               >
-                                <span>📐</span>
+                                <IconRuler className="w-3.5 h-3.5 shrink-0" />
                                 <span>Ausmass ({pos.ausmass_details.length} Zeilen)</span>
                               </button>
                             </div>
@@ -488,7 +489,7 @@ export default function OfferteLeistungsTabelle({
                           }`}
                           title={pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length} Ausmass-Zeilen (SIA 118)` : 'Bau-Ausmass berechnen'}
                         >
-                          <span>📐</span>
+                          <IconRuler className="w-3.5 h-3.5 shrink-0" />
                           <span className="hidden sm:inline">{pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length}` : 'Ausmass'}</span>
                         </button>
                       </div>

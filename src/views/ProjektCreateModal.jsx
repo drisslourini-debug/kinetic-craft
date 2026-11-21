@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import AddressAutocomplete from '../components/AddressAutocomplete'
 import VoiceWaveformModal from '../components/ui/VoiceWaveformModal'
 import { IconBauunternehmung, IconMic, IconSparkles, IconCalendar } from '../components/icons/BrandIcons'
+import { generateNextProjectNumber } from '../lib/customerNaming'
 
 const PROJEKT_KATEGORIEN = [
   'Neubau',
@@ -14,6 +15,7 @@ const PROJEKT_KATEGORIEN = [
 export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeId }) {
   const [formData, setFormData] = useState({
     name: '',
+    projektnummer: '',
     kunden_id: prefilledKundeId || '',
     kategorie: '',
     adresse: '',
@@ -83,6 +85,44 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
     fetchKunden()
   }, [prefilledKundeId])
 
+  // Auto-generate project number based on settings (prefix_projekte, startnummer_projekte)
+  useEffect(() => {
+    async function initProjectNumber() {
+      if (!supabase) return
+      try {
+        const einstellungenQuery = typeof supabase.from('einstellungen')?.select === 'function'
+          ? supabase.from('einstellungen').select('prefix_projekte, startnummer_projekte')
+          : null
+        const projekteQuery = typeof supabase.from('projekte')?.select === 'function'
+          ? supabase.from('projekte').select('projektnummer')
+          : null
+
+        const [settingsRes, projRes] = await Promise.all([
+          typeof einstellungenQuery?.maybeSingle === 'function' ? einstellungenQuery.maybeSingle() : einstellungenQuery,
+          projekteQuery
+        ])
+
+        const prefix = settingsRes?.data?.prefix_projekte || 'P-'
+        const startNumber = settingsRes?.data?.startnummer_projekte || 1000
+        const existing = projRes?.data || []
+
+        const nextNr = generateNextProjectNumber({
+          prefix,
+          startNumber,
+          existingProjects: existing
+        })
+
+        setFormData(prev => ({
+          ...prev,
+          projektnummer: prev.projektnummer || nextNr
+        }))
+      } catch (err) {
+        console.warn('Could not auto-generate project number:', err)
+      }
+    }
+    initProjectNumber()
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitted(true)
@@ -96,18 +136,35 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
     setError(null)
 
     try {
-      const { data, error: insertError } = await supabase
+      const payload = {
+        name: formData.name,
+        kunden_id: formData.kunden_id,
+        kategorie: formData.kategorie,
+        adresse: formData.adresse,
+        startdatum: formData.startdatum || null,
+        enddatum: formData.enddatum || null,
+        status: 'Aktiv'
+      }
+
+      if (formData.projektnummer) {
+        payload.projektnummer = formData.projektnummer
+      }
+
+      let { data, error: insertError } = await supabase
         .from('projekte')
-        .insert([{
-          name: formData.name,
-          kunden_id: formData.kunden_id,
-          kategorie: formData.kategorie,
-          adresse: formData.adresse,
-          startdatum: formData.startdatum || null,
-          enddatum: formData.enddatum || null,
-          status: 'Aktiv'
-        }])
+        .insert([payload])
         .select('*, kunden(name)') // Select related data for instant UI update
+
+      // Falls die Spalte 'projektnummer' in Postgres noch nicht existiert, sanfter Fallback
+      if (insertError && (insertError.code === '42703' || insertError.code === 'PGRST204' || insertError.message?.includes('projektnummer'))) {
+        delete payload.projektnummer
+        const fallbackRes = await supabase
+          .from('projekte')
+          .insert([payload])
+          .select('*, kunden(name)')
+        data = fallbackRes.data
+        insertError = fallbackRes.error
+      }
 
       if (insertError) throw insertError
 
@@ -116,7 +173,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
       }
     } catch (err) {
       console.error('Failed to create projekt:', err)
-      setError('Fehler beim Erstellen des Projekts.')
+      setError('Fehler beim Erstellen des Projekts: ' + (err.message || ''))
     } finally {
       setIsSaving(false)
     }
@@ -252,6 +309,19 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1.5">
+                      Projektnummer
+                    </label>
+                    <input 
+                      type="text" 
+                      value={formData.projektnummer}
+                      onChange={e => setFormData({...formData, projektnummer: e.target.value})}
+                      className="w-full px-3.5 py-3 sm:py-2.5 bg-surface border border-border rounded-xl text-text-primary text-base sm:text-sm font-mono focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+                      placeholder="z.B. P-1001"
+                    />
+                  </div>
+
+                  <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary">Kategorie</label>
                       {aiFields.kategorie && (
@@ -270,6 +340,7 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                       {PROJEKT_KATEGORIEN.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+                </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -288,7 +359,6 @@ export default function ProjektCreateModal({ onClose, onSuccess, prefilledKundeI
                       className="w-full px-3.5 py-3 sm:py-2.5 bg-surface border border-border rounded-xl text-text-primary text-base sm:text-sm focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
                     />
                   </div>
-                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-border">
                   <div>

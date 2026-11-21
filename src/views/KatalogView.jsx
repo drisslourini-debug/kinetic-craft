@@ -10,7 +10,6 @@ import {
   IconEdit,
   IconClose
 } from '../components/icons/BrandIcons'
-import NpkImportModal from '../components/katalog/NpkImportModal'
 
 export default function KatalogView({ userRole }) {
   const [kategorien, setKategorien] = useState([])
@@ -24,7 +23,6 @@ export default function KatalogView({ userRole }) {
   const [mobileCatActionsOpen, setMobileCatActionsOpen] = useState(false)
   const [sortMode, setSortMode] = useState(false)
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
-  const [npkModalOpen, setNpkModalOpen] = useState(false)
   const [feedbackToast, setFeedbackToast] = useState(null)
 
   // Category Modal State
@@ -96,19 +94,32 @@ export default function KatalogView({ userRole }) {
   const confirmDelete = async () => {
     if (!deleteModal.id) return
 
-    if (deleteModal.type === 'kategorie') {
-      const id = deleteModal.id
-      await supabase.from('katalog_leistungen').delete().eq('kategorie_id', id)
-      await supabase.from('katalog_kategorien').delete().eq('id', id)
-      
-      const nextKategorien = kategorien.filter(k => k.id !== id)
-      setKategorien(nextKategorien)
-      setLeistungen(leistungen.filter(l => l.kategorie_id !== id))
-      if (activeKategorie?.id === id) setActiveKategorie(nextKategorien[0] || null)
-    } else if (deleteModal.type === 'leistung') {
-      const id = deleteModal.id
-      await supabase.from('katalog_leistungen').delete().eq('id', id)
-      setLeistungen(prev => prev.filter(l => l.id !== id))
+    try {
+      if (deleteModal.type === 'kategorie') {
+        const id = deleteModal.id
+        const { error: leisErr } = await supabase.from('katalog_leistungen').delete().eq('kategorie_id', id)
+        if (leisErr) throw leisErr
+        const { error: katErr } = await supabase.from('katalog_kategorien').delete().eq('id', id)
+        if (katErr) throw katErr
+        
+        const nextKategorien = kategorien.filter(k => k.id !== id)
+        setKategorien(nextKategorien)
+        setLeistungen(leistungen.filter(l => l.kategorie_id !== id))
+        if (activeKategorie?.id === id) setActiveKategorie(nextKategorien[0] || null)
+        setFeedbackToast('Kategorie erfolgreich gelöscht.')
+        setTimeout(() => setFeedbackToast(null), 3500)
+      } else if (deleteModal.type === 'leistung') {
+        const id = deleteModal.id
+        const { error } = await supabase.from('katalog_leistungen').delete().eq('id', id)
+        if (error) throw error
+        setLeistungen(prev => prev.filter(l => l.id !== id))
+        setFeedbackToast('Leistung erfolgreich gelöscht.')
+        setTimeout(() => setFeedbackToast(null), 3500)
+      }
+    } catch (err) {
+      console.error('Fehler beim Löschen:', err)
+      setFeedbackToast('Fehler beim Löschen: ' + (err.message || ''))
+      setTimeout(() => setFeedbackToast(null), 4000)
     }
 
     setDeleteModal({ open: false, type: null, id: null, title: '' })
@@ -145,84 +156,6 @@ export default function KatalogView({ userRole }) {
     }
     const { data } = await supabase.from('katalog_leistungen').insert([newLeistung]).select()
     if (data && data.length > 0) setLeistungen([...leistungen, data[0]])
-  }
-
-  const handleImportNpk = async ({ positions, targetMode }) => {
-    if (!positions || positions.length === 0) return
-
-    try {
-      if (targetMode === 'current' && activeKategorie) {
-        const currentKatLeistungen = leistungen.filter(l => l.kategorie_id === activeKategorie.id)
-        let nextOrder = currentKatLeistungen.length
-        const toInsert = positions.map(pos => ({
-          kategorie_id: activeKategorie.id,
-          beschreibung: `${pos.npkCode} ${pos.titel}`,
-          einheit: pos.einheit?.includes('m²') ? 'm²' : (pos.einheit?.includes('Stk') ? 'Stk' : (pos.einheit?.includes('m') ? 'm' : (pos.einheit?.includes('h') ? 'h' : 'Psch'))),
-          einzelpreis: pos.richtpreis || 0,
-          ertragskonto: '3400 Dienstleistungserlöse',
-          sort_order: nextOrder++,
-          is_archived: false
-        }))
-        const { data, error } = await supabase.from('katalog_leistungen').insert(toInsert).select()
-        if (!error && data) {
-          setLeistungen(prev => [...prev, ...data])
-          setFeedbackToast(`${data.length} NPK-Positionen erfolgreich in "${activeKategorie.name}" importiert!`)
-          setTimeout(() => setFeedbackToast(null), 4000)
-        }
-      } else {
-        const chapterMap = {}
-        positions.forEach(pos => {
-          const capCode = pos.kapitelCode || pos.npkCode.split('.')[0]
-          if (!chapterMap[capCode]) chapterMap[capCode] = []
-          chapterMap[capCode].push(pos)
-        })
-
-        let updatedKats = [...kategorien]
-        let addedLeistungen = []
-
-        for (const [chCode, posList] of Object.entries(chapterMap)) {
-          let cat = updatedKats.find(k => k.name.includes(`NPK ${chCode}`) || k.name.startsWith(chCode))
-          if (!cat) {
-            const catName = posList[0]?.kategorie ? `NPK ${chCode} ${posList[0].kategorie}` : `NPK Kapitel ${chCode}`
-            const { data: newCatData } = await supabase.from('katalog_kategorien').insert([{
-              name: catName,
-              sort_order: updatedKats.length
-            }]).select()
-            if (newCatData && newCatData.length > 0) {
-              cat = newCatData[0]
-              updatedKats.push(cat)
-            }
-          }
-
-          if (cat) {
-            let nextOrder = leistungen.filter(l => l.kategorie_id === cat.id).length
-            const toInsert = posList.map(pos => ({
-              kategorie_id: cat.id,
-              beschreibung: `${pos.npkCode} ${pos.titel}`,
-              einheit: pos.einheit?.includes('m²') ? 'm²' : (pos.einheit?.includes('Stk') ? 'Stk' : (pos.einheit?.includes('m') ? 'm' : (pos.einheit?.includes('h') ? 'h' : 'Psch'))),
-              einzelpreis: pos.richtpreis || 0,
-              ertragskonto: '3400 Dienstleistungserlöse',
-              sort_order: nextOrder++,
-              is_archived: false
-            }))
-            const { data: insertedData } = await supabase.from('katalog_leistungen').insert(toInsert).select()
-            if (insertedData) {
-              addedLeistungen.push(...insertedData)
-            }
-          }
-        }
-
-        setKategorien(updatedKats)
-        setLeistungen(prev => [...prev, ...addedLeistungen])
-        if (updatedKats.length > 0 && !activeKategorie) {
-          setActiveKategorie(updatedKats[updatedKats.length - 1])
-        }
-        setFeedbackToast(`${addedLeistungen.length} NPK-Positionen erfolgreich importiert!`)
-        setTimeout(() => setFeedbackToast(null), 4000)
-      }
-    } catch (err) {
-      console.error('Fehler beim NPK-Import:', err)
-    }
   }
 
   const openNewLeistungSheet = () => {
@@ -388,20 +321,8 @@ export default function KatalogView({ userRole }) {
           <p className="text-text-secondary mt-1">Verwalte hier deine Kategorien und Preise für die Offerten.</p>
         </div>
         
-        {/* Desktop Search & Actions */}
+        {/* Desktop Search */}
         <div className="flex items-center gap-2.5">
-          {userRole !== 'treuhand' && (
-            <button
-              type="button"
-              onClick={() => setNpkModalOpen(true)}
-              className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 px-3.5 py-2.5 min-h-[44px] rounded-xl font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer active:scale-98"
-              title="Standardisierte Bau- und Malerleistungen nach Schweizer NPK / CRB importieren"
-            >
-              <span className="text-base leading-none">🇨🇭</span>
-              <span>NPK / CRB Vorlagen</span>
-            </button>
-          )}
-
           <div className="w-auto relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -458,25 +379,14 @@ export default function KatalogView({ userRole }) {
           </div>
 
           {userRole !== 'treuhand' && (
-            <>
-              <button
-                type="button"
-                onClick={() => setNpkModalOpen(true)}
-                className="shrink-0 min-h-[42px] px-2.5 py-2 bg-amber-50 active:bg-amber-100 text-amber-900 border border-amber-300/80 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
-                title="Schweizer NPK / CRB Vorlagen"
-              >
-                <span>🇨🇭</span>
-                <span>NPK</span>
-              </button>
-              <button
-                type="button"
-                onClick={openNewLeistungSheet}
-                className="shrink-0 min-h-[42px] px-3.5 py-2 bg-primary-600 active:bg-primary-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-primary-600/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <span className="text-base leading-none font-normal">+</span>
-                <span>Leistung</span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={openNewLeistungSheet}
+              className="shrink-0 min-h-[42px] px-3.5 py-2 bg-primary-600 active:bg-primary-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-primary-600/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <span className="text-base leading-none font-normal">+</span>
+              <span>Leistung</span>
+            </button>
           )}
         </div>
 
@@ -658,23 +568,13 @@ export default function KatalogView({ userRole }) {
             <div className="p-4 border-b border-border flex justify-between items-center bg-surface rounded-t-2xl">
               <h3 className="font-bold text-text-primary text-sm">Kategorien</h3>
               {userRole !== 'treuhand' && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setNpkModalOpen(true)}
-                    className="text-xs bg-amber-50 text-amber-800 hover:bg-amber-100 px-2 py-1.5 rounded-lg font-semibold border border-amber-200 transition-colors cursor-pointer"
-                    title="NPK Katalog Vorlagen importieren"
-                  >
-                    🇨🇭 NPK
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setCategoryModal({ open: true, mode: 'create', kat: null, name: '' })}
-                    className="text-xs bg-primary-100 text-primary-700 px-2.5 py-1.5 flex items-center gap-1 rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
-                  >
-                    <span>+ Neu</span>
-                  </button>
-                </div>
+                <button 
+                  type="button"
+                  onClick={() => setCategoryModal({ open: true, mode: 'create', kat: null, name: '' })}
+                  className="text-xs bg-primary-100 text-primary-700 px-2.5 py-1.5 flex items-center gap-1 rounded-lg font-semibold hover:bg-primary-200 transition-colors cursor-pointer"
+                >
+                  <span>+ Neu</span>
+                </button>
               )}
             </div>
             
@@ -791,23 +691,12 @@ export default function KatalogView({ userRole }) {
                     </label>
                     
                     {!isSearchActive && userRole !== 'treuhand' && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setNpkModalOpen(true)}
-                          className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 px-3 py-2 rounded-xl font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-98"
-                          title="Schweizer NPK / CRB Positionen importieren"
-                        >
-                          <span>🇨🇭</span>
-                          <span>Aus NPK importieren</span>
-                        </button>
-                        <button 
-                          onClick={handleAddLeistung}
-                          className="text-sm bg-primary-600 text-white px-4 py-2 flex items-center justify-center rounded-xl font-semibold hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap"
-                        >
-                          + Leistung
-                        </button>
-                      </div>
+                      <button 
+                        onClick={handleAddLeistung}
+                        className="text-sm bg-primary-600 text-white px-4 py-2 flex items-center justify-center rounded-xl font-semibold hover:bg-primary-700 shadow-md shadow-primary-600/20 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        + Leistung
+                      </button>
                     )}
                   </div>
                 </div>
@@ -1052,11 +941,17 @@ export default function KatalogView({ userRole }) {
                             <div>
                               <div className="relative">
                                 <input 
-                                  type="number" 
-                                  step="0.05"
-                                  value={pos.einzelpreis || ''}
-                                  onChange={(e) => handleLocalUpdate(pos.id, 'einzelpreis', e.target.value ? parseFloat(e.target.value) : 0)}
-                                  onBlur={(e) => handleSaveUpdate(pos.id, 'einzelpreis', e.target.value ? parseFloat(e.target.value) : 0)}
+                                  type="text" 
+                                  inputMode="decimal"
+                                  value={pos.einzelpreis !== undefined && pos.einzelpreis !== null ? pos.einzelpreis : ''}
+                                  onChange={(e) => handleLocalUpdate(pos.id, 'einzelpreis', e.target.value)}
+                                  onBlur={(e) => {
+                                    const raw = String(e.target.value).replace(',', '.')
+                                    const parsed = raw === '' ? 0 : parseFloat(raw)
+                                    const val = isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100
+                                    handleLocalUpdate(pos.id, 'einzelpreis', val)
+                                    handleSaveUpdate(pos.id, 'einzelpreis', val)
+                                  }}
                                   disabled={userRole === 'treuhand'}
                                   className="w-full px-2.5 py-1.5 bg-transparent border border-transparent hover:border-border focus:bg-white focus:border-primary-400 rounded-lg text-sm font-mono text-primary-700 outline-none transition-all text-right font-bold disabled:opacity-80 disabled:cursor-not-allowed"
                                   placeholder="0.00"
@@ -1473,14 +1368,6 @@ export default function KatalogView({ userRole }) {
           </div>
         </div>
       )}
-
-      {/* E. NPK / CRB Import Modal */}
-      <NpkImportModal
-        isOpen={npkModalOpen}
-        onClose={() => setNpkModalOpen(false)}
-        activeKategorie={activeKategorie}
-        onImport={handleImportNpk}
-      />
 
       {/* Feedback Toast */}
       {feedbackToast && (

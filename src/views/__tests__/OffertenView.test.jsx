@@ -56,6 +56,8 @@ vi.mock('../../lib/formatters', () => ({
   formatMoney: (val) => Number(val || 0).toFixed(2),
   formatCurrency: (val) => `CHF ${val}`,
   formatDate: (val) => val,
+  formatDateLong: (val) => val,
+  formatDateSwiss: (val) => val,
   formatMonthYear: (val) => val,
 }))
 
@@ -85,8 +87,8 @@ describe('OffertenView Direct Editor Transition', () => {
     render(<OffertenView viewParams={{ offerteId: '101', edit: true }} />)
 
     await waitFor(() => {
-      // OfferteDetailView is mounted
-      expect(screen.getByText(/Offerte #101/i)).toBeInTheDocument()
+      // OfferteDetailView is mounted with official number
+      expect(screen.getAllByText('OF-2026-101').length).toBeGreaterThan(0)
       // In edit mode, "Offerte bearbeiten" is active and editing elements appear
       expect(screen.getByText(/Live-Vorschau/i)).toBeInTheDocument()
     })

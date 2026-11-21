@@ -195,4 +195,27 @@ describe('KatalogView Mobile Optimization', () => {
       expect(screen.getByText(/Nach links/i)).toBeInTheDocument()
     })
   })
+
+  it('handles inline decimal price input without eating the decimal dot', async () => {
+    render(<KatalogView userRole="admin" />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Wände streichen zweifach Dispersion/i).length).toBeGreaterThan(0)
+    })
+
+    // Find desktop price inputs
+    const priceInputs = screen.getAllByPlaceholderText('0.00')
+    const firstPriceInput = priceInputs[0]
+
+    // Simulate typing a decimal point
+    fireEvent.change(firstPriceInput, { target: { value: '45.' } })
+    expect(firstPriceInput.value).toBe('45.')
+
+    // Simulate blur which rounds to 2 decimals
+    fireEvent.change(firstPriceInput, { target: { value: '45.755' } })
+    fireEvent.blur(firstPriceInput)
+    await waitFor(() => {
+      expect(firstPriceInput.value).toBe('45.76')
+    })
+  })
 })

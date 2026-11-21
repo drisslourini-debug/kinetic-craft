@@ -204,9 +204,15 @@ export default function KundeCreateModal({ onClose, onSuccess }) {
                         setFormData(prev => ({
                           ...prev,
                           anrede: 'Firma',
-                          firmenname: company.firmenname,
-                          ort: company.ort,
-                          typ: 'Geschäftskunde (Allgemein)'
+                          firmenname: company.firmenname || prev.firmenname,
+                          strasse: company.strasse || prev.strasse,
+                          plz: company.plz || prev.plz,
+                          ort: company.ort || prev.ort,
+                          land: 'Schweiz',
+                          typ: 'Geschäftskunde (Allgemein)',
+                          notizen: company.uid 
+                            ? (prev.notizen ? `${prev.notizen}\nVerifiziert via Zefix (${company.uid})` : `Verifiziert via Zefix-Handelsregister (${company.uid})`)
+                            : prev.notizen
                         }));
                         setZefixSuccess(true);
                         setTimeout(() => setZefixSuccess(false), 3000);

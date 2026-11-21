@@ -3,7 +3,6 @@ import KineticLogoMark from '../components/KineticLogoMark'
 import DsgBanner from '../components/legal/DsgBanner'
 import {
   TradeIcon,
-  IconSwissFlag,
   IconSearch,
   IconCheck,
   IconSparkles,
@@ -702,7 +701,6 @@ export default function LandingPageView({
 
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
                 <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.05] border border-[#D6BA94]/35 text-[#E8D3B5] text-xs font-medium mb-6 backdrop-blur-xl shadow-lg">
-                  <IconSwissFlag className="w-3.5 h-3.5 rounded-xs shrink-0" />
                   <span>Kinetic Schweiz · Schweizer Handwerker-CRM · 100% Swiss QR-Bill & Treuhand</span>
                 </div>
 
@@ -770,7 +768,6 @@ export default function LandingPageView({
                   <div className="p-2.5 rounded-xl bg-white text-[#0B0B0E] text-[11px] space-y-1 shadow-inner">
                     <div className="flex items-center justify-between font-bold border-b border-black/10 pb-1">
                       <span>Offerte #OF-2026-041</span>
-                      <IconSwissFlag className="w-3.5 h-3.5 rounded-xs" />
                     </div>
                     <div className="flex justify-between text-[10px] text-black/70">
                       <span>Pos. 1–2 (Katalog: 85 m²)</span>
@@ -885,8 +882,7 @@ export default function LandingPageView({
                   </div>
                   <div>
                     <div className="text-3xl sm:text-5xl font-semibold text-white tracking-[-0.04em] flex items-center justify-center gap-2.5">
-                      <IconSwissFlag className="w-7 h-7 rounded-md shadow-xs" />
-                      <span>DSG</span>
+                      <span>revDSG</span>
                     </div>
                     <div className="text-xs sm:text-sm text-[#A1A1A6] mt-1.5">Schweizer Datenschutz & ISO 27001</div>
                   </div>
@@ -1174,10 +1170,7 @@ export default function LandingPageView({
                               <span className="tabular-nums">CHF 223.75</span>
                             </div>
                             <div className="flex justify-between items-center pt-1.5 border-t border-black/15 font-bold text-xs text-[#0B0B0E]">
-                              <span className="flex items-center gap-1.5">
-                                <IconSwissFlag className="w-3.5 h-3.5 rounded-xs" />
-                                Total inkl. MWST
-                              </span>
+                              <span>Total inkl. MWST</span>
                               <span className="tabular-nums text-sm">CHF 2&apos;986.25</span>
                             </div>
                           </div>
@@ -1686,7 +1679,7 @@ export default function LandingPageView({
                       <p className="text-xs text-[#A1A1A6]">Gestoppte Zeiten mit 1 Klick in Regierapporte umwandeln.</p>
                     </div>
                     <div className="apple-glass-card p-6 rounded-[24px]">
-                      <IconSwissFlag className="w-5 h-5 rounded mb-3" />
+                      <IconSun className="w-5 h-5 text-white mb-3" />
                       <h4 className="font-semibold text-base text-white mb-1">Feiertage nach Kanton</h4>
                       <p className="text-xs text-[#A1A1A6]">Alle 26 Schweizer Kantone automatisch im Einsatzkalender.</p>
                     </div>
@@ -2043,7 +2036,6 @@ export default function LandingPageView({
                         <span className="text-xs font-medium text-[#E8D3B5] bg-[#D6BA94]/15 border border-[#D6BA94]/30 px-3 py-1 rounded-full">
                           Dedizierte Schweizer Cloud
                         </span>
-                        <IconSwissFlag className="w-5 h-5 rounded shadow-xs" />
                       </div>
                       <h3 className="text-xl font-semibold text-white mb-2">Kinetic Enterprise Cloud</h3>
                       <p className="text-xs text-[#E8D3B5] mb-6">
@@ -3064,7 +3056,6 @@ export default function LandingPageView({
                 Das moderne Handwerker-CRM für Schweizer Betriebe: 10 Module im Standard-CRM und optional freischaltbare Firmeneigene KI.
               </p>
               <div className="flex items-center gap-2 text-xs text-[#F5F5F7] font-medium pt-1">
-                <IconSwissFlag className="w-4 h-4 rounded shadow-xs shrink-0" />
                 <span>Swiss Made Software</span>
               </div>
             </div>

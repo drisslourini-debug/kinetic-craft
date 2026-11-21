@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { getFileAccessUrl } from '../lib/storageHelper'
 const RechnungPrintView = lazy(() => import('./RechnungPrintView'))
 const MahnungPrintView = lazy(() => import('./MahnungPrintView'))
 import { formatMoney, formatDate } from '../lib/formatters'
@@ -8,6 +9,7 @@ import { calculateSia118Schlussrechnung, calculateGarantieFreigabeDatum, roundTo
 import { generateNextRechnungNr, generateNextGutschriftNr } from '../lib/documentService'
 import { formatUrl } from '../lib/router'
 import KatalogDrawer from '../components/KatalogDrawer'
+import AusmassModal from '../components/document/AusmassModal'
 import TerminModal from '../components/kalender/TerminModal'
 import MahnungModal from '../components/mahnwesen/MahnungModal'
 import BetreibungsModal from '../components/mahnwesen/BetreibungsModal'
@@ -37,7 +39,8 @@ import {
   IconWarning,
   IconQrBill,
   IconDocument,
-  IconLock
+  IconLock,
+  IconRuler
 } from '../components/icons/BrandIcons'
 
 function IconPrinter({ className = 'w-4 h-4' }) {
@@ -76,6 +79,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [showMahnungPrintView, setShowMahnungPrintView] = useState(false)
   const [activeMahnung, setActiveMahnung] = useState(null)
   const [showBetreibungsModal, setShowBetreibungsModal] = useState(false)
+  const [offerteObj, setOfferteObj] = useState(rechnung?.offerten || null)
 
   const showToast = (type, text) => {
     setFeedbackToast({ type, text })
@@ -108,6 +112,17 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
   const [isPauschal, setIsPauschal] = useState(false)
   const [showLivePreview, setShowLivePreview] = useState(false)
   const [mobileEditTab, setMobileEditTab] = useState('form') // 'form' | 'preview'
+  const [ausmassModalPos, setAusmassModalPos] = useState(null)
+
+  const handleSaveAusmass = (totalMenge, details) => {
+    if (!ausmassModalPos) return
+    setEditLeistungen(prev => prev.map(p => 
+      p._id === ausmassModalPos._id 
+        ? { ...p, menge: totalMenge, ausmass_details: details } 
+        : p
+    ))
+    setAusmassModalPos(null)
+  }
 
   // SIA 118 Schlussrechnung Edit State
   const [editSia118Aktiv, setEditSia118Aktiv] = useState(false)
@@ -159,6 +174,15 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
             .eq('id', rechnung.projekt_id)
             .single()
           if (pData) setProjekt(pData)
+        }
+
+        if (rechnung.offerte_id) {
+          const { data: oData } = await supabase
+            .from('offerten')
+            .select('id, offerte_nr, total')
+            .eq('id', rechnung.offerte_id)
+            .maybeSingle()
+          if (oData) setOfferteObj(oData)
         }
 
         const { data: sData } = await supabase
@@ -1039,16 +1063,17 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
             <div className="flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
               <p className="text-text-secondary text-xs sm:text-sm">Erstellt am {formatDate(rechnung.created_at)}</p>
               {rechnung.pdf_url ? (
-                <a
-                  href={rechnung.pdf_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(rechnung.pdf_url, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
                   title="Archiviertes PDF anzeigen"
                 >
                   <IconFolder className="w-3.5 h-3.5 inline text-emerald-700" /> <span className="hidden sm:inline">Im Archiv gesichert</span><span className="sm:hidden">Archiviert</span>
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </a>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -1755,14 +1780,29 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pl-0 sm:pl-10">
                               <div>
                                 <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Menge</label>
-                                <input
-                                  type="number"
-                                  step="any"
-                                  value={pos.menge}
-                                  onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
-                                  placeholder="0"
-                                />
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    value={pos.menge}
+                                    onChange={(e) => updatePosition(pos._id, 'menge', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-sm focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400"
+                                    placeholder="0"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setAusmassModalPos(pos)}
+                                    className={`p-1.5 rounded-lg border text-xs font-semibold shrink-0 cursor-pointer flex items-center justify-center transition-colors min-h-[34px] min-w-[34px] ${
+                                      pos.ausmass_details && pos.ausmass_details.length > 0
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                        : 'bg-surface text-text-secondary border-border hover:text-primary-700 hover:border-primary-300'
+                                    }`}
+                                    title={pos.ausmass_details && pos.ausmass_details.length > 0 ? `${pos.ausmass_details.length} Ausmass-Zeilen (SIA 118)` : 'Bau-Ausmass berechnen (SIA 118)'}
+                                    aria-label="Bau-Ausmass berechnen"
+                                  >
+                                    <IconRuler className="w-3.5 h-3.5 shrink-0" />
+                                  </button>
+                                </div>
                               </div>
                               <div>
                                 <label className="text-[11px] sm:text-xs text-text-secondary font-semibold block mb-1">Einheit</label>
@@ -2536,7 +2576,7 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
                           onClick={() => onNavigate && onNavigate('offerten', { offerteId: rechnung.offerte_id })}
                           className="font-semibold text-primary-600 hover:text-primary-800 transition-colors text-left truncate block w-full underline cursor-pointer"
                         >
-                          Offerte #{rechnung.offerte_id} öffnen
+                          {offerteObj?.offerte_nr ? `Offerte ${offerteObj.offerte_nr} öffnen` : `Offerte #${rechnung.offerte_id} öffnen`}
                         </button>
                       </div>
                     )}
@@ -3107,6 +3147,16 @@ export default function RechnungDetailView({ rechnung, onBack, onNavigate, userR
           {feedbackToast.type === 'error' ? <IconWarning className="w-4 h-4 text-red-600 shrink-0" /> : <IconCheck className="w-4 h-4 text-emerald-600 shrink-0" />}
           <span>{feedbackToast.text}</span>
         </div>
+      )}
+
+      {/* SIA 118 Ausmassrechner Modal */}
+      {ausmassModalPos && (
+        <AusmassModal
+          isOpen={!!ausmassModalPos}
+          onClose={() => setAusmassModalPos(null)}
+          position={ausmassModalPos}
+          onSaveAusmass={handleSaveAusmass}
+        />
       )}
     </div>
   )

@@ -45,8 +45,9 @@ export default function OffertenView({ onNavigate, viewParams, userRole, globalS
         versendetAnz++;
         versendetTotal += t;
       }
-      if (o.created_at && o.created_at.startsWith(year)) {
-        if (o.status === 'Akzeptiert' || o.status === 'Verrechnet') {
+      const oDate = o.daten?.datum || o.created_at || '';
+      if (oDate.startsWith(year)) {
+        if (['Akzeptiert', 'Angenommen', 'Verrechnet'].includes(o.status)) {
           akzeptiertAnz++;
           akzeptiertTotal += t;
         } else if (o.status === 'Abgelehnt') {
@@ -249,7 +250,12 @@ export default function OffertenView({ onNavigate, viewParams, userRole, globalS
         <OfferteDetailView 
           offerte={selectedOfferte} 
           onBack={() => {
-            navigateBack('offerten')
+            setSelectedOfferte(null)
+            if (onNavigate) {
+              onNavigate('offerten', null)
+            } else {
+              navigateBack('offerten')
+            }
             fetchOfferten()
           }} 
           onNavigate={onNavigate}
@@ -280,7 +286,9 @@ export default function OffertenView({ onNavigate, viewParams, userRole, globalS
 
     const term = searchTerm.toLowerCase()
     return (
+      (o.offerte_nr || '').toLowerCase().includes(term) ||
       o.id.toString().includes(term) ||
+      (o.daten?.titel || '').toLowerCase().includes(term) ||
       (o.kunden?.name || '').toLowerCase().includes(term) ||
       (o.projekte?.name || '').toLowerCase().includes(term)
     )

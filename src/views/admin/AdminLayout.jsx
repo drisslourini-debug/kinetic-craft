@@ -194,7 +194,7 @@ export default function AdminLayout({ initialTab = 'cockpit' }) {
 
           <div className="flex items-center gap-4 text-xs font-mono text-zinc-400">
             <span className="hidden sm:inline bg-zinc-900 px-2.5 py-1 rounded-lg border border-zinc-800">
-              🇨🇭 Zürich: {timeString}
+              Zürich: {timeString}
             </span>
           </div>
         </header>

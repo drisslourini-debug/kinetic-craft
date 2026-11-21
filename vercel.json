@@ -2,7 +2,11 @@
   "rewrites": [
     {
       "source": "/api/zefix/(.*)",
-      "destination": "https://www.zefix.admin.ch/ZefixPublicREST/$1"
+      "destination": "/api/zefix"
+    },
+    {
+      "source": "/api/zefix",
+      "destination": "/api/zefix"
     },
     {
       "source": "/api/calendar.ics",

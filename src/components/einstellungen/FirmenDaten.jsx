@@ -316,6 +316,10 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
                   : 'Fenster links (DIN 5008 A)'
               } 
             />
+            <SettingsRow 
+              label="Absenderzeile (im Fenster)" 
+              value={settings.pdf_absenderzeile || <span className="text-gray-400 italic">Automatisch: {[settings.firmenname, displayPlzOrt].filter(Boolean).join(' • ')}</span>} 
+            />
             <SettingsRow label="Individuelle Kopfzeile" value={settings.pdf_kopfzeile ? <div className="whitespace-pre-wrap">{settings.pdf_kopfzeile}</div> : <span className="text-gray-400 italic">Automatisch generiert aus Firmendaten</span>} />
           </>
         }
@@ -369,6 +373,19 @@ export default function FirmenDaten({ settings, draft, editState, isSaving, star
               </div>
             </button>
           </div>
+        </div>
+
+        <div className="md:col-span-2 space-y-1 mb-4">
+          <InputField 
+            label="Absenderzeile im Brieffenster (Einzeiler)" 
+            value={draft.pdf_absenderzeile || ''} 
+            onChange={v => handleDraftChange('pdf_absenderzeile', v)} 
+            placeholder={[draft.firmenname, draft.strasse, displayPlzOrt].filter(Boolean).join(' • ')} 
+            fullWidth
+          />
+          <p className="text-[11px] text-text-secondary">
+            Wird im Kuvert-Fenster in 7pt über der Kundenadresse gedruckt. Leer lassen für automatische Generierung.
+          </p>
         </div>
 
         <div className="md:col-span-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">

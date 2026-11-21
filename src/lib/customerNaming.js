@@ -46,6 +46,33 @@ export function generateNextCustomerNumber({
 }
 
 /**
+ * Generates the next project number given existing projects and settings.
+ */
+export function generateNextProjectNumber({
+  prefix = 'P-',
+  startNumber = 1000,
+  existingProjects = []
+} = {}) {
+  const effectiveStart = Number.isInteger(Number(startNumber)) && Number(startNumber) > 0 ? Number(startNumber) : 1000
+  const effectivePrefix = prefix !== undefined && prefix !== null ? String(prefix) : 'P-'
+
+  let maxNr = effectiveStart - 1
+
+  if (Array.isArray(existingProjects)) {
+    for (const proj of existingProjects) {
+      if (!proj || !proj.projektnummer) continue
+      const nr = extractCustomerNumberDigits(proj.projektnummer)
+      if (nr !== null && nr > maxNr) {
+        maxNr = nr
+      }
+    }
+  }
+
+  const nextNr = maxNr + 1
+  return `${effectivePrefix}${nextNr}`
+}
+
+/**
  * Returns a formal German salutation text based on anrede and names.
  * Useful for Offerten, Rechnungen, and Briefverkehr.
  */

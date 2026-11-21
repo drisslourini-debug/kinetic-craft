@@ -87,8 +87,8 @@ export default function OnboardingChecklistWidget({
       }
     } else if (action === 'logo') {
       onNavigate('einstellungen')
-    } else if (action === 'team') {
-      onNavigate('einstellungen')
+    } else if (action === 'musterdaten') {
+      handleCleanupDemo()
     }
   }
 
@@ -228,10 +228,10 @@ export default function OnboardingChecklistWidget({
                     </h4>
                     <p className="text-xs text-text-secondary mt-1">
                       {step.id === 'bank' && 'QR-IBAN für Schweizer QR-Rechnungen erforderlich.'}
-                      {step.id === 'kunde' && 'Lege deinen ersten echten Auftraggeber an.'}
-                      {step.id === 'offerte' && 'Erstelle dein erstes Angebot mit Schweizer MWST.'}
+                      {step.id === 'mwst' && 'MWST-Abrechnungssatz (8.1% oder befreit nach Art. 10 MWSTG).'}
                       {step.id === 'logo' && 'Erscheint auf deinen PDF-Dokumenten & Rechnungen.'}
-                      {step.id === 'team' && 'Gewähre deinem Treuhänder oder Team Zugang.'}
+                      {step.id === 'offerte' && 'Erstelle deinen ersten Kunden oder Offerte.'}
+                      {step.id === 'musterdaten' && 'Entferne die Demo-Datensätze rückstandslos mit 1 Klick.'}
                     </p>
                   </div>
                 </div>

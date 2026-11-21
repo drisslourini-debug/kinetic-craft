@@ -251,6 +251,7 @@ export const DEMO_DATA_PRESETS = {
  */
 export async function finalizeTenantRegistration({
   userId,
+  tenantId: explicitTenantId,
   vorname,
   nachname,
   firmenname,
@@ -272,14 +273,16 @@ export async function finalizeTenantRegistration({
 
   try {
     // 1. Get the newly assigned tenant_id for this user
-    let tenantId = null
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('tenant_id')
-      .eq('id', userId)
-      .maybeSingle()
+    let tenantId = explicitTenantId || null
+    if (!tenantId) {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('tenant_id')
+        .eq('id', userId)
+        .maybeSingle()
 
-    tenantId = roleData?.tenant_id
+      tenantId = roleData?.tenant_id
+    }
 
     // 2. Update user_roles with real user name
     if (fullName) {
@@ -471,7 +474,10 @@ export async function checkOnboardingStatus(settings) {
     // 1. Bank / QR-IBAN status
     const hasBank = Boolean(settings?.qr_iban || settings?.bankverbindung)
 
-    // 2. Real Customers count (excluding demo data)
+    // 2. MWST-Status & UID status
+    const hasMwst = Boolean(settings?.uid || (settings?.standard_mwst !== undefined && settings?.standard_mwst !== null))
+
+    // 3. Real Customers count (excluding demo data)
     const { data: kunden } = await supabase
       .from('kunden')
       .select('id, notizen')
@@ -480,7 +486,7 @@ export async function checkOnboardingStatus(settings) {
     const hasRealCustomer = realKunden.length > 0
     const hasDemoCustomer = (kunden || []).some(k => (k.notizen || '').includes('[MUSTERDATEN]'))
 
-    // 3. Real Offerten / Rechnungen count
+    // 4. Real Offerten / Rechnungen count
     const { data: offerten } = await supabase
       .from('offerten')
       .select('id, notizen')
@@ -488,22 +494,15 @@ export async function checkOnboardingStatus(settings) {
     const realOfferten = (offerten || []).filter(o => !(o.notizen || '').includes('[MUSTERDATEN]'))
     const hasCreatedDocument = realOfferten.length > 0
 
-    // 4. Logo status
+    // 5. Logo status
     const hasLogo = Boolean(settings?.logo_url)
-
-    // 5. Team / Invitation status
-    const { data: teamRoles } = await supabase
-      .from('user_roles')
-      .select('id')
-
-    const hasTeam = (teamRoles || []).length > 1
 
     const steps = [
       { id: 'bank', label: 'QR-IBAN & Bankverbindung hinterlegen', completed: hasBank, action: 'finanzen' },
-      { id: 'kunde', label: 'Ersten echten Kunden erfassen', completed: hasRealCustomer, action: 'kunde' },
-      { id: 'offerte', label: 'Erste eigene Offerte schreiben', completed: hasCreatedDocument, action: 'offerte' },
-      { id: 'logo', label: 'Firmenlogo hinterlegen', completed: hasLogo, action: 'logo' },
-      { id: 'team', label: 'Team oder Treuhänder einladen', completed: hasTeam, action: 'team' },
+      { id: 'mwst', label: 'MWST-Status & UID-Nummer hinterlegen', completed: hasMwst, action: 'finanzen' },
+      { id: 'logo', label: 'Firmenlogo & Briefkopf hinterlegen', completed: hasLogo, action: 'logo' },
+      { id: 'offerte', label: 'Ersten echten Kunden oder Offerte erfassen', completed: hasRealCustomer || hasCreatedDocument, action: 'offerte' },
+      { id: 'musterdaten', label: 'Schweizer Musterdaten bereinigen', completed: !hasDemoCustomer, action: 'musterdaten' },
     ]
 
     const completedCount = steps.filter(s => s.completed).length

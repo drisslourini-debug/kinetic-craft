@@ -863,13 +863,16 @@ function StepLeistungen({ bloecke, onChange, errors, catalog }) {
 }
 
 
-function StepAbschluss({ formData, flatLeistungen, onChangeKonditionen, onChangeTexte }) {
-  const EINLEITUNG_TEMPLATES = [
+function StepAbschluss({ formData, flatLeistungen, onChangeKonditionen, onChangeTexte, settings }) {
+  const dynamicEinleitung = (settings?.text_vorlagen || []).filter(t => t.category === 'rechnung_einleitung')
+  const EINLEITUNG_TEMPLATES = dynamicEinleitung.length > 0 ? dynamicEinleitung : [
     { label: 'Standard', text: 'Gerne stellen wir Ihnen folgende Arbeiten in Rechnung:' },
     { label: 'Förmlich', text: 'Für die erbrachten Leistungen erlauben wir uns, Ihnen folgende Rechnung zu stellen:' },
     { label: 'Akonto', text: 'Gemäss unserer Vereinbarung stellen wir Ihnen folgende Akontorechnung:' }
   ]
-  const SCHLUSS_TEMPLATES = [
+
+  const dynamicSchluss = (settings?.text_vorlagen || []).filter(t => t.category === 'rechnung_schluss')
+  const SCHLUSS_TEMPLATES = dynamicSchluss.length > 0 ? dynamicSchluss : [
     { label: 'Standard', text: 'Wir danken Ihnen für den geschätzten Auftrag und das entgegengebrachte Vertrauen.' },
     { label: 'Kurz', text: 'Freundliche Grüsse' },
     { label: 'Zahlungsziel', text: 'Wir bitten um Überweisung des Rechnungsbetrags innert der angegebenen Zahlungsfrist.' }
@@ -1316,6 +1319,7 @@ export default function RechnungenWizard({ onClose, prefilledKundeId }) {
           <StepAbschluss
             formData={formData}
             flatLeistungen={getFlatLeistungen()}
+            settings={settings}
             onChangeKonditionen={(konditionen) =>
               setFormData((prev) => ({ ...prev, konditionen }))
             }

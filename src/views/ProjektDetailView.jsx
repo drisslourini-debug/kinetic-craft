@@ -721,6 +721,9 @@ export default function ProjektDetailView({
       notizen: draft.notizen,
       is_archived: draft.is_archived
     }
+    if (draft.projektnummer !== undefined) {
+      dataToSave.projektnummer = draft.projektnummer
+    }
     
     try {
       const { error } = await supabase
@@ -1080,6 +1083,11 @@ export default function ProjektDetailView({
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl md:text-3xl font-bold text-text-primary">{projekt.name}</h2>
+                {projekt.projektnummer && (
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-lg bg-zinc-100 text-zinc-700 border border-zinc-200">
+                    {projekt.projektnummer}
+                  </span>
+                )}
               </div>
               <div className="text-text-secondary mt-1 flex items-center gap-2">
                 {projekt.adresse ? (

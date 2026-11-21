@@ -5,7 +5,7 @@ import {
   calculateAusmassTotal,
   DEFAULT_SIA118_SCHWELLE
 } from '../../lib/ausmassHelper'
-import { IconClose, IconPlus, IconWarning } from '../icons/BrandIcons'
+import { IconClose, IconPlus, IconWarning, IconRuler } from '../icons/BrandIcons'
 
 export default function AusmassModal({
   isOpen,
@@ -93,7 +93,7 @@ export default function AusmassModal({
         <div className="p-5 border-b border-border bg-surface flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xl">📐</span>
+              <IconRuler className="w-5 h-5 text-primary-600" />
               <h2 id="ausmass-modal-title" className="text-lg font-bold text-text-primary">
                 Schweizer Bau-Ausmass & SIA 118 Rechner
               </h2>

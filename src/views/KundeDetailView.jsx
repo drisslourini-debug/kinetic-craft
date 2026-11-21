@@ -25,6 +25,15 @@ import {
 } from '../components/icons/BrandIcons'
 
 // ----------------------
+// KNOWN DB COLUMNS (WHITELIST FOR SAFE SAVING)
+// ----------------------
+const KNOWN_KUNDEN_DB_COLUMNS = new Set([
+  'name', 'anrede', 'kundennummer', 'typ', 'firmenname', 'vorname', 'nachname',
+  'strasse', 'plz', 'ort', 'land', 'telefon', 'email', 'website', 'notizen',
+  'status', 'zahlungsziel', 'is_archived', 'tenant_id'
+])
+
+// ----------------------
 // MAIN COMPONENT
 // ----------------------
 
@@ -174,10 +183,13 @@ export default function KundeDetailView({ kunde: initialKunde, onBack, onNavigat
     }
 
     try {
-      const dataToSave = { ...updatePayload }
-      delete dataToSave.id
-      delete dataToSave.created_at
-      delete dataToSave.updated_at
+      // Filter out non-DB UI properties (e.g. projekteList, aktiveProjekteCount, etc.)
+      const dataToSave = {}
+      for (const [key, val] of Object.entries(updatePayload)) {
+        if (KNOWN_KUNDEN_DB_COLUMNS.has(key)) {
+          dataToSave[key] = val
+        }
+      }
       
       const { error } = await supabase
         .from('kunden')

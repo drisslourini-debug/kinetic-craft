@@ -35,6 +35,17 @@ export function ProjektStammdatenBlock({
       readOnlyView={
         <>
           <SettingsRow label="Projektname" value={projekt.name} />
+          <SettingsRow 
+            label="Projektnummer" 
+            value={
+              projekt.projektnummer ? (
+                <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 border border-zinc-200">
+                  {projekt.projektnummer}
+                </span>
+              ) : null
+            } 
+            hideIfEmpty 
+          />
           <SettingsRow label="Kategorie" value={projekt.kategorie} hideIfEmpty />
           <SettingsRow 
             label="Adresse" 
@@ -71,6 +82,7 @@ export function ProjektStammdatenBlock({
       }
     >
       <InputField label="Projektname" value={draft.name} onChange={v => onChange('name', v)} />
+      <InputField label="Projektnummer" value={draft.projektnummer || ''} onChange={v => onChange('projektnummer', v)} />
       <SelectField label="Kategorie" value={draft.kategorie} onChange={v => onChange('kategorie', v)} options={PROJEKT_KATEGORIEN} />
       <div className="md:col-span-2">
         <label className="text-xs text-text-secondary uppercase tracking-wider font-semibold block mb-2">Baustellen-Adresse (Auto-Fill)</label>

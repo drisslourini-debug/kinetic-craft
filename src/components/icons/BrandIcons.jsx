@@ -458,16 +458,8 @@ export function TradeIcon({ tradeId, className = 'w-6 h-6', ...props }) {
 // ============================================================================
 
 // 15. Schweizer Flagge / Wappen (Ersetzt keine Windows-CH-Darstellungsprobleme)
-export function IconSwissFlag({ className = 'w-5 h-5', ...props }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} {...props}>
-      <rect x="2" y="2" width="20" height="20" rx="5" fill="#DC2626" />
-      <path
-        d="M10 6H14V10H18V14H14V18H10V14H6V10H10V6Z"
-        fill="#FFFFFF"
-      />
-    </svg>
-  )
+export function IconSwissFlag() {
+  return null
 }
 
 // 16. Schweizer QR-Rechnung & Beleg 

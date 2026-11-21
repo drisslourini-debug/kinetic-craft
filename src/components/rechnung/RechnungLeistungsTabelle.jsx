@@ -166,7 +166,6 @@ export default function RechnungLeistungsTabelle({
                   onClick={() => setShowNpkMenu(!showNpkMenu)}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-3 min-h-[48px] bg-primary-50 text-primary-800 border border-primary-200 font-semibold text-base sm:text-xs sm:py-1.5 sm:min-h-0 rounded-lg hover:bg-primary-100 transition-colors cursor-pointer"
                 >
-                  <span>🇨🇭</span>
                   <span>+ NPK Kapitel</span>
                 </button>
                 {showNpkMenu && (

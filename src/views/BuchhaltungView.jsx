@@ -209,8 +209,9 @@ export default function BuchhaltungView({ onNavigate, userRole, viewParams }) {
             const zahlungen = inv.daten?.zahlungen || []
             let match = false
 
-            if (zahlungen.length === 0 && parseFloat(inv.bezahlt || 0) > 0 && inv.bezahlt_am) {
-              if (inv.bezahlt_am.startsWith(filterYear) && isInQuarter(inv.bezahlt_am)) {
+            if (zahlungen.length === 0 && parseFloat(inv.bezahlt || 0) > 0) {
+              const payDate = inv.bezahlt_am || inv.rechnungsdatum || (inv.created_at ? inv.created_at.split('T')[0] : '')
+              if (payDate && payDate.startsWith(filterYear) && isInQuarter(payDate)) {
                 const b = parseFloat(inv.bezahlt)
                 totalEinnahmen += b
                 match = true

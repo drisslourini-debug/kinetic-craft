@@ -93,7 +93,7 @@ export default function ProjektKanbanBoard({
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <span className="text-[10px] font-mono font-medium text-text-muted bg-zinc-100 px-1.5 py-0.2 rounded">
-                          #{p.projekt_nr || 'PROJ'}
+                          {p.projektnummer || p.projekt_nr || 'P-1000'}
                         </span>
                         {p.startdatum && (
                           <span className="text-[10px] text-text-muted flex items-center gap-1">

@@ -274,7 +274,9 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
           'archiv_kunden_kategorien', 'archiv_projekt_kategorien', 'archiv_max_size_mb',
           'archiv_allowed_types', 'tenant_id', 'primary_color', 'logo_url', 'qr_iban',
           'hr_nummer', 'gerichtsstand', 'pdf_kopfzeile', 'pdf_fusszeile', 'pdf_absenderzeile', 'fenster_position',
-          'plz', 'ort', 'land', 'startnummer_kunden', 'prefix_kunden', 'startnummer_projekte', 'prefix_projekte'
+          'plz', 'ort', 'land', 'startnummer_kunden', 'prefix_kunden', 'startnummer_projekte', 'prefix_projekte',
+          'kanton', 'mwst_methode', 'saldosteuersatz', 'mwst_abrechnungsart',
+          'konto_bank', 'konto_debitoren', 'konto_kreditoren', 'konto_ertrag', 'konto_skonto'
         ])
 
         const payload = {}
@@ -288,28 +290,49 @@ export default function EinstellungenView({ onNavigate, userRole, refreshGlobalS
         }
         
         let saveErr;
-        if (draft.id) {
-          const { error } = await supabase.from('einstellungen').update(payload).eq('id', draft.id)
-          saveErr = error
-        } else if (tenantId) {
-          const { data, error } = await supabase
-            .from('einstellungen')
-            .upsert([payload], { onConflict: 'tenant_id' })
-            .select()
-            .single()
-          saveErr = error
-          if (!error && data) {
-            setSettings(prev => ({ ...draft, ...data }))
-            setDraft(prev => ({ ...draft, ...data }))
+        // Ausführungs-Helper mit automatischer Erkennung und Bereinigung noch fehlender Schema-Spalten
+        const executeSave = async (dataPayload) => {
+          if (draft.id) {
+            return await supabase.from('einstellungen').update(dataPayload).eq('id', draft.id)
+          } else if (tenantId) {
+            return await supabase
+              .from('einstellungen')
+              .upsert([dataPayload], { onConflict: 'tenant_id' })
+              .select()
+              .single()
+          }
+          return { error: null }
+        }
+
+        let currentPayload = { ...payload }
+        let saveResult = await executeSave(currentPayload)
+        saveErr = saveResult.error
+
+        // Falls Supabase Spalten moniert (z.B. bevor supabase_settings_full_audit_fix.sql ausgeführt wurde),
+        // entfernen wir dynamisch die fehlende Spalte und speichern den Rest erfolgreich ab!
+        let retryCount = 0
+        while (saveErr && (saveErr.code === '42703' || saveErr.code === 'PGRST204') && retryCount < 15) {
+          retryCount++
+          const match = saveErr.message?.match(/Could not find the '([^']+)' column/) ||
+                        saveErr.message?.match(/column "([^"]+)" of relation "einstellungen" does not exist/)
+          if (match && match[1] && match[1] in currentPayload) {
+            const missingCol = match[1]
+            console.warn(`Spalte "${missingCol}" existiert noch nicht in Supabase. Wird für Save übersprungen.`)
+            delete currentPayload[missingCol]
+            saveResult = await executeSave(currentPayload)
+            saveErr = saveResult.error
+          } else {
+            break
           }
         }
 
+        if (saveResult.data) {
+          setSettings(prev => ({ ...draft, ...saveResult.data }))
+          setDraft(prev => ({ ...draft, ...saveResult.data }))
+        }
+
         if (saveErr) {
-          if (saveErr.code === '42703' || saveErr.code === 'PGRST204') {
-            console.warn('Einige Spalten fehlen noch in Supabase. Lokaler Fallback aktiv:', saveErr.message)
-          } else {
-            throw saveErr
-          }
+          throw saveErr
         }
       }
       setEditState(null)

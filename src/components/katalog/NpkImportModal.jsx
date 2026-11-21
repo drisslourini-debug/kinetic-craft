@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { getNpkChapters, searchNpkCatalog } from '../../lib/npkCatalog'
 import { formatMoney } from '../../lib/formatters'
-import { IconClose, IconSearch, IconCheck } from '../icons/BrandIcons'
+import { IconClose, IconSearch, IconCheck, IconSwissFlag } from '../icons/BrandIcons'
 
 export default function NpkImportModal({
   isOpen,
@@ -67,7 +67,7 @@ export default function NpkImportModal({
         <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/80">
           <div className="flex items-center gap-3">
             <span className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold text-lg border border-amber-200">
-              🇨🇭
+              <IconSwissFlag className="w-5 h-5 rounded-xs" />
             </span>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-text-primary flex items-center gap-2">
